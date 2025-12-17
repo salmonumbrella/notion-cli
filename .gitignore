@@ -1,0 +1,26 @@
+# Build artifacts
+/bin/
+*.out
+coverage.out
+
+# Tools
+.tools/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Planning docs (not for public repo)
+docs/plans/
+
+# Editor
+.cursor/
+.specstory/
+.cursorindexingignore
+
+# Generated
+.gitingest/
