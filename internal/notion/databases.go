@@ -7,6 +7,13 @@ import (
 	"strconv"
 )
 
+// DataSourceRef is a minimal reference to a data source embedded in database responses.
+// For full DataSource type, see datasources.go.
+type DataSourceRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // Database represents a Notion database.
 // See: https://developers.notion.com/reference/database
 type Database struct {
@@ -26,6 +33,7 @@ type Database struct {
 	Archived       bool                              `json:"archived"`
 	IsInline       bool                              `json:"is_inline,omitempty"`
 	PublicURL      string                            `json:"public_url,omitempty"`
+	DataSources    []DataSourceRef                   `json:"data_sources,omitempty"`
 }
 
 // DatabaseQueryRequest represents the request body for querying a database.
@@ -85,13 +93,27 @@ func (c *Client) GetDatabase(ctx context.Context, databaseID string) (*Database,
 }
 
 // QueryDatabase queries a database with optional filters, sorts, and pagination.
+// For API version 2025-09-03+, this first retrieves the database to get the data_source_id,
+// then queries via /data_sources/{data_source_id}/query.
 // See: https://developers.notion.com/reference/post-database-query
 func (c *Client) QueryDatabase(ctx context.Context, databaseID string, req *DatabaseQueryRequest) (*DatabaseQueryResult, error) {
 	if databaseID == "" {
 		return nil, fmt.Errorf("database ID is required")
 	}
 
-	path := fmt.Sprintf("/databases/%s/query", databaseID)
+	// First, get the database to retrieve the data_source_id (required for API 2025-09-03+)
+	database, err := c.GetDatabase(ctx, databaseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database: %w", err)
+	}
+
+	if len(database.DataSources) == 0 {
+		return nil, fmt.Errorf("database has no data sources")
+	}
+
+	// Use the first data source (primary data source)
+	dataSourceID := database.DataSources[0].ID
+	path := fmt.Sprintf("/data_sources/%s/query", dataSourceID)
 
 	// Use empty request if none provided
 	if req == nil {

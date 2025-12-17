@@ -64,7 +64,9 @@ Example:
 
 func newDBQueryCmd() *cobra.Command {
 	var filterJSON string
+	var filterFile string
 	var sortsJSON string
+	var sortsFile string
 	var startCursor string
 	var pageSize int
 
@@ -74,27 +76,42 @@ func newDBQueryCmd() *cobra.Command {
 		Long: `Query a Notion database with optional filters and sorts.
 
 The --filter flag accepts a JSON object representing the filter.
+The --filter-file flag reads filter JSON from a file (useful for complex filters).
 The --sorts flag accepts a JSON array of sort objects.
+The --sorts-file flag reads sorts JSON from a file.
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 
 Example - Query all pages:
   notion db query 12345678-1234-1234-1234-123456789012
 
-Example - Query with filter:
-  notion db query 12345678-1234-1234-1234-123456789012 \
-    --filter '{"property":"Status","select":{"equals":"Done"}}'
+Example - Query with filter (single line recommended):
+  notion db query 12345678-1234-1234-1234-123456789012 --filter '{"property":"Status","select":{"equals":"Done"}}'
+
+Example - Query with filter from file (avoids shell escaping issues):
+  notion db query 12345678-1234-1234-1234-123456789012 --filter-file filter.json
 
 Example - Query with sorts:
-  notion db query 12345678-1234-1234-1234-123456789012 \
-    --sorts '[{"property":"Created","direction":"descending"}]'
+  notion db query 12345678-1234-1234-1234-123456789012 --sorts '[{"property":"Created","direction":"descending"}]'
 
 Example - Query with pagination:
-  notion db query 12345678-1234-1234-1234-123456789012 \
-    --page-size 10 --start-cursor abc123`,
+  notion db query 12345678-1234-1234-1234-123456789012 --page-size 10 --start-cursor abc123
+
+Note: When using multi-line commands with backslash (\), ensure there are no
+trailing spaces after the backslash. Otherwise the shell may split the command
+incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			databaseID := args[0]
+
+			// Read filter from file if specified
+			if filterFile != "" {
+				data, err := os.ReadFile(filterFile)
+				if err != nil {
+					return fmt.Errorf("failed to read filter file: %w", err)
+				}
+				filterJSON = string(data)
+			}
 
 			// Parse filter if provided
 			var filter map[string]interface{}
@@ -102,6 +119,15 @@ Example - Query with pagination:
 				if err := json.Unmarshal([]byte(filterJSON), &filter); err != nil {
 					return fmt.Errorf("failed to parse filter JSON: %w", err)
 				}
+			}
+
+			// Read sorts from file if specified
+			if sortsFile != "" {
+				data, err := os.ReadFile(sortsFile)
+				if err != nil {
+					return fmt.Errorf("failed to read sorts file: %w", err)
+				}
+				sortsJSON = string(data)
 			}
 
 			// Parse sorts if provided
@@ -148,7 +174,9 @@ Example - Query with pagination:
 	}
 
 	cmd.Flags().StringVar(&filterJSON, "filter", "", "Filter as JSON object")
+	cmd.Flags().StringVar(&filterFile, "filter-file", "", "Read filter JSON from file")
 	cmd.Flags().StringVar(&sortsJSON, "sorts", "", "Sorts as JSON array")
+	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file")
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 
