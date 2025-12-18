@@ -1,6 +1,10 @@
 SHELL := /bin/bash
 
-.PHONY: build test lint clean fmt fmt-check tools
+.PHONY: build test lint clean fmt fmt-check tools setup
+
+setup:
+	@command -v lefthook >/dev/null || (echo "Install lefthook: brew install lefthook" && exit 1)
+	lefthook install
 
 BINARY_NAME := notion
 BUILD_DIR := bin

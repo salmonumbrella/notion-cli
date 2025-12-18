@@ -264,6 +264,16 @@ length := rollup.Rollup.GetRollupArrayLength()  // For array rollups
 
 This CLI uses Notion API version `2025-09-03`.
 
+## Development
+
+After cloning, install git hooks:
+
+```bash
+make setup
+```
+
+This installs [lefthook](https://github.com/evilmartians/lefthook) pre-commit and pre-push hooks for linting and testing.
+
 ## License
 
 MIT
