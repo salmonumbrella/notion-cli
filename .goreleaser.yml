@@ -35,11 +35,12 @@ brews:
   - name: notion-cli
     repository:
       owner: salmonumbrella
-      name: homebrew-notion-cli
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/salmonumbrella/notion-cli"
     description: "CLI for Notion"
     license: "MIT"
     directory: Formula
     install: |
       bin.install "notion"
+
