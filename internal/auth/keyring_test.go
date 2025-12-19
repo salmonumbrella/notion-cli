@@ -5,49 +5,16 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"github.com/99designs/keyring"
 )
 
-// mockKeyring is a test double for KeyringProvider that simulates no keyring access
-type mockKeyring struct {
-	items map[string]keyring.Item
-}
-
-func newMockKeyring() *mockKeyring {
-	return &mockKeyring{
-		items: make(map[string]keyring.Item),
-	}
-}
-
-func (m *mockKeyring) Get(key string) (keyring.Item, error) {
-	item, ok := m.items[key]
-	if !ok {
-		return keyring.Item{}, keyring.ErrKeyNotFound
-	}
-	return item, nil
-}
-
-func (m *mockKeyring) Set(item keyring.Item) error {
-	m.items[item.Key] = item
-	return nil
-}
-
-func (m *mockKeyring) Remove(key string) error {
-	if _, ok := m.items[key]; !ok {
-		return keyring.ErrKeyNotFound
-	}
-	delete(m.items, key)
-	return nil
-}
 
 // setupMockKeyring configures tests to use a mock keyring with no stored token
 func setupMockKeyring() func() {
-	mock := newMockKeyring()
+	mock := NewMockKeyringProvider()
 	originalProvider := defaultProvider
 
 	// Set provider to return an empty mock (simulating no keyring access)
-	setProviderFunc(func() (KeyringProvider, error) {
+	SetProviderFunc(func() (KeyringProvider, error) {
 		return mock, nil
 	})
 
@@ -62,7 +29,7 @@ func setupNoKeyring() func() {
 	originalProvider := defaultProvider
 
 	// Set provider to always return error (simulating CI/container environment)
-	setProviderFunc(func() (KeyringProvider, error) {
+	SetProviderFunc(func() (KeyringProvider, error) {
 		return nil, fmt.Errorf("keyring not available")
 	})
 

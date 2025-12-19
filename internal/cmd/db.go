@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -39,8 +37,9 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			databaseID := args[0]
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -49,7 +48,6 @@ Example:
 			client := NewNotionClient(token)
 
 			// Get database
-			ctx := context.Background()
 			database, err := client.GetDatabase(ctx, databaseID)
 			if err != nil {
 				return fmt.Errorf("failed to get database: %w", err)
@@ -148,15 +146,15 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				return fmt.Errorf("page-size must be between 1 and 100")
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -305,8 +303,9 @@ Example - Create with description:
 				}
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -326,7 +325,6 @@ Example - Create with description:
 			}
 
 			// Create database
-			ctx := context.Background()
 			database, err := client.CreateDatabase(ctx, req)
 			if err != nil {
 				return fmt.Errorf("failed to create database: %w", err)
@@ -425,15 +423,15 @@ Example - Archive database:
 				}
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			if dryRun {
 				// Fetch current database to show what would be updated

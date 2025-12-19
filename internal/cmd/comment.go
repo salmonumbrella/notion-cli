@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -51,15 +49,15 @@ Example - Fetch all comments:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID := args[0]
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -154,8 +152,9 @@ Example - Add to an existing discussion:
 				return fmt.Errorf("cannot specify both --parent and --discussion-id")
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -199,7 +198,6 @@ Example - Add to an existing discussion:
 			}
 
 			// Create comment
-			ctx := context.Background()
 			result, err := client.CreateComment(ctx, req)
 			if err != nil {
 				return fmt.Errorf("failed to create comment: %w", err)

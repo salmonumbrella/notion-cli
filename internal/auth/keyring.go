@@ -104,13 +104,8 @@ func (k *osKeyring) Remove(key string) error {
 }
 
 // defaultProvider is the keyring provider used by the package
-// Can be overridden for testing
+// Can be overridden for testing using SetProviderFunc (in keyring_test.go)
 var defaultProvider func() (KeyringProvider, error) = newOSKeyring
-
-// setProviderFunc allows tests to inject a mock provider
-func setProviderFunc(fn func() (KeyringProvider, error)) {
-	defaultProvider = fn
-}
 
 // StoreToken stores the Notion API token in the system keyring.
 // Returns an error if the token is empty or if keyring storage fails.

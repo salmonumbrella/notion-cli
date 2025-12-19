@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -37,8 +35,9 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			userID := args[0]
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -47,7 +46,6 @@ Example:
 			client := NewNotionClient(token)
 
 			// Get user
-			ctx := context.Background()
 			user, err := client.GetUser(ctx, userID)
 			if err != nil {
 				return fmt.Errorf("failed to get user: %w", err)
@@ -85,15 +83,15 @@ Example:
 				return fmt.Errorf("page-size must be between 1 and 100")
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -169,8 +167,9 @@ Example:
   notion user me`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -179,7 +178,6 @@ Example:
 			client := NewNotionClient(token)
 
 			// Get self
-			ctx := context.Background()
 			user, err := client.GetSelf(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get user info: %w", err)

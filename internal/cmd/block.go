@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -45,8 +43,9 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID := args[0]
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -55,7 +54,6 @@ Example:
 			client := NewNotionClient(token)
 
 			// Get block
-			ctx := context.Background()
 			block, err := client.GetBlock(ctx, blockID)
 			if err != nil {
 				return fmt.Errorf("failed to get block: %w", err)
@@ -95,15 +93,15 @@ Example:
 				return fmt.Errorf("page-size must be between 1 and 100")
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -186,8 +184,9 @@ Example of a simple paragraph block:
 				return fmt.Errorf("failed to parse children JSON: %w", err)
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -201,7 +200,6 @@ Example of a simple paragraph block:
 			}
 
 			// Append children
-			ctx := context.Background()
 			blockList, err := client.AppendBlockChildren(ctx, blockID, req)
 			if err != nil {
 				return fmt.Errorf("failed to append block children: %w", err)
@@ -246,15 +244,15 @@ Example of updating a paragraph block:
 				}
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			if dryRun {
 				// Fetch current block to show what would be updated
@@ -335,15 +333,15 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID := args[0]
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			if dryRun {
 				// Fetch current block to show what would be deleted
@@ -430,13 +428,14 @@ Example:
 				return fmt.Errorf("invalid color %q: valid colors are default, gray, brown, orange, yellow, green, blue, purple, pink, red (or their _background variants)", color)
 			}
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewTableOfContents(color)
 
@@ -472,13 +471,14 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			parentID := args[0]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewBreadcrumb()
 
@@ -509,13 +509,14 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			parentID := args[0]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewDivider()
 
@@ -555,13 +556,14 @@ Example:
 				return fmt.Errorf("column count must be between 2 and 5, got %d", columnCount)
 			}
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			// Create columns with placeholder content
 			columns := make([][]map[string]interface{}, columnCount)

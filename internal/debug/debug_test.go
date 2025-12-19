@@ -208,3 +208,92 @@ func TestNewDebugTransport_Defaults(t *testing.T) {
 		t.Error("Expected output to be set to os.Stderr when nil is passed")
 	}
 }
+
+func TestDebugTransport_RateLimitHeaders(t *testing.T) {
+	// Create a test server that returns rate limit headers
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Limit", "100")
+		w.Header().Set("X-RateLimit-Remaining", "75")
+		w.Header().Set("X-RateLimit-Reset", "1766149200") // Some future timestamp
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "ok"}`))
+	}))
+	defer server.Close()
+
+	// Create a buffer to capture debug output
+	var buf bytes.Buffer
+
+	// Create client with debug transport
+	transport := NewDebugTransport(nil, &buf)
+	client := &http.Client{Transport: transport}
+
+	// Make request
+	req, err := http.NewRequest("GET", server.URL, nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	_, err = io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response: %v", err)
+	}
+
+	// Verify debug output contains rate limit info
+	output := buf.String()
+
+	// Check for rate limit display
+	if !strings.Contains(output, "Rate-Limit: 75/100 remaining") {
+		t.Errorf("Expected rate limit info in output, got: %s", output)
+	}
+}
+
+func TestDebugTransport_NoRateLimitHeaders(t *testing.T) {
+	// Create a test server without rate limit headers
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "ok"}`))
+	}))
+	defer server.Close()
+
+	// Create a buffer to capture debug output
+	var buf bytes.Buffer
+
+	// Create client with debug transport
+	transport := NewDebugTransport(nil, &buf)
+	client := &http.Client{Transport: transport}
+
+	// Make request
+	req, err := http.NewRequest("GET", server.URL, nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	_, err = io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response: %v", err)
+	}
+
+	// Verify debug output does NOT contain rate limit info
+	output := buf.String()
+
+	// Should not show rate limit line when headers are absent
+	if strings.Contains(output, "Rate-Limit:") {
+		t.Errorf("Should not show rate limit info when headers are absent")
+	}
+}

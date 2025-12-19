@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -44,13 +42,14 @@ Example:
 			parentID := args[0]
 			text := args[1]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewParagraph(text)
 			req := &notion.AppendBlockChildrenRequest{
@@ -89,13 +88,14 @@ Examples:
 				return fmt.Errorf("heading level must be between 1 and 3, got %d", level)
 			}
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			var block map[string]interface{}
 			switch level {
@@ -138,13 +138,14 @@ Example:
 			parentID := args[0]
 			text := args[1]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewBulletedListItem(text)
 			req := &notion.AppendBlockChildrenRequest{
@@ -175,13 +176,14 @@ Example:
 			parentID := args[0]
 			text := args[1]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewNumberedListItem(text)
 			req := &notion.AppendBlockChildrenRequest{
@@ -215,13 +217,14 @@ Example:
 			parentID := args[0]
 			text := args[1]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			// Note: Toggle blocks in Notion API are toggle_list_item blocks
 			block := map[string]interface{}{
@@ -266,13 +269,14 @@ Example:
 			parentID := args[0]
 			text := args[1]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewQuote(text)
 			req := &notion.AppendBlockChildrenRequest{
@@ -306,13 +310,14 @@ Examples:
 			parentID := args[0]
 			text := args[1]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewCallout(text, emoji)
 			req := &notion.AppendBlockChildrenRequest{
@@ -350,13 +355,14 @@ Examples:
 			parentID := args[0]
 			code := args[1]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewCode(code, language)
 			req := &notion.AppendBlockChildrenRequest{
@@ -393,13 +399,14 @@ Examples:
 			parentID := args[0]
 			text := args[1]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			block := notion.NewToDo(text, checked)
 			req := &notion.AppendBlockChildrenRequest{

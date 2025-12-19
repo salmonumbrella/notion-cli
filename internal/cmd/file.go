@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -72,14 +70,14 @@ Example - Upload and attach to page property:
 				return fmt.Errorf("failed to reset file position: %w", err)
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			// Step 1: Create file upload
 			createReq := &notion.CreateFileUploadRequest{
@@ -157,13 +155,14 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fileUploadID := args[0]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			upload, err := client.GetFileUpload(ctx, fileUploadID)
 			if err != nil {
@@ -189,13 +188,14 @@ Example:
   notion file list --page-size 10`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			opts := &notion.ListFileUploadsOptions{
 				StartCursor: startCursor,

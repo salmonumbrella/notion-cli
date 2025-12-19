@@ -15,8 +15,9 @@ import (
 
 var (
 	// Global flags
-	outputFormat output.Format
-	debugMode    bool
+	outputFormat  output.Format
+	debugMode     bool
+	workspaceName string
 
 	// Version information
 	version   = "dev"
@@ -41,6 +42,12 @@ var rootCmd = &cobra.Command{
 			cfg = &config.Config{}
 		}
 
+		// Determine workspace: flag > env var > config default
+		ws := workspaceName
+		if ws == "" {
+			ws = os.Getenv("NOTION_WORKSPACE")
+		}
+
 		// Get output format from flag or config file
 		formatStr, _ := cmd.Flags().GetString("output")
 		// If flag was not explicitly set by user, use config file default
@@ -58,9 +65,10 @@ var rootCmd = &cobra.Command{
 		// and context (new pattern for dependency injection)
 		outputFormat = format
 
-		// Inject format and debug mode into context so subcommands can access them
+		// Inject format, debug mode, and workspace into context so subcommands can access them
 		ctx := output.WithFormat(cmd.Context(), format)
 		ctx = debug.WithDebug(ctx, debugMode)
+		ctx = WithWorkspace(ctx, ws)
 		cmd.SetContext(ctx)
 
 		// Check token age and warn if old (skip for auth and config commands)
@@ -81,10 +89,12 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().String("output", "text", "Output format (text|json|table|yaml)")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output (shows HTTP requests/responses)")
+	rootCmd.PersistentFlags().StringVarP(&workspaceName, "workspace", "w", "", "Workspace to use (overrides NOTION_WORKSPACE env var)")
 
 	// Register subcommands
 	rootCmd.AddCommand(newAuthCmd())
 	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newWorkspaceCmd())
 	rootCmd.AddCommand(newUserCmd())
 	rootCmd.AddCommand(newPageCmd())
 	rootCmd.AddCommand(newBlockCmd())
@@ -94,6 +104,7 @@ func init() {
 	rootCmd.AddCommand(newFileCmd())
 	rootCmd.AddCommand(newDataSourceCmd())
 	rootCmd.AddCommand(newCompletionCmd())
+	rootCmd.AddCommand(newAPICmd())
 }
 
 // checkTokenAgeAndWarn checks if the token is older than the rotation threshold
@@ -153,4 +164,17 @@ func NewNotionClient(token string) *notion.Client {
 		client.WithDebug()
 	}
 	return client
+}
+
+// GetTokenFromContext retrieves the token based on workspace context.
+// If a workspace is specified in context, it gets the workspace-specific token.
+// Otherwise, falls back to the default token retrieval.
+func GetTokenFromContext(ctx context.Context) (string, error) {
+	workspace := WorkspaceFromContext(ctx)
+	if workspace != "" {
+		// Get workspace-specific token
+		return auth.GetWorkspaceToken(workspace)
+	}
+	// Fall back to default token (keyring or env var)
+	return auth.GetWorkspaceToken("")
 }

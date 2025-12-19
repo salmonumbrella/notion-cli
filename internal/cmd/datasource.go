@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -42,13 +40,14 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dataSourceID := args[0]
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			ds, err := client.GetDataSource(ctx, dataSourceID)
 			if err != nil {
@@ -91,13 +90,14 @@ Example:
 				return fmt.Errorf("invalid properties JSON: %w", err)
 			}
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			req := &notion.CreateDataSourceRequest{
 				Parent:     map[string]interface{}{"database_id": parentID},
@@ -144,13 +144,14 @@ Example:
 				}
 			}
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			req := &notion.UpdateDataSourceRequest{
 				Properties: properties,
@@ -201,13 +202,14 @@ Example - Query with filter:
 				}
 			}
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			req := &notion.QueryDataSourceRequest{
 				Filter:   filter,
@@ -241,13 +243,14 @@ Example:
   notion ds templates`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			list, err := client.ListDataSourceTemplates(ctx)
 			if err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"gopkg.in/yaml.v3"
 )
@@ -25,8 +26,14 @@ type Config struct {
 
 // WorkspaceConfig represents workspace-specific configuration
 type WorkspaceConfig struct {
-	// Token source: "keyring" or "env:VAR_NAME"
+	// Workspace display name
+	Name string `yaml:"name,omitempty"`
+
+	// Token source: "keyring", "env:VAR_NAME", or direct token value
 	TokenSource string `yaml:"token_source,omitempty"`
+
+	// Optional custom API URL (for testing/enterprise)
+	APIURL string `yaml:"api_url,omitempty"`
 
 	// Override output format for this workspace
 	Output string `yaml:"output,omitempty"`
@@ -35,6 +42,14 @@ type WorkspaceConfig struct {
 // configPathFunc is the function used to get the default config path
 // It can be overridden for testing
 var configPathFunc = defaultConfigPath
+
+// SetConfigPathFunc sets the config path function for testing.
+// Returns the original function so it can be restored.
+func SetConfigPathFunc(fn func() (string, error)) func() (string, error) {
+	orig := configPathFunc
+	configPathFunc = fn
+	return orig
+}
 
 // defaultConfigPath returns ~/.config/notion-cli/config.yaml
 func defaultConfigPath() (string, error) {
@@ -108,4 +123,125 @@ func (c *Config) GetOutput() string {
 // GetColor returns the effective color mode (config default or empty)
 func (c *Config) GetColor() string {
 	return c.Color
+}
+
+// GetWorkspace returns the workspace configuration by name
+func (c *Config) GetWorkspace(name string) (*WorkspaceConfig, error) {
+	if c.Workspaces == nil {
+		return nil, fmt.Errorf("workspace %q not found", name)
+	}
+
+	ws, ok := c.Workspaces[name]
+	if !ok {
+		return nil, fmt.Errorf("workspace %q not found", name)
+	}
+
+	return &ws, nil
+}
+
+// GetDefaultWorkspace returns the default workspace configuration
+func (c *Config) GetDefaultWorkspace() (*WorkspaceConfig, error) {
+	// If DefaultWorkspace is set, use it
+	if c.DefaultWorkspace != "" {
+		return c.GetWorkspace(c.DefaultWorkspace)
+	}
+
+	// If still no default found and there's exactly one workspace, use it
+	if len(c.Workspaces) == 1 {
+		for _, ws := range c.Workspaces {
+			ws := ws // Create a copy to avoid returning address of loop variable
+			return &ws, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no default workspace configured")
+}
+
+// SetDefaultWorkspace sets the default workspace by name
+func (c *Config) SetDefaultWorkspace(name string) error {
+	// Verify workspace exists
+	if _, err := c.GetWorkspace(name); err != nil {
+		return err
+	}
+
+	// Set the new default
+	c.DefaultWorkspace = name
+
+	return nil
+}
+
+// AddWorkspace adds a new workspace to the configuration
+func (c *Config) AddWorkspace(name string, ws WorkspaceConfig) error {
+	if name == "" {
+		return fmt.Errorf("workspace name cannot be empty")
+	}
+
+	// Initialize map if needed
+	if c.Workspaces == nil {
+		c.Workspaces = make(map[string]WorkspaceConfig)
+	}
+
+	// Check if workspace already exists
+	if _, exists := c.Workspaces[name]; exists {
+		return fmt.Errorf("workspace %q already exists", name)
+	}
+
+	// Set the name field
+	ws.Name = name
+
+	// If this is the first workspace, set it as default
+	if len(c.Workspaces) == 0 {
+		c.DefaultWorkspace = name
+	}
+
+	c.Workspaces[name] = ws
+	return nil
+}
+
+// RemoveWorkspace removes a workspace from the configuration
+func (c *Config) RemoveWorkspace(name string) error {
+	if c.Workspaces == nil {
+		return fmt.Errorf("workspace %q not found", name)
+	}
+
+	if _, exists := c.Workspaces[name]; !exists {
+		return fmt.Errorf("workspace %q not found", name)
+	}
+
+	// Check if this is the default workspace
+	isDefault := c.DefaultWorkspace == name
+
+	delete(c.Workspaces, name)
+
+	// If we removed the default workspace, clear the default
+	if isDefault {
+		c.DefaultWorkspace = ""
+
+		// If there's exactly one workspace left, make it the default
+		if len(c.Workspaces) == 1 {
+			for wsName := range c.Workspaces {
+				c.DefaultWorkspace = wsName
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// ListWorkspaces returns a list of all workspace names
+func (c *Config) ListWorkspaces() []string {
+	if c.Workspaces == nil {
+		return []string{}
+	}
+
+	names := make([]string, 0, len(c.Workspaces))
+	for name := range c.Workspaces {
+		names = append(names, name)
+	}
+
+	// Sort for consistent output
+	sort.Strings(names)
+
+	return names
 }

@@ -120,6 +120,7 @@ type Client struct {
 	baseURL        string
 	version        string
 	circuitBreaker *circuitBreaker
+	rateLimiter    *RateLimitTracker
 }
 
 // NewClient creates a new Notion API client with the given token
@@ -136,6 +137,7 @@ func NewClient(token string) *Client {
 			recoveryTimeout: defaultCircuitBreakerRecoveryTimeout,
 			enabled:         false, // Disabled by default
 		},
+		rateLimiter: NewRateLimitTracker(),
 	}
 }
 
@@ -256,6 +258,9 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body in
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
+	// Update rate limit tracker with response headers
+	c.rateLimiter.Update(resp)
+
 	// Check for error responses
 	if resp.StatusCode >= 400 {
 		defer resp.Body.Close()
@@ -364,6 +369,9 @@ func (c *Client) doMultipartRequestOnce(ctx context.Context, url string, fieldNa
 		return fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// Update rate limit tracker with response headers
+	c.rateLimiter.Update(resp)
 
 	if resp.StatusCode >= 400 {
 		var errResp ErrorResponse
@@ -501,4 +509,10 @@ func (c *Client) doDelete(ctx context.Context, path string, result interface{}) 
 	}
 
 	return nil
+}
+
+// GetRateLimitInfo returns the current rate limit information
+// Returns nil if no API requests have been made yet
+func (c *Client) GetRateLimitInfo() *RateLimitInfo {
+	return c.rateLimiter.Get()
 }

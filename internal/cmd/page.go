@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -40,8 +38,9 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pageID := args[0]
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -50,7 +49,6 @@ Example:
 			client := NewNotionClient(token)
 
 			// Get page
-			ctx := context.Background()
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
 				return fmt.Errorf("failed to get page: %w", err)
@@ -115,8 +113,9 @@ Examples:
 				return fmt.Errorf("invalid parent-type: %s (expected 'page' or 'database')", parentType)
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -133,7 +132,6 @@ Examples:
 			}
 
 			// Create page
-			ctx := context.Background()
 			page, err := client.CreatePage(ctx, req)
 			if err != nil {
 				return fmt.Errorf("failed to create page: %w", err)
@@ -181,15 +179,15 @@ Example:
 				}
 			}
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			if dryRun {
 				// Fetch current page to show what would be updated
@@ -289,8 +287,9 @@ Example:
 			pageID := args[0]
 			propertyID := args[1]
 
-			// Get token
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
@@ -299,7 +298,6 @@ Example:
 			client := NewNotionClient(token)
 
 			// Get property
-			ctx := context.Background()
 			property, err := client.GetPageProperty(ctx, pageID, propertyID)
 			if err != nil {
 				return fmt.Errorf("failed to get page property: %w", err)
@@ -345,13 +343,14 @@ Example - Move page to database:
 				return fmt.Errorf("invalid --parent-type: %s (expected 'page' or 'database')", parentType)
 			}
 
-			token, err := auth.GetToken()
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := NewNotionClient(token)
-			ctx := context.Background()
 
 			req := &notion.MovePageRequest{
 				Parent: map[string]interface{}{parentKey: parentID},

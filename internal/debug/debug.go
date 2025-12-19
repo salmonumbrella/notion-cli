@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -101,6 +102,27 @@ func (t *DebugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Log response
 	fmt.Fprintf(t.Output, "<-- %d %s (%s)\n", resp.StatusCode, resp.Status, duration)
+
+	// Show rate limit info if present (before showing all headers)
+	if rl := resp.Header.Get("X-RateLimit-Remaining"); rl != "" {
+		limit := resp.Header.Get("X-RateLimit-Limit")
+		reset := resp.Header.Get("X-RateLimit-Reset")
+
+		// Calculate seconds until reset
+		resetStr := ""
+		if reset != "" {
+			// Notion API returns Unix timestamp as string
+			if ts, err := strconv.ParseInt(reset, 10, 64); err == nil {
+				resetTime := time.Unix(ts, 0)
+				remaining := time.Until(resetTime)
+				if remaining > 0 {
+					resetStr = fmt.Sprintf(" (resets in %ds)", int(remaining.Seconds()))
+				}
+			}
+		}
+
+		fmt.Fprintf(t.Output, "    Rate-Limit: %s/%s remaining%s\n", rl, limit, resetStr)
+	}
 
 	// Log response headers
 	for key, values := range resp.Header {
