@@ -357,6 +357,7 @@ func newDBUpdateCmd() *cobra.Command {
 	var coverJSON string
 	var archived bool
 	var setArchived bool
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "update <database-id>",
@@ -432,6 +433,61 @@ Example - Archive database:
 
 			// Create client
 			client := NewNotionClient(token)
+			ctx := context.Background()
+
+			if dryRun {
+				// Fetch current database to show what would be updated
+				currentDB, err := client.GetDatabase(ctx, databaseID)
+				if err != nil {
+					return fmt.Errorf("failed to fetch database: %w", err)
+				}
+
+				printer := NewDryRunPrinter(os.Stderr)
+				printer.Header("update", "database", databaseID)
+
+				// Show title change if applicable
+				if titleText != "" {
+					currentTitle := ""
+					if len(currentDB.Title) > 0 {
+						if textObj, ok := currentDB.Title[0]["text"].(map[string]interface{}); ok {
+							if content, ok := textObj["content"].(string); ok {
+								currentTitle = content
+							}
+						}
+					}
+					printer.Change("Title", currentTitle, titleText)
+				}
+
+				// Show archived status change if applicable
+				if setArchived {
+					if archived != currentDB.Archived {
+						printer.Change("Archived", fmt.Sprintf("%t", currentDB.Archived), fmt.Sprintf("%t", archived))
+					} else {
+						printer.Unchanged("Archived")
+					}
+				}
+
+				// Show properties to update
+				if propertiesJSON != "" {
+					printer.Section("Properties to update:")
+					for propName := range properties {
+						if _, exists := currentDB.Properties[propName]; exists {
+							fmt.Fprintf(os.Stderr, "  - %s (updating existing)\n", propName)
+						} else {
+							fmt.Fprintf(os.Stderr, "  - %s (adding new)\n", propName)
+						}
+					}
+				}
+
+				// Show description change if applicable
+				if descriptionJSON != "" {
+					printer.Section("Description:")
+					fmt.Fprintf(os.Stderr, "  Updating description\n")
+				}
+
+				printer.Footer()
+				return nil
+			}
 
 			// Build request
 			req := &notion.UpdateDatabaseRequest{
@@ -448,7 +504,6 @@ Example - Archive database:
 			}
 
 			// Update database
-			ctx := context.Background()
 			database, err := client.UpdateDatabase(ctx, databaseID, req)
 			if err != nil {
 				return fmt.Errorf("failed to update database: %w", err)
@@ -466,6 +521,7 @@ Example - Archive database:
 	cmd.Flags().StringVar(&iconJSON, "icon", "", "Database icon as JSON object")
 	cmd.Flags().StringVar(&coverJSON, "cover", "", "Database cover as JSON object")
 	cmd.Flags().BoolVar(&archived, "archived", false, "Archive the database")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
 
 	// Track if archived flag was explicitly set
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {

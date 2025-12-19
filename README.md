@@ -142,6 +142,28 @@ notion user me --output json   # JSON
 notion user list --output table # Table format
 ```
 
+## Configuration
+
+notion-cli supports a configuration file for persistent settings at `~/.config/notion-cli/config.yaml`.
+
+```bash
+# View configuration
+notion config show
+
+# Set default output format
+notion config set output json
+
+# Set color mode
+notion config set color always
+
+# View config file location
+notion config path
+```
+
+See [Configuration Documentation](docs/configuration.md) for details.
+
+**Note:** CLI flags always override config file settings.
+
 ## Go Library
 
 The `notion` package can be used as a Go library for building Notion integrations.

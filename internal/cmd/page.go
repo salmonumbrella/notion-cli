@@ -156,6 +156,7 @@ func newPageUpdateCmd() *cobra.Command {
 	var propertiesJSON string
 	var archived bool
 	var setArchived bool
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "update <page-id>",
@@ -188,6 +189,55 @@ Example:
 
 			// Create client
 			client := NewNotionClient(token)
+			ctx := context.Background()
+
+			if dryRun {
+				// Fetch current page to show what would be updated
+				currentPage, err := client.GetPage(ctx, pageID)
+				if err != nil {
+					return fmt.Errorf("failed to fetch page: %w", err)
+				}
+
+				printer := NewDryRunPrinter(os.Stderr)
+				printer.Header("update", "page", pageID)
+
+				// Show archived status change if applicable
+				if setArchived {
+					if archived != currentPage.Archived {
+						printer.Change("Archived", fmt.Sprintf("%t", currentPage.Archived), fmt.Sprintf("%t", archived))
+					} else {
+						printer.Unchanged("Archived")
+					}
+				}
+
+				// Show properties to update
+				if propertiesJSON != "" {
+					printer.Section("Properties to update:")
+					for propName := range properties {
+						fmt.Fprintf(os.Stderr, "  - %s\n", propName)
+					}
+
+					// Show current values for properties being updated
+					printer.Section("\nCurrent property values:")
+					for propName := range properties {
+						if currentVal, ok := currentPage.Properties[propName]; ok {
+							currentBytes, _ := json.Marshal(currentVal)
+							fmt.Fprintf(os.Stderr, "  %s: %s\n", propName, string(currentBytes))
+						} else {
+							fmt.Fprintf(os.Stderr, "  %s: (not set)\n", propName)
+						}
+					}
+
+					printer.Section("New property values:")
+					for propName, propVal := range properties {
+						newBytes, _ := json.Marshal(propVal)
+						fmt.Fprintf(os.Stderr, "  %s: %s\n", propName, string(newBytes))
+					}
+				}
+
+				printer.Footer()
+				return nil
+			}
 
 			// Build request
 			req := &notion.UpdatePageRequest{
@@ -200,7 +250,6 @@ Example:
 			}
 
 			// Update page
-			ctx := context.Background()
 			page, err := client.UpdatePage(ctx, pageID, req)
 			if err != nil {
 				return fmt.Errorf("failed to update page: %w", err)
@@ -214,6 +263,7 @@ Example:
 
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON")
 	cmd.Flags().BoolVar(&archived, "archived", false, "Archive the page")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
 	// Track if archived flag was explicitly set
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		setArchived = cmd.Flags().Changed("archived")

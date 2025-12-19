@@ -222,6 +222,7 @@ func newBlockUpdateCmd() *cobra.Command {
 	var contentJSON string
 	var archived bool
 	var setArchived bool
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "update <block-id>",
@@ -253,6 +254,38 @@ Example of updating a paragraph block:
 
 			// Create client
 			client := NewNotionClient(token)
+			ctx := context.Background()
+
+			if dryRun {
+				// Fetch current block to show what would be updated
+				currentBlock, err := client.GetBlock(ctx, blockID)
+				if err != nil {
+					return fmt.Errorf("failed to fetch block: %w", err)
+				}
+
+				printer := NewDryRunPrinter(os.Stderr)
+				printer.Header("update", "block", blockID)
+				printer.Field("Type", currentBlock.Type)
+
+				// Show archived status change if applicable
+				if setArchived {
+					if archived != currentBlock.Archived {
+						printer.Change("Archived", fmt.Sprintf("%t", currentBlock.Archived), fmt.Sprintf("%t", archived))
+					} else {
+						printer.Unchanged("Archived")
+					}
+				}
+
+				// Show content changes if provided
+				if contentJSON != "" {
+					printer.Section("Content to update:")
+					contentBytes, _ := json.MarshalIndent(content, "  ", "  ")
+					fmt.Fprintf(os.Stderr, "  %s\n", string(contentBytes))
+				}
+
+				printer.Footer()
+				return nil
+			}
 
 			// Build request
 			req := &notion.UpdateBlockRequest{
@@ -265,7 +298,6 @@ Example of updating a paragraph block:
 			}
 
 			// Update block
-			ctx := context.Background()
 			block, err := client.UpdateBlock(ctx, blockID, req)
 			if err != nil {
 				return fmt.Errorf("failed to update block: %w", err)
@@ -279,6 +311,7 @@ Example of updating a paragraph block:
 
 	cmd.Flags().StringVar(&contentJSON, "content", "", "Block content as JSON")
 	cmd.Flags().BoolVar(&archived, "archived", false, "Archive the block")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
 	// Track if archived flag was explicitly set
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		setArchived = cmd.Flags().Changed("archived")
@@ -289,7 +322,9 @@ Example of updating a paragraph block:
 }
 
 func newBlockDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	var dryRun bool
+
+	cmd := &cobra.Command{
 		Use:   "delete <block-id>",
 		Short: "Delete a block",
 		Long: `Delete (archive) a block by its ID.
@@ -308,9 +343,47 @@ Example:
 
 			// Create client
 			client := NewNotionClient(token)
+			ctx := context.Background()
+
+			if dryRun {
+				// Fetch current block to show what would be deleted
+				block, err := client.GetBlock(ctx, blockID)
+				if err != nil {
+					return fmt.Errorf("failed to fetch block: %w", err)
+				}
+
+				printer := NewDryRunPrinter(os.Stderr)
+				printer.Header("delete", "block", blockID)
+				printer.Field("Type", block.Type)
+				printer.Field("Archived", fmt.Sprintf("%t", block.Archived))
+				printer.Field("Has children", fmt.Sprintf("%t", block.HasChildren))
+
+				// Show content preview if available
+				if len(block.Content) > 0 {
+					// Try to extract text content for common block types
+					if richText, ok := block.Content["rich_text"].([]interface{}); ok && len(richText) > 0 {
+						if textObj, ok := richText[0].(map[string]interface{}); ok {
+							if text, ok := textObj["plain_text"].(string); ok && text != "" {
+								printer.Content("Content preview", text)
+							}
+						}
+					}
+				}
+
+				// Show parent information
+				if parentType, ok := block.Parent["type"].(string); ok {
+					parentID := ""
+					if id, ok := block.Parent[parentType].(string); ok {
+						parentID = id
+					}
+					printer.Field("Parent", fmt.Sprintf("%s: %s", parentType, parentID))
+				}
+
+				printer.Footer()
+				return nil
+			}
 
 			// Delete block
-			ctx := context.Background()
 			block, err := client.DeleteBlock(ctx, blockID)
 			if err != nil {
 				return fmt.Errorf("failed to delete block: %w", err)
@@ -321,6 +394,9 @@ Example:
 			return printer.Print(ctx, block)
 		},
 	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deleted without making changes")
+	return cmd
 }
 
 // validBlockColors contains all valid Notion block colors

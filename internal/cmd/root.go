@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/salmonumbrella/notion-cli/internal/auth"
+	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/salmonumbrella/notion-cli/internal/debug"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
@@ -28,8 +29,26 @@ var rootCmd = &cobra.Command{
 	Short: "CLI for Notion API",
 	Long:  `A command-line interface for interacting with the Notion API`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Parse and validate output format from flag
+		// Load config file (skip for config commands to avoid recursion)
+		var cfg *config.Config
+		if cmd.Name() != "config" && (cmd.Parent() == nil || cmd.Parent().Name() != "config") {
+			loadedCfg, err := config.Load()
+			if err != nil {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+			cfg = loadedCfg
+		} else {
+			cfg = &config.Config{}
+		}
+
+		// Get output format from flag or config file
 		formatStr, _ := cmd.Flags().GetString("output")
+		// If flag was not explicitly set by user, use config file default
+		if !cmd.Flags().Changed("output") && cfg.GetOutput() != "" {
+			formatStr = cfg.GetOutput()
+		}
+
+		// Parse and validate output format
 		format, err := output.ParseFormat(formatStr)
 		if err != nil {
 			return err
@@ -44,8 +63,9 @@ var rootCmd = &cobra.Command{
 		ctx = debug.WithDebug(ctx, debugMode)
 		cmd.SetContext(ctx)
 
-		// Check token age and warn if old (skip for auth commands)
-		if cmd.Name() != "auth" && !cmd.HasParent() || (cmd.Parent() != nil && cmd.Parent().Name() != "auth") {
+		// Check token age and warn if old (skip for auth and config commands)
+		skipCommands := map[string]bool{"auth": true, "config": true}
+		if !skipCommands[cmd.Name()] && (cmd.Parent() == nil || !skipCommands[cmd.Parent().Name()]) {
 			checkTokenAgeAndWarn()
 		}
 
@@ -64,6 +84,7 @@ func init() {
 
 	// Register subcommands
 	rootCmd.AddCommand(newAuthCmd())
+	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newUserCmd())
 	rootCmd.AddCommand(newPageCmd())
 	rootCmd.AddCommand(newBlockCmd())
