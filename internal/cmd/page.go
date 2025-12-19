@@ -47,7 +47,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Get page
 			ctx := context.Background()
@@ -122,7 +122,7 @@ Examples:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Build request
 			req := &notion.CreatePageRequest{
@@ -187,7 +187,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Build request
 			req := &notion.UpdatePageRequest{
@@ -246,7 +246,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Get property
 			ctx := context.Background()
@@ -300,7 +300,7 @@ Example - Move page to database:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			req := &notion.MovePageRequest{

@@ -78,7 +78,7 @@ Example - Upload and attach to page property:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			// Step 1: Create file upload
@@ -162,7 +162,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			upload, err := client.GetFileUpload(ctx, fileUploadID)
@@ -194,7 +194,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			opts := &notion.ListFileUploadsOptions{

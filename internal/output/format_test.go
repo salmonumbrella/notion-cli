@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestParseFormat(t *testing.T) {
@@ -54,6 +56,16 @@ func TestParseFormat(t *testing.T) {
 			name:  "table uppercase",
 			input: "TABLE",
 			want:  FormatTable,
+		},
+		{
+			name:  "yaml lowercase",
+			input: "yaml",
+			want:  FormatYAML,
+		},
+		{
+			name:  "yaml uppercase",
+			input: "YAML",
+			want:  FormatYAML,
 		},
 		{
 			name:    "invalid format",
@@ -163,6 +175,100 @@ func TestPrinter_PrintJSON(t *testing.T) {
 	t.Run("nil data", func(t *testing.T) {
 		var buf bytes.Buffer
 		p := NewPrinter(&buf, FormatJSON)
+
+		if err := p.Print(ctx, nil); err != nil {
+			t.Fatalf("Print() error = %v", err)
+		}
+
+		if buf.Len() == 0 {
+			// nil is acceptable output for nil data
+			return
+		}
+	})
+}
+
+func TestPrinter_PrintYAML(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("simple struct", func(t *testing.T) {
+		type Person struct {
+			Name string `yaml:"name"`
+			Age  int    `yaml:"age"`
+		}
+
+		var buf bytes.Buffer
+		p := NewPrinter(&buf, FormatYAML)
+
+		data := Person{Name: "Alice", Age: 30}
+		if err := p.Print(ctx, data); err != nil {
+			t.Fatalf("Print() error = %v", err)
+		}
+
+		// Verify it's valid YAML
+		var result Person
+		if err := yaml.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid YAML: %v", err)
+		}
+
+		if result.Name != "Alice" || result.Age != 30 {
+			t.Errorf("got %+v, want {Name:Alice Age:30}", result)
+		}
+	})
+
+	t.Run("slice of structs", func(t *testing.T) {
+		type Item struct {
+			ID    string `yaml:"id"`
+			Title string `yaml:"title"`
+		}
+
+		var buf bytes.Buffer
+		p := NewPrinter(&buf, FormatYAML)
+
+		data := []Item{
+			{ID: "1", Title: "First"},
+			{ID: "2", Title: "Second"},
+		}
+
+		if err := p.Print(ctx, data); err != nil {
+			t.Fatalf("Print() error = %v", err)
+		}
+
+		var result []Item
+		if err := yaml.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid YAML: %v", err)
+		}
+
+		if len(result) != 2 {
+			t.Errorf("got %d items, want 2", len(result))
+		}
+	})
+
+	t.Run("map", func(t *testing.T) {
+		var buf bytes.Buffer
+		p := NewPrinter(&buf, FormatYAML)
+
+		data := map[string]interface{}{
+			"key1": "value1",
+			"key2": 42,
+		}
+
+		if err := p.Print(ctx, data); err != nil {
+			t.Fatalf("Print() error = %v", err)
+		}
+
+		var result map[string]interface{}
+		if err := yaml.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid YAML: %v", err)
+		}
+
+		if result["key1"] != "value1" {
+			t.Errorf("got %v, want value1", result["key1"])
+		}
+	})
+
+	t.Run("nil data", func(t *testing.T) {
+		var buf bytes.Buffer
+		p := NewPrinter(&buf, FormatYAML)
 
 		if err := p.Print(ctx, nil); err != nil {
 			t.Fatalf("Print() error = %v", err)

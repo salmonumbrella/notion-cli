@@ -88,7 +88,7 @@ Example - Fetch all results:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages

@@ -12,9 +12,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/salmonumbrella/notion-cli/internal/debug"
 )
 
 const (
@@ -159,6 +162,18 @@ func (c *Client) WithCircuitBreaker(threshold int, recoveryTimeout time.Duration
 // EnableCircuitBreaker enables circuit breaker with default settings
 func (c *Client) EnableCircuitBreaker() *Client {
 	c.circuitBreaker.enabled = true
+	return c
+}
+
+// WithDebug enables debug mode for HTTP request/response logging
+func (c *Client) WithDebug() *Client {
+	// Wrap the existing transport with the debug transport
+	baseTransport := c.httpClient.Transport
+	if baseTransport == nil {
+		baseTransport = http.DefaultTransport
+	}
+
+	c.httpClient.Transport = debug.NewDebugTransport(baseTransport, os.Stderr)
 	return c
 }
 

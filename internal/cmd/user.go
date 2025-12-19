@@ -44,7 +44,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Get user
 			ctx := context.Background()
@@ -92,7 +92,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages
@@ -176,7 +176,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Get self
 			ctx := context.Background()

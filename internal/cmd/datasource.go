@@ -47,7 +47,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			ds, err := client.GetDataSource(ctx, dataSourceID)
@@ -96,7 +96,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			req := &notion.CreateDataSourceRequest{
@@ -149,7 +149,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			req := &notion.UpdateDataSourceRequest{
@@ -206,7 +206,7 @@ Example - Query with filter:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			req := &notion.QueryDataSourceRequest{
@@ -246,7 +246,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			list, err := client.ListDataSourceTemplates(ctx)

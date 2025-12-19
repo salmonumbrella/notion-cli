@@ -46,7 +46,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Get database
 			ctx := context.Background()
@@ -155,7 +155,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages
@@ -312,7 +312,7 @@ Example - Create with description:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Build request
 			req := &notion.CreateDatabaseRequest{
@@ -431,7 +431,7 @@ Example - Archive database:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Build request
 			req := &notion.UpdateDatabaseRequest{

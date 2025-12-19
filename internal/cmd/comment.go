@@ -58,7 +58,7 @@ Example - Fetch all comments:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages
@@ -161,7 +161,7 @@ Example - Add to an existing discussion:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Build rich text with mentions
 			richText := []notion.RichText{}

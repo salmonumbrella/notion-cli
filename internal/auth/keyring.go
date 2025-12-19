@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/99designs/keyring"
 )
@@ -11,14 +12,18 @@ import (
 const (
 	// ServiceName is the keyring service name for notion-cli
 	ServiceName = "notion-cli"
-	// KeyName is the key used to store the token in the keyring
+	// KeyName is the key used to store the token in the keyring (legacy)
 	KeyName = "notion-token"
+	// TokenMetadataKey is the key used to store token metadata in the keyring
+	TokenMetadataKey = "notion-token-metadata"
 	// UserInfoKey is the key used to store user metadata in the keyring
 	UserInfoKey = "notion-user-info"
 	// AuthSourceKey is the key used to store the authentication source
 	AuthSourceKey = "notion-auth-source"
 	// EnvVarName is the environment variable fallback for the token
 	EnvVarName = "NOTION_TOKEN"
+	// TokenRotationThresholdDays is the number of days before warning about token age
+	TokenRotationThresholdDays = 90
 )
 
 // AuthSource represents how the user authenticated
@@ -40,6 +45,13 @@ type UserInfo struct {
 	Name      string `json:"name"`
 	AvatarURL string `json:"avatar_url,omitempty"`
 	Email     string `json:"email,omitempty"`
+}
+
+// TokenMetadata contains metadata about the stored token
+type TokenMetadata struct {
+	Token     string    `json:"token"`
+	Source    string    `json:"source"`      // "oauth" or "internal"
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // KeyringProvider defines an interface for keyring operations
@@ -102,7 +114,15 @@ func setProviderFunc(fn func() (KeyringProvider, error)) {
 
 // StoreToken stores the Notion API token in the system keyring.
 // Returns an error if the token is empty or if keyring storage fails.
+// This function preserves the CreatedAt timestamp if the token hasn't changed.
 func StoreToken(token string) error {
+	return StoreTokenWithSource(token, "")
+}
+
+// StoreTokenWithSource stores the Notion API token with source metadata.
+// If source is empty, it's stored as "unknown".
+// Preserves CreatedAt if the token hasn't changed.
+func StoreTokenWithSource(token string, source string) error {
 	if token == "" {
 		return fmt.Errorf("token cannot be empty")
 	}
@@ -112,6 +132,44 @@ func StoreToken(token string) error {
 		return fmt.Errorf("failed to open keyring: %w", err)
 	}
 
+	// Check if we have existing metadata
+	var createdAt time.Time
+	existingMeta, err := GetTokenMetadata()
+	if err == nil && existingMeta != nil && existingMeta.Token == token {
+		// Token hasn't changed, preserve CreatedAt
+		createdAt = existingMeta.CreatedAt
+	} else {
+		// New token or first save, use current time
+		createdAt = time.Now()
+	}
+
+	// Default source if not specified
+	if source == "" {
+		source = "unknown"
+	}
+
+	// Store metadata
+	metadata := TokenMetadata{
+		Token:     token,
+		Source:    source,
+		CreatedAt: createdAt,
+	}
+
+	data, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal token metadata: %w", err)
+	}
+
+	err = provider.Set(keyring.Item{
+		Key:   TokenMetadataKey,
+		Label: "Notion CLI Token Metadata",
+		Data:  data,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to store token metadata in keyring: %w", err)
+	}
+
+	// Also store in legacy location for backwards compatibility
 	err = provider.Set(keyring.Item{
 		Key:   KeyName,
 		Label: "Notion CLI Token",
@@ -153,6 +211,28 @@ func HasToken() bool {
 	return err == nil
 }
 
+// GetTokenMetadata retrieves token metadata from the keyring.
+// Returns nil if no metadata is stored or if metadata is invalid.
+// This only returns metadata for tokens stored in the keyring, not env vars.
+func GetTokenMetadata() (*TokenMetadata, error) {
+	provider, err := defaultProvider()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open keyring: %w", err)
+	}
+
+	item, err := provider.Get(TokenMetadataKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var metadata TokenMetadata
+	if err := json.Unmarshal(item.Data, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal token metadata: %w", err)
+	}
+
+	return &metadata, nil
+}
+
 // DeleteToken removes the Notion API token from the keyring.
 // Does not return an error if the token doesn't exist.
 func DeleteToken() error {
@@ -167,7 +247,8 @@ func DeleteToken() error {
 		return fmt.Errorf("failed to delete token from keyring: %w", err)
 	}
 
-	// Also remove user info and auth source
+	// Also remove token metadata, user info and auth source
+	_ = provider.Remove(TokenMetadataKey)
 	_ = provider.Remove(UserInfoKey)
 	_ = provider.Remove(AuthSourceKey)
 
@@ -262,4 +343,38 @@ func GetAuthSource() AuthSource {
 	default:
 		return SourceUnknown
 	}
+}
+
+// TokenAgeDays calculates the age of a token in days from its creation time.
+// Returns 0 if createdAt is zero (token age unknown).
+func TokenAgeDays(createdAt time.Time) int {
+	if createdAt.IsZero() {
+		return 0
+	}
+	return int(time.Since(createdAt).Hours() / 24)
+}
+
+// IsTokenExpiringSoon checks if a token is older than the rotation threshold.
+// Returns false if createdAt is zero (token age unknown).
+func IsTokenExpiringSoon(createdAt time.Time) bool {
+	if createdAt.IsZero() {
+		return false
+	}
+	return TokenAgeDays(createdAt) > TokenRotationThresholdDays
+}
+
+// FormatTokenAge formats the token creation time and age in a human-readable way.
+// Returns empty string if createdAt is zero (token age unknown).
+func FormatTokenAge(createdAt time.Time) string {
+	if createdAt.IsZero() {
+		return ""
+	}
+	age := TokenAgeDays(createdAt)
+	dateStr := createdAt.Format("2006-01-02")
+	if age == 0 {
+		return fmt.Sprintf("created today (%s)", dateStr)
+	} else if age == 1 {
+		return fmt.Sprintf("1 day ago (created %s)", dateStr)
+	}
+	return fmt.Sprintf("%d days ago (created %s)", age, dateStr)
 }

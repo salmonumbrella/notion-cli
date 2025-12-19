@@ -52,7 +52,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Get block
 			ctx := context.Background()
@@ -102,7 +102,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			// If --all flag is set, fetch all pages
@@ -193,7 +193,7 @@ Example of a simple paragraph block:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Build request
 			req := &notion.AppendBlockChildrenRequest{
@@ -252,7 +252,7 @@ Example of updating a paragraph block:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Build request
 			req := &notion.UpdateBlockRequest{
@@ -307,7 +307,7 @@ Example:
 			}
 
 			// Create client
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 
 			// Delete block
 			ctx := context.Background()
@@ -359,7 +359,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			block := notion.NewTableOfContents(color)
@@ -401,7 +401,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			block := notion.NewBreadcrumb()
@@ -438,7 +438,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			block := notion.NewDivider()
@@ -484,7 +484,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			ctx := context.Background()
 
 			// Create columns with placeholder content

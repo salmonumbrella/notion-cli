@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/salmonumbrella/notion-cli/internal/auth"
-	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -321,12 +320,12 @@ func storeOAuthToken(token string) error {
 		return fmt.Errorf("invalid token format")
 	}
 
-	// Store token
-	if err := auth.StoreToken(token); err != nil {
+	// Store token with source metadata
+	if err := auth.StoreTokenWithSource(token, "oauth"); err != nil {
 		return fmt.Errorf("failed to store token: %w", err)
 	}
 
-	// Store auth source
+	// Store auth source for backwards compatibility
 	if err := auth.StoreAuthSource(auth.SourceOAuth); err != nil {
 		// Non-fatal, continue
 		fmt.Fprintf(os.Stderr, "Warning: could not store auth source: %v\n", err)
@@ -334,7 +333,7 @@ func storeOAuthToken(token string) error {
 
 	// Fetch and store user info
 	ctx := context.Background()
-	client := notion.NewClient(token)
+	client := NewNotionClient(token)
 	user, err := client.GetSelf(ctx)
 
 	var userInfo *auth.UserInfo
@@ -428,12 +427,12 @@ Get your internal integration token from: https://www.notion.so/my-integrations`
 				return fmt.Errorf("invalid token format: Notion tokens should start with 'secret_' or 'ntn_'")
 			}
 
-			// Store token in keyring
-			if err := auth.StoreToken(token); err != nil {
+			// Store token in keyring with source metadata
+			if err := auth.StoreTokenWithSource(token, "internal"); err != nil {
 				return fmt.Errorf("failed to store token: %w", err)
 			}
 
-			// Store auth source as internal integration
+			// Store auth source as internal integration for backwards compatibility
 			if err := auth.StoreAuthSource(auth.SourceInternal); err != nil {
 				// Non-fatal
 				fmt.Fprintf(os.Stderr, "Warning: could not store auth source: %v\n", err)
@@ -441,7 +440,7 @@ Get your internal integration token from: https://www.notion.so/my-integrations`
 
 			// Fetch and store user info
 			ctx := context.Background()
-			client := notion.NewClient(token)
+			client := NewNotionClient(token)
 			user, err := client.GetSelf(ctx)
 
 			var userInfo *auth.UserInfo
@@ -496,6 +495,7 @@ Shows:
   - Whether you're authenticated
   - Authentication type (OAuth or Internal Integration)
   - Token source (keyring or environment variable)
+  - Token age and rotation warnings
   - User information if available
 
 Does not display the actual token value.`,
@@ -540,6 +540,23 @@ Does not display the actual token value.`,
 
 			if hasToken && !fromEnvVar {
 				result["auth_type"] = authType
+			}
+
+			// Add token age info if available
+			if hasToken && !fromEnvVar {
+				if metadata, err := auth.GetTokenMetadata(); err == nil && metadata != nil {
+					if !metadata.CreatedAt.IsZero() {
+						age := auth.TokenAgeDays(metadata.CreatedAt)
+						result["token_age_days"] = age
+						result["token_created_at"] = metadata.CreatedAt.Format("2006-01-02")
+						result["token_age"] = auth.FormatTokenAge(metadata.CreatedAt)
+
+						// Add warning if token is old
+						if auth.IsTokenExpiringSoon(metadata.CreatedAt) {
+							result["warning"] = fmt.Sprintf("Token is %d days old. Consider rotating for security.", age)
+						}
+					}
+				}
 			}
 
 			// Add user info if available

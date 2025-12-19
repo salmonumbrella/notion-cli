@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Format represents the output format type.
@@ -22,6 +24,8 @@ const (
 	FormatJSON Format = "json"
 	// FormatTable is tabular format for lists.
 	FormatTable Format = "table"
+	// FormatYAML is YAML format.
+	FormatYAML Format = "yaml"
 )
 
 // ParseFormat converts a string to a Format type.
@@ -35,8 +39,10 @@ func ParseFormat(s string) (Format, error) {
 		return FormatJSON, nil
 	case FormatTable:
 		return FormatTable, nil
+	case FormatYAML:
+		return FormatYAML, nil
 	default:
-		return "", errors.New("invalid --output format (expected text|json|table)")
+		return "", errors.New("invalid --output format (expected text|json|table|yaml)")
 	}
 }
 
@@ -65,6 +71,8 @@ func (p *Printer) Print(ctx context.Context, data interface{}) error {
 	switch p.format {
 	case FormatJSON:
 		return p.printJSON(data)
+	case FormatYAML:
+		return p.printYAML(data)
 	case FormatTable:
 		return p.printTable(data)
 	case FormatText:
@@ -79,6 +87,14 @@ func (p *Printer) printJSON(data interface{}) error {
 	enc := json.NewEncoder(p.w)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
+	return enc.Encode(data)
+}
+
+// printYAML outputs data as YAML.
+func (p *Printer) printYAML(data interface{}) error {
+	enc := yaml.NewEncoder(p.w)
+	enc.SetIndent(2)
+	defer enc.Close()
 	return enc.Encode(data)
 }
 
