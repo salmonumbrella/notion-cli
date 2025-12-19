@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -509,4 +510,232 @@ func TestAPIError_Error(t *testing.T) {
 			t.Errorf("expected error message %q, got %q", expected, apiErr.Error())
 		}
 	})
+}
+
+func TestCircuitBreaker_OpenAfterFailures(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Object:  "error",
+			Status:  503,
+			Code:    "service_unavailable",
+			Message: "Service temporarily unavailable",
+		})
+	}))
+	defer server.Close()
+
+	// Create client with circuit breaker enabled (threshold=5, recovery=30s)
+	client := NewClient("test-token").
+		WithBaseURL(server.URL).
+		EnableCircuitBreaker()
+
+	ctx := context.Background()
+
+	// Make 5 requests to hit the threshold
+	// Each request will retry up to maxRetries (3) times
+	for i := 0; i < defaultCircuitBreakerThreshold; i++ {
+		_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
+		if err == nil {
+			t.Fatal("expected error from failing service")
+		}
+
+		// Should not be circuit open error yet
+		if err == ErrCircuitOpen {
+			t.Fatalf("circuit opened too early at failure %d", i+1)
+		}
+	}
+
+	// Next request should fail immediately with circuit open error
+	_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
+	if err != ErrCircuitOpen {
+		t.Errorf("expected ErrCircuitOpen, got %v", err)
+	}
+
+	// Verify the circuit breaker prevented the request
+	expectedAttempts := defaultCircuitBreakerThreshold * (maxRetries + 1)
+	if attempts != expectedAttempts {
+		t.Errorf("expected %d attempts before circuit opened, got %d", expectedAttempts, attempts)
+	}
+}
+
+func TestCircuitBreaker_ResetOnSuccess(t *testing.T) {
+	failCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		failCount++
+		if failCount <= 3 {
+			// Fail first 3 requests
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(ErrorResponse{
+				Object:  "error",
+				Status:  503,
+				Code:    "service_unavailable",
+				Message: "Service temporarily unavailable",
+			})
+		} else {
+			// Succeed on 4th request
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("test-token").
+		WithBaseURL(server.URL).
+		EnableCircuitBreaker()
+
+	ctx := context.Background()
+
+	// Make 3 failing requests
+	for i := 0; i < 3; i++ {
+		client.doRequest(ctx, http.MethodGet, "/test", nil)
+	}
+
+	// Make successful request - should reset failure counter
+	resp, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
+	if err != nil {
+		t.Fatalf("expected success, got error: %v", err)
+	}
+	resp.Body.Close()
+
+	// Now make more failing requests - should need 5 more to open circuit
+	failCount = 0 // Reset server counter
+	for i := 0; i < defaultCircuitBreakerThreshold-1; i++ {
+		client.doRequest(ctx, http.MethodGet, "/test", nil)
+	}
+
+	// Circuit should not be open yet
+	_, err = client.doRequest(ctx, http.MethodGet, "/test", nil)
+	if err == ErrCircuitOpen {
+		t.Error("circuit opened prematurely after success reset")
+	}
+}
+
+func TestCircuitBreaker_AutoRecovery(t *testing.T) {
+	doRequestCallCount := 0
+	mu := &sync.Mutex{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		currentCall := doRequestCallCount
+		mu.Unlock()
+
+		// First 5 doRequest calls should fail (to trigger circuit opening)
+		// Note: each doRequest makes multiple HTTP attempts due to retries
+		// After circuit opens and recovers, we succeed
+		if currentCall < defaultCircuitBreakerThreshold {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(ErrorResponse{
+				Object:  "error",
+				Status:  503,
+				Code:    "service_unavailable",
+				Message: "Service temporarily unavailable",
+			})
+		} else {
+			// Succeed after circuit recovery
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		}
+	}))
+	defer server.Close()
+
+	// Create client with short recovery timeout for testing
+	client := NewClient("test-token").
+		WithBaseURL(server.URL).
+		WithCircuitBreaker(defaultCircuitBreakerThreshold, 100*time.Millisecond)
+
+	ctx := context.Background()
+
+	// Open the circuit - make 5 failing requests
+	for i := 0; i < defaultCircuitBreakerThreshold; i++ {
+		mu.Lock()
+		doRequestCallCount = i
+		mu.Unlock()
+		client.doRequest(ctx, http.MethodGet, "/test", nil)
+	}
+
+	// Verify circuit is open
+	_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
+	if err != ErrCircuitOpen {
+		t.Errorf("expected ErrCircuitOpen, got %v", err)
+	}
+
+	// Wait for recovery timeout
+	time.Sleep(150 * time.Millisecond)
+
+	// Update counter for recovery attempt
+	mu.Lock()
+	doRequestCallCount = defaultCircuitBreakerThreshold
+	mu.Unlock()
+
+	// Circuit should be half-open and allow a request through
+	resp, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
+	if err != nil {
+		t.Fatalf("expected success after recovery timeout, got error: %v", err)
+	}
+	resp.Body.Close()
+
+	// Circuit should now be fully closed
+	if client.circuitBreaker.isOpen() {
+		t.Error("circuit should be closed after successful recovery")
+	}
+}
+
+func TestCircuitBreaker_DisabledByDefault(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Object:  "error",
+			Status:  503,
+			Code:    "service_unavailable",
+			Message: "Service temporarily unavailable",
+		})
+	}))
+	defer server.Close()
+
+	// Create client WITHOUT enabling circuit breaker
+	client := NewClient("test-token").WithBaseURL(server.URL)
+
+	ctx := context.Background()
+
+	// Make many requests - circuit breaker should not open
+	for i := 0; i < defaultCircuitBreakerThreshold+5; i++ {
+		_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
+		if err == ErrCircuitOpen {
+			t.Fatal("circuit breaker should be disabled by default")
+		}
+	}
+}
+
+func TestCircuitBreaker_Only5xxErrors(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		// Return 4xx errors which should not trigger circuit breaker
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Object:  "error",
+			Status:  404,
+			Code:    "object_not_found",
+			Message: "Not found",
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient("test-token").
+		WithBaseURL(server.URL).
+		EnableCircuitBreaker()
+
+	ctx := context.Background()
+
+	// Make many 4xx requests - should not open circuit
+	for i := 0; i < defaultCircuitBreakerThreshold+5; i++ {
+		_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
+		if err == ErrCircuitOpen {
+			t.Fatal("circuit should not open for 4xx errors")
+		}
+	}
 }

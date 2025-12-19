@@ -43,7 +43,7 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -118,7 +118,7 @@ Examples:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -183,7 +183,7 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -242,7 +242,7 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -297,7 +297,7 @@ Example - Move page to database:
 
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := notion.NewClient(token)

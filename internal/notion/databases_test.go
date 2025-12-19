@@ -60,12 +60,32 @@ func TestGetDatabase_EmptyID(t *testing.T) {
 }
 
 func TestQueryDatabase_Success(t *testing.T) {
+	// API 2025-09-03+ requires: GET database first to get data_source_id, then POST to /data_sources/{id}/query
+	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST method, got %s", r.Method)
+		requestCount++
+		if requestCount == 1 {
+			// First request: GET database to retrieve data_source_id
+			if r.Method != http.MethodGet {
+				t.Errorf("expected GET method for database fetch, got %s", r.Method)
+			}
+			if r.URL.Path != "/databases/db123" {
+				t.Errorf("expected path /databases/db123, got %s", r.URL.Path)
+			}
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(Database{
+				Object:      "database",
+				ID:          "db123",
+				DataSources: []DataSourceRef{{ID: "ds456"}},
+			})
+			return
 		}
-		if r.URL.Path != "/databases/db123/query" {
-			t.Errorf("expected path /databases/db123/query, got %s", r.URL.Path)
+		// Second request: POST query to data source
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST method for query, got %s", r.Method)
+		}
+		if r.URL.Path != "/data_sources/ds456/query" {
+			t.Errorf("expected path /data_sources/ds456/query, got %s", r.URL.Path)
 		}
 
 		var req DatabaseQueryRequest
@@ -97,6 +117,9 @@ func TestQueryDatabase_Success(t *testing.T) {
 	if result.Object != "list" {
 		t.Errorf("expected object 'list', got %q", result.Object)
 	}
+	if requestCount != 2 {
+		t.Errorf("expected 2 requests (GET database + POST query), got %d", requestCount)
+	}
 }
 
 func TestQueryDatabase_EmptyID(t *testing.T) {
@@ -115,7 +138,21 @@ func TestQueryDatabase_EmptyID(t *testing.T) {
 }
 
 func TestQueryDatabase_NilRequest(t *testing.T) {
+	// API 2025-09-03+ requires: GET database first, then POST query
+	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			// First request: GET database
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(Database{
+				Object:      "database",
+				ID:          "db123",
+				DataSources: []DataSourceRef{{ID: "ds456"}},
+			})
+			return
+		}
+		// Second request: POST query - nil request should be handled gracefully
 		var req DatabaseQueryRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("failed to decode request: %v", err)

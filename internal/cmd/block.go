@@ -24,6 +24,7 @@ func newBlockCmd() *cobra.Command {
 	cmd.AddCommand(newBlockAppendCmd())
 	cmd.AddCommand(newBlockUpdateCmd())
 	cmd.AddCommand(newBlockDeleteCmd())
+	cmd.AddCommand(newBlockAddCmd())
 	cmd.AddCommand(newBlockAddTOCCmd())
 	cmd.AddCommand(newBlockAddBreadcrumbCmd())
 	cmd.AddCommand(newBlockAddDividerCmd())
@@ -47,7 +48,7 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -70,6 +71,7 @@ Example:
 func newBlockChildrenCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
+	var all bool
 
 	cmd := &cobra.Command{
 		Use:   "children <block-id>",
@@ -78,10 +80,12 @@ func newBlockChildrenCmd() *cobra.Command {
 
 Use the --start-cursor flag to paginate through results.
 Use the --page-size flag to control the number of results per page (max 100).
+Use --all to fetch all pages of results automatically.
 
 Example:
   notion block children 12345678-1234-1234-1234-123456789012
-  notion block children 12345678-1234-1234-1234-123456789012 --page-size 50`,
+  notion block children 12345678-1234-1234-1234-123456789012 --page-size 50
+  notion block children 12345678-1234-1234-1234-123456789012 --all`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID := args[0]
@@ -94,20 +98,48 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := notion.NewClient(token)
+			ctx := context.Background()
 
-			// Build options
+			// If --all flag is set, fetch all pages
+			if all {
+				var allBlocks []notion.Block
+				cursor := startCursor
+
+				for {
+					opts := &notion.BlockChildrenOptions{
+						StartCursor: cursor,
+						PageSize:    pageSize,
+					}
+
+					blockList, err := client.GetBlockChildren(ctx, blockID, opts)
+					if err != nil {
+						return fmt.Errorf("failed to get block children: %w", err)
+					}
+
+					allBlocks = append(allBlocks, blockList.Results...)
+
+					if !blockList.HasMore || blockList.NextCursor == nil || *blockList.NextCursor == "" {
+						break
+					}
+					cursor = *blockList.NextCursor
+				}
+
+				// Print all results
+				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				return printer.Print(ctx, allBlocks)
+			}
+
+			// Single page request
 			opts := &notion.BlockChildrenOptions{
 				StartCursor: startCursor,
 				PageSize:    pageSize,
 			}
 
-			// Get block children
-			ctx := context.Background()
 			blockList, err := client.GetBlockChildren(ctx, blockID, opts)
 			if err != nil {
 				return fmt.Errorf("failed to get block children: %w", err)
@@ -121,6 +153,7 @@ Example:
 
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 
 	return cmd
 }
@@ -156,7 +189,7 @@ Example of a simple paragraph block:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -215,7 +248,7 @@ Example of updating a paragraph block:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -270,7 +303,7 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -323,7 +356,7 @@ Example:
 
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := notion.NewClient(token)
@@ -365,7 +398,7 @@ Example:
 
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := notion.NewClient(token)
@@ -402,7 +435,7 @@ Example:
 
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := notion.NewClient(token)
@@ -448,7 +481,7 @@ Example:
 
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			client := notion.NewClient(token)

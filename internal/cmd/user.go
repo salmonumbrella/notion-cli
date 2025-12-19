@@ -40,7 +40,7 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -63,6 +63,7 @@ Example:
 func newUserListCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
+	var all bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -70,11 +71,13 @@ func newUserListCmd() *cobra.Command {
 		Long: `List all users in the Notion workspace.
 
 Supports pagination with --start-cursor and --page-size flags.
+Use --all to fetch all pages of results automatically.
 
 Example:
   notion user list
   notion user list --page-size 50
-  notion user list --start-cursor abc123`,
+  notion user list --start-cursor abc123
+  notion user list --all`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate page size
@@ -85,20 +88,48 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := notion.NewClient(token)
+			ctx := context.Background()
 
-			// Prepare options
+			// If --all flag is set, fetch all pages
+			if all {
+				var allUsers []*notion.User
+				cursor := startCursor
+
+				for {
+					opts := &notion.ListUsersOptions{
+						StartCursor: cursor,
+						PageSize:    pageSize,
+					}
+
+					userList, err := client.ListUsers(ctx, opts)
+					if err != nil {
+						return fmt.Errorf("failed to list users: %w", err)
+					}
+
+					allUsers = append(allUsers, userList.Results...)
+
+					if !userList.HasMore || userList.NextCursor == nil || *userList.NextCursor == "" {
+						break
+					}
+					cursor = *userList.NextCursor
+				}
+
+				// Print all results
+				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				return printer.Print(ctx, allUsers)
+			}
+
+			// Single page request
 			opts := &notion.ListUsersOptions{
 				StartCursor: startCursor,
 				PageSize:    pageSize,
 			}
 
-			// List users
-			ctx := context.Background()
 			userList, err := client.ListUsers(ctx, opts)
 			if err != nil {
 				return fmt.Errorf("failed to list users: %w", err)
@@ -120,6 +151,7 @@ Example:
 
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor from previous response")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of items per page (max 100)")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 
 	return cmd
 }
@@ -140,7 +172,7 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client

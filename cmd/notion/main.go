@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmd"
 )
@@ -14,8 +17,11 @@ var (
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer cancel()
+
 	cmd.SetVersionInfo(Version, Commit, BuildTime)
-	if err := cmd.Execute(os.Args[1:]); err != nil {
+	if err := cmd.Execute(ctx, os.Args[1:]); err != nil {
 		os.Exit(1)
 	}
 }

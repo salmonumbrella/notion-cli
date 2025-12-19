@@ -5,7 +5,31 @@
 //   - json: Pretty-printed JSON
 //   - table: Tabular format for lists with aligned columns
 //
-// Usage:
+// # Context-Based Dependency Injection
+//
+// The recommended pattern is to use context-based dependency injection,
+// which allows the output format to be set once in root.go and accessed
+// throughout the command chain without passing it as a parameter.
+//
+// In root.go (PersistentPreRunE):
+//
+//	format, err := output.ParseFormat(formatFlag)
+//	if err != nil {
+//	    return err
+//	}
+//	ctx := output.WithFormat(cmd.Context(), format)
+//	cmd.SetContext(ctx)
+//
+// In commands:
+//
+//	// Get format from context (injected by root.PersistentPreRunE)
+//	format := output.FormatFromContext(cmd.Context())
+//	printer := output.NewPrinter(os.Stdout, format)
+//	return printer.Print(cmd.Context(), data)
+//
+// # Legacy Pattern (Still Supported)
+//
+// The legacy pattern using GetOutputFormat() still works for backwards compatibility:
 //
 //	// Parse format from CLI flag
 //	format, err := output.ParseFormat(outputFlag)
@@ -20,6 +44,8 @@
 //	if err := printer.Print(ctx, data); err != nil {
 //	    return err
 //	}
+//
+// # Data Type Handling
 //
 // The Printer automatically handles different data types:
 //   - Structs: Field names and values (uses json tags if present)

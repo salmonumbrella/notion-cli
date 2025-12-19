@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -29,7 +30,15 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		// Store format in both global var (for backwards compatibility)
+		// and context (new pattern for dependency injection)
 		outputFormat = format
+
+		// Inject format into context so subcommands can access it
+		ctx := output.WithFormat(cmd.Context(), format)
+		cmd.SetContext(ctx)
+
 		return nil
 	},
 }
@@ -54,10 +63,10 @@ func init() {
 	rootCmd.AddCommand(newDataSourceCmd())
 }
 
-// Execute runs the root command
-func Execute(args []string) error {
+// Execute runs the root command with context for graceful shutdown
+func Execute(ctx context.Context, args []string) error {
 	rootCmd.SetArgs(args)
-	if err := rootCmd.Execute(); err != nil {
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}

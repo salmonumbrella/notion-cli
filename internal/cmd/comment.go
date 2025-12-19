@@ -27,6 +27,7 @@ func newCommentCmd() *cobra.Command {
 func newCommentListCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
+	var all bool
 
 	cmd := &cobra.Command{
 		Use:   "list <block-id>",
@@ -36,12 +37,16 @@ func newCommentListCmd() *cobra.Command {
 The block-id can be a page ID or block ID.
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
+Use --all to fetch all pages of results automatically.
 
 Example - List all comments on a page:
   notion comment list abc123def456
 
 Example - List comments with pagination:
-  notion comment list abc123def456 --page-size 10 --start-cursor cursor123`,
+  notion comment list abc123def456 --page-size 10 --start-cursor cursor123
+
+Example - Fetch all comments:
+  notion comment list abc123def456 --all`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID := args[0]
@@ -49,20 +54,48 @@ Example - List comments with pagination:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := notion.NewClient(token)
+			ctx := context.Background()
 
-			// Build options
+			// If --all flag is set, fetch all pages
+			if all {
+				var allComments []*notion.Comment
+				cursor := startCursor
+
+				for {
+					opts := &notion.ListCommentsOptions{
+						StartCursor: cursor,
+						PageSize:    pageSize,
+					}
+
+					result, err := client.ListComments(ctx, blockID, opts)
+					if err != nil {
+						return fmt.Errorf("failed to list comments: %w", err)
+					}
+
+					allComments = append(allComments, result.Results...)
+
+					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
+						break
+					}
+					cursor = *result.NextCursor
+				}
+
+				// Print all results
+				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				return printer.Print(ctx, allComments)
+			}
+
+			// Single page request
 			opts := &notion.ListCommentsOptions{
 				StartCursor: startCursor,
 				PageSize:    pageSize,
 			}
 
-			// List comments
-			ctx := context.Background()
 			result, err := client.ListComments(ctx, blockID, opts)
 			if err != nil {
 				return fmt.Errorf("failed to list comments: %w", err)
@@ -76,6 +109,7 @@ Example - List comments with pagination:
 
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 
 	return cmd
 }
@@ -123,7 +157,7 @@ Example - Add to an existing discussion:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client

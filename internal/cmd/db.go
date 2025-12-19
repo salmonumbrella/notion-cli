@@ -42,7 +42,7 @@ Example:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -69,6 +69,7 @@ func newDBQueryCmd() *cobra.Command {
 	var sortsFile string
 	var startCursor string
 	var pageSize int
+	var all bool
 
 	cmd := &cobra.Command{
 		Use:   "query <database-id>",
@@ -81,6 +82,7 @@ The --sorts flag accepts a JSON array of sort objects.
 The --sorts-file flag reads sorts JSON from a file.
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
+Use --all to fetch all pages of results automatically.
 
 Example - Query all pages:
   notion db query 12345678-1234-1234-1234-123456789012
@@ -96,6 +98,9 @@ Example - Query with sorts:
 
 Example - Query with pagination:
   notion db query 12345678-1234-1234-1234-123456789012 --page-size 10 --start-cursor abc123
+
+Example - Fetch all results:
+  notion db query 12345678-1234-1234-1234-123456789012 --all
 
 Note: When using multi-line commands with backslash (\), ensure there are no
 trailing spaces after the backslash. Otherwise the shell may split the command
@@ -146,13 +151,45 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
 			client := notion.NewClient(token)
+			ctx := context.Background()
 
-			// Build query request
+			// If --all flag is set, fetch all pages
+			if all {
+				var allPages []notion.Page
+				cursor := startCursor
+
+				for {
+					req := &notion.DatabaseQueryRequest{
+						Filter:      filter,
+						Sorts:       sorts,
+						StartCursor: cursor,
+						PageSize:    pageSize,
+					}
+
+					result, err := client.QueryDatabase(ctx, databaseID, req)
+					if err != nil {
+						return fmt.Errorf("failed to query database: %w", err)
+					}
+
+					allPages = append(allPages, result.Results...)
+
+					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
+						break
+					}
+					cursor = *result.NextCursor
+				}
+
+				// Print all results
+				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				return printer.Print(ctx, allPages)
+			}
+
+			// Single page request
 			req := &notion.DatabaseQueryRequest{
 				Filter:      filter,
 				Sorts:       sorts,
@@ -160,8 +197,6 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				PageSize:    pageSize,
 			}
 
-			// Query database
-			ctx := context.Background()
 			result, err := client.QueryDatabase(ctx, databaseID, req)
 			if err != nil {
 				return fmt.Errorf("failed to query database: %w", err)
@@ -179,6 +214,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file")
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 
 	return cmd
 }
@@ -272,7 +308,7 @@ Example - Create with description:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
@@ -391,7 +427,7 @@ Example - Archive database:
 			// Get token
 			token, err := auth.GetToken()
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth add' to configure your API token", err)
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client

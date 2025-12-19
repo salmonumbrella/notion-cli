@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -20,14 +23,100 @@ const (
 	defaultTimeout = 30 * time.Second
 	maxRetries     = 3
 	baseDelay      = 1 * time.Second
+
+	// Circuit breaker defaults
+	defaultCircuitBreakerThreshold       = 5
+	defaultCircuitBreakerRecoveryTimeout = 30 * time.Second
 )
+
+var (
+	// ErrCircuitOpen is returned when the circuit breaker is open
+	ErrCircuitOpen = errors.New("circuit breaker is open - too many consecutive API failures")
+)
+
+// circuitBreaker implements a circuit breaker pattern to prevent hammering a failing API
+type circuitBreaker struct {
+	mu              sync.Mutex
+	failures        int
+	lastFailure     time.Time
+	open            bool
+	threshold       int
+	recoveryTimeout time.Duration
+	enabled         bool
+}
+
+// recordSuccess clears the failure counter and closes the circuit
+func (cb *circuitBreaker) recordSuccess() {
+	if !cb.enabled {
+		return
+	}
+
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	wasOpen := cb.open
+	cb.failures = 0
+	cb.open = false
+
+	if wasOpen {
+		log.Printf("[Circuit Breaker] Circuit closed - API recovered")
+	}
+}
+
+// recordFailure increments the failure counter and opens circuit if threshold reached
+// Returns true if the circuit just opened
+func (cb *circuitBreaker) recordFailure() bool {
+	if !cb.enabled {
+		return false
+	}
+
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.failures++
+	cb.lastFailure = time.Now()
+
+	if cb.failures >= cb.threshold && !cb.open {
+		cb.open = true
+		log.Printf("[Circuit Breaker] Circuit opened after %d consecutive failures", cb.failures)
+		return true
+	}
+
+	return false
+}
+
+// isOpen checks if the circuit is currently open
+// Auto-recovers if recovery timeout has passed
+func (cb *circuitBreaker) isOpen() bool {
+	if !cb.enabled {
+		return false
+	}
+
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	if !cb.open {
+		return false
+	}
+
+	// Check if recovery timeout has passed
+	if time.Since(cb.lastFailure) > cb.recoveryTimeout {
+		cb.open = false
+		cb.failures = 0
+		log.Printf("[Circuit Breaker] Circuit half-open - attempting recovery")
+		return false
+	}
+
+	return true
+}
 
 // Client is the Notion API client
 type Client struct {
-	httpClient *http.Client
-	token      string
-	baseURL    string
-	version    string
+	httpClient     *http.Client
+	token          string
+	baseURL        string
+	version        string
+	circuitBreaker *circuitBreaker
 }
 
 // NewClient creates a new Notion API client with the given token
@@ -39,6 +128,11 @@ func NewClient(token string) *Client {
 		token:   token,
 		baseURL: defaultBaseURL,
 		version: apiVersion,
+		circuitBreaker: &circuitBreaker{
+			threshold:       defaultCircuitBreakerThreshold,
+			recoveryTimeout: defaultCircuitBreakerRecoveryTimeout,
+			enabled:         false, // Disabled by default
+		},
 	}
 }
 
@@ -54,8 +148,27 @@ func (c *Client) WithBaseURL(baseURL string) *Client {
 	return c
 }
 
+// WithCircuitBreaker enables circuit breaker with custom threshold and recovery timeout
+func (c *Client) WithCircuitBreaker(threshold int, recoveryTimeout time.Duration) *Client {
+	c.circuitBreaker.enabled = true
+	c.circuitBreaker.threshold = threshold
+	c.circuitBreaker.recoveryTimeout = recoveryTimeout
+	return c
+}
+
+// EnableCircuitBreaker enables circuit breaker with default settings
+func (c *Client) EnableCircuitBreaker() *Client {
+	c.circuitBreaker.enabled = true
+	return c
+}
+
 // doRequest performs an HTTP request with retry logic for rate limits and transient errors
 func (c *Client) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
+	// Check if circuit breaker is open
+	if c.circuitBreaker.isOpen() {
+		return nil, ErrCircuitOpen
+	}
+
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -85,11 +198,16 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			return nil, err
 		}
 
-		// Success
+		// Success - record it to reset circuit breaker
+		c.circuitBreaker.recordSuccess()
 		return resp, nil
 	}
 
-	// All retries exhausted
+	// All retries exhausted - record as a single failure for circuit breaker
+	if apiErr, ok := lastErr.(*APIError); ok && apiErr.StatusCode >= 500 {
+		c.circuitBreaker.recordFailure()
+	}
+
 	return nil, lastErr
 }
 
@@ -147,6 +265,11 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body in
 
 // doMultipartRequest performs a multipart/form-data POST request with retry logic
 func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName string, file io.Reader, filename string, result interface{}) error {
+	// Check if circuit breaker is open
+	if c.circuitBreaker.isOpen() {
+		return ErrCircuitOpen
+	}
+
 	// Read the entire file into memory so we can retry if needed
 	fileData, err := io.ReadAll(file)
 	if err != nil {
@@ -182,11 +305,16 @@ func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName s
 			return err
 		}
 
-		// Success
+		// Success - record it to reset circuit breaker
+		c.circuitBreaker.recordSuccess()
 		return nil
 	}
 
-	// All retries exhausted
+	// All retries exhausted - record as a single failure for circuit breaker
+	if apiErr, ok := lastErr.(*APIError); ok && apiErr.StatusCode >= 500 {
+		c.circuitBreaker.recordFailure()
+	}
+
 	return lastErr
 }
 
