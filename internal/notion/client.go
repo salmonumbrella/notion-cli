@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
@@ -62,7 +62,7 @@ func (cb *circuitBreaker) recordSuccess() {
 	cb.open = false
 
 	if wasOpen {
-		log.Printf("[Circuit Breaker] Circuit closed - API recovered")
+		slog.Info("circuit breaker recovered", "component", "circuit_breaker")
 	}
 }
 
@@ -81,7 +81,7 @@ func (cb *circuitBreaker) recordFailure() bool {
 
 	if cb.failures >= cb.threshold && !cb.open {
 		cb.open = true
-		log.Printf("[Circuit Breaker] Circuit opened after %d consecutive failures", cb.failures)
+		slog.Warn("circuit breaker opened", "component", "circuit_breaker", "failures", cb.failures)
 		return true
 	}
 
@@ -106,7 +106,7 @@ func (cb *circuitBreaker) isOpen() bool {
 	if time.Since(cb.lastFailure) > cb.recoveryTimeout {
 		cb.open = false
 		cb.failures = 0
-		log.Printf("[Circuit Breaker] Circuit half-open - attempting recovery")
+		slog.Debug("circuit breaker half-open, attempting recovery", "component", "circuit_breaker")
 		return false
 	}
 
@@ -192,6 +192,22 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 		// Wait before retry (skip on first attempt)
 		if attempt > 0 {
 			delay := c.calculateRetryDelay(attempt, lastErr)
+
+			// Log retry with rate limit info if applicable
+			if apiErr, ok := lastErr.(*APIError); ok && apiErr.StatusCode == http.StatusTooManyRequests {
+				slog.Debug("rate limited, waiting before retry",
+					"method", method,
+					"path", path,
+					"attempt", attempt,
+					"delay", delay.String(),
+					"retry_after", apiErr.RetryAfter.String())
+			} else {
+				slog.Debug("retrying request",
+					"method", method,
+					"path", path,
+					"attempt", attempt,
+					"delay", delay.String())
+			}
 
 			select {
 			case <-ctx.Done():
@@ -302,6 +318,20 @@ func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName s
 		// Wait before retry (skip on first attempt)
 		if attempt > 0 {
 			delay := c.calculateRetryDelay(attempt, lastErr)
+
+			// Log retry with rate limit info if applicable
+			if apiErr, ok := lastErr.(*APIError); ok && apiErr.StatusCode == http.StatusTooManyRequests {
+				slog.Debug("rate limited, waiting before retry",
+					"url", url,
+					"attempt", attempt,
+					"delay", delay.String(),
+					"retry_after", apiErr.RetryAfter.String())
+			} else {
+				slog.Debug("retrying multipart request",
+					"url", url,
+					"attempt", attempt,
+					"delay", delay.String())
+			}
 
 			select {
 			case <-ctx.Done():
