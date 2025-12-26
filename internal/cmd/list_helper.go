@@ -1,0 +1,104 @@
+// internal/cmd/list_helper.go
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"text/tabwriter"
+
+	"github.com/salmonumbrella/notion-cli/internal/output"
+	"github.com/spf13/cobra"
+)
+
+// ListResult represents a paginated list response.
+type ListResult[T any] struct {
+	Items   []T
+	HasMore bool
+}
+
+// ListConfig configures a list command using generics.
+type ListConfig[T any] struct {
+	Use          string
+	Short        string
+	Long         string
+	Example      string
+	Headers      []string
+	RowFunc      func(T) []string
+	Fetch        func(ctx context.Context, page, pageSize int) (ListResult[T], error)
+	EmptyMessage string
+}
+
+// NewListCommand creates a Cobra command from a ListConfig.
+func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
+	var pageSize int
+
+	cmd := &cobra.Command{
+		Use:     config.Use,
+		Short:   config.Short,
+		Long:    config.Long,
+		Example: config.Example,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			format := output.FormatFromContext(ctx)
+
+			result, err := config.Fetch(ctx, 1, pageSize)
+			if err != nil {
+				return err
+			}
+
+			if len(result.Items) == 0 {
+				msg := config.EmptyMessage
+				if msg == "" {
+					msg = "No items found"
+				}
+				fmt.Fprintln(os.Stderr, msg)
+				return nil
+			}
+
+			// JSON output
+			if format == output.FormatJSON {
+				printer := output.NewPrinter(os.Stdout, format)
+				return printer.Print(ctx, result.Items)
+			}
+
+			// Table output
+			tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+
+			// Print headers
+			for i, h := range config.Headers {
+				if i > 0 {
+					_, _ = fmt.Fprint(tw, "\t")
+				}
+				_, _ = fmt.Fprint(tw, h)
+			}
+			_, _ = fmt.Fprintln(tw)
+
+			// Print rows
+			for _, item := range result.Items {
+				row := config.RowFunc(item)
+				for i, cell := range row {
+					if i > 0 {
+						_, _ = fmt.Fprint(tw, "\t")
+					}
+					_, _ = fmt.Fprint(tw, cell)
+				}
+				_, _ = fmt.Fprintln(tw)
+			}
+
+			if err := tw.Flush(); err != nil {
+				return fmt.Errorf("failed to flush output: %w", err)
+			}
+
+			if result.HasMore {
+				fmt.Fprintln(os.Stderr, "\n(more results available, use --page-size to fetch more)")
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().IntVar(&pageSize, "page-size", 50, "Number of items per page")
+
+	return cmd
+}
