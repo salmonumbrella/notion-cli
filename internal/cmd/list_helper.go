@@ -25,7 +25,7 @@ type ListConfig[T any] struct {
 	Example      string
 	Headers      []string
 	RowFunc      func(T) []string
-	Fetch        func(ctx context.Context, page, pageSize int) (ListResult[T], error)
+	Fetch        func(ctx context.Context, pageSize int) (ListResult[T], error)
 	EmptyMessage string
 }
 
@@ -42,7 +42,7 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 			ctx := cmd.Context()
 			format := output.FormatFromContext(ctx)
 
-			result, err := config.Fetch(ctx, 1, pageSize)
+			result, err := config.Fetch(ctx, pageSize)
 			if err != nil {
 				return err
 			}
@@ -56,13 +56,13 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 				return nil
 			}
 
-			// JSON output
-			if format == output.FormatJSON {
+			// Use Printer for JSON, YAML, and text formats
+			if format == output.FormatJSON || format == output.FormatYAML || format == output.FormatText {
 				printer := output.NewPrinter(os.Stdout, format)
 				return printer.Print(ctx, result.Items)
 			}
 
-			// Table output
+			// Table output (default for FormatTable or unrecognized)
 			tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 			// Print headers
