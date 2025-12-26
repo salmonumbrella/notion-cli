@@ -65,8 +65,12 @@ var rootCmd = &cobra.Command{
 		// and context (new pattern for dependency injection)
 		outputFormat = format
 
-		// Inject format, debug mode, and workspace into context so subcommands can access them
+		// Get jq query from flag
+		query, _ := cmd.Flags().GetString("query")
+
+		// Inject format, debug mode, query, and workspace into context so subcommands can access them
 		ctx := output.WithFormat(cmd.Context(), format)
+		ctx = output.WithQuery(ctx, query)
 		ctx = debug.WithDebug(ctx, debugMode)
 		ctx = WithWorkspace(ctx, ws)
 		cmd.SetContext(ctx)
@@ -88,6 +92,7 @@ func init() {
 
 	// Global flags
 	rootCmd.PersistentFlags().String("output", "text", "Output format (text|json|table|yaml)")
+	rootCmd.PersistentFlags().String("query", "", "jq expression to filter JSON output")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output (shows HTTP requests/responses)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceName, "workspace", "w", "", "Workspace to use (overrides NOTION_WORKSPACE env var)")
 

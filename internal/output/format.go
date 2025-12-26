@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/itchyny/gojq"
 	"gopkg.in/yaml.v3"
 )
 
@@ -70,7 +71,7 @@ func (p *Printer) Print(ctx context.Context, data interface{}) error {
 
 	switch p.format {
 	case FormatJSON:
-		return p.printJSON(data)
+		return p.printJSON(ctx, data)
 	case FormatYAML:
 		return p.printYAML(data)
 	case FormatTable:
@@ -83,11 +84,46 @@ func (p *Printer) Print(ctx context.Context, data interface{}) error {
 }
 
 // printJSON outputs data as pretty-printed JSON.
-func (p *Printer) printJSON(data interface{}) error {
+// If a jq query is present in the context, it filters the output.
+func (p *Printer) printJSON(ctx context.Context, data interface{}) error {
+	query := QueryFromContext(ctx)
+	if query == "" {
+		// Normal JSON output
+		enc := json.NewEncoder(p.w)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+		return enc.Encode(data)
+	}
+
+	// Parse and run jq query
+	parsed, err := gojq.Parse(query)
+	if err != nil {
+		return fmt.Errorf("invalid --query: %w", err)
+	}
+
+	code, err := gojq.Compile(parsed)
+	if err != nil {
+		return fmt.Errorf("invalid --query: %w", err)
+	}
+
+	iter := code.Run(data)
 	enc := json.NewEncoder(p.w)
 	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
-	return enc.Encode(data)
+
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, isErr := v.(error); isErr {
+			return fmt.Errorf("query error: %w", err)
+		}
+		if err := enc.Encode(v); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // printYAML outputs data as YAML.
