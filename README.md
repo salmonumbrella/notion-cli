@@ -13,8 +13,8 @@ Command-line interface for the Notion API with secure authentication, file uploa
 - **Search** - Full-text search across pages and databases with filtering and pagination
 - **Comments** - List and add comments to pages
 - **Multiple Output Formats** - Text, JSON, table, and YAML output for scripting and automation
-- **Agent-Friendly Flags** - `--yes`, `--limit`, `--sort-by`, and `--query` flags for automation
-- **Batch Operations** - Process multiple pages from JSON/NDJSON files
+- **Agent-Friendly Flags** - `--yes`, `--limit`, `--sort-by`, `--desc`, and `--query` flags for automation
+- **Batch File Support** - Infrastructure for reading JSON/NDJSON batch files (for future batch commands)
 - **jq Integration** - Filter JSON output with jq expressions via `--query`
 - **Debug Mode** - Verbose HTTP request/response logging for troubleshooting
 
@@ -421,42 +421,6 @@ notion db query <database-id> --output json --query '.results[].properties.Name'
 ```
 
 The `--query` flag passes output through jq for filtering. Requires `--output json`.
-
-### Batch Operations
-
-Process multiple items from JSON files:
-
-```bash
-# Create pages from JSON array file
-notion page batch-create --file pages.json
-
-# Create pages from NDJSON file (one JSON object per line)
-notion page batch-create --file pages.ndjson
-
-# Update multiple pages
-notion page batch-update --file updates.json
-
-# Delete multiple pages (requires --yes for safety)
-notion page batch-delete --file page-ids.json --yes
-```
-
-**JSON array format:**
-
-```json
-[
-  {"parent": {"database_id": "abc123"}, "properties": {"Name": {"title": [{"text": {"content": "Page 1"}}]}}},
-  {"parent": {"database_id": "abc123"}, "properties": {"Name": {"title": [{"text": {"content": "Page 2"}}]}}}
-]
-```
-
-**NDJSON format (one object per line):**
-
-```json
-{"parent": {"database_id": "abc123"}, "properties": {"Name": {"title": [{"text": {"content": "Page 1"}}]}}}
-{"parent": {"database_id": "abc123"}, "properties": {"Name": {"title": [{"text": {"content": "Page 2"}}]}}}
-```
-
-Limits: Maximum 10MB file size, 10000 items per batch.
 
 ## Global Flags
 
