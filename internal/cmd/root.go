@@ -8,6 +8,7 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/salmonumbrella/notion-cli/internal/debug"
+	"github.com/salmonumbrella/notion-cli/internal/logging"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -36,6 +37,9 @@ var rootCmd = &cobra.Command{
 	Short: "CLI for Notion API",
 	Long:  `A command-line interface for interacting with the Notion API`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Configure slog based on debug flag
+		logging.Setup(debugMode, os.Stderr)
+
 		// Load config file (skip for config commands to avoid recursion)
 		var cfg *config.Config
 		if cmd.Name() != "config" && (cmd.Parent() == nil || cmd.Parent().Name() != "config") {
