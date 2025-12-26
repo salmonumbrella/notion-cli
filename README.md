@@ -1,23 +1,42 @@
 # notion-cli
 
-A command-line interface for Notion.
+Command-line interface for the Notion API with secure authentication, file uploads, and data source management.
 
-## Quick Start
+## Features
 
-### Step 1: Install
+- **OAuth & Token Authentication** - Browser-based OAuth login or manual integration token setup
+- **Secure Credential Storage** - Uses OS keyring (Keychain on macOS, Secret Service on Linux, Credential Manager on Windows)
+- **Pages & Databases** - Create, query, update pages and databases with full property support
+- **Blocks** - Manage content blocks with quick helpers for TOC, breadcrumbs, dividers, and column layouts
+- **File Uploads** - Upload files to Notion with automatic chunking for large files (multi-part upload)
+- **Data Sources** - Create and query Notion data sources (API v2025-09-03)
+- **Search** - Full-text search across pages and databases with filtering and pagination
+- **Comments** - List and add comments to pages
+- **Multiple Output Formats** - Text, JSON, table, and YAML output for scripting and automation
+- **Agent-Friendly Flags** - `--yes`, `--limit`, `--sort-by`, and `--query` flags for automation
+- **Batch Operations** - Process multiple pages from JSON/NDJSON files
+- **jq Integration** - Filter JSON output with jq expressions via `--query`
+- **Debug Mode** - Verbose HTTP request/response logging for troubleshooting
 
-**Homebrew (recommended)**
+## Installation
+
+### Homebrew
+
 ```bash
 brew tap salmonumbrella/notion-cli
 brew install notion-cli
 ```
 
-**Go install**
+### Go Install
+
 ```bash
 go install github.com/salmonumbrella/notion-cli/cmd/notion@latest
 ```
 
-**Build from source** (requires Go 1.23+)
+### Build from Source
+
+Requires Go 1.23+
+
 ```bash
 git clone https://github.com/salmonumbrella/notion-cli.git
 cd notion-cli
@@ -25,7 +44,9 @@ make build
 # Binary will be in bin/notion
 ```
 
-### Step 2: Authenticate
+## Quick Start
+
+### 1. Authenticate
 
 Choose one of two authentication methods:
 
@@ -45,33 +66,80 @@ For bot/integration access. Create a token at https://www.notion.so/my-integrati
 notion auth add-token
 ```
 
-### Step 3: Verify
+### 2. Verify Authentication
 
 ```bash
 notion auth status
 ```
 
+### 3. Start Using
+
+```bash
+# Search your workspace
+notion search "project notes"
+
+# Get current user
+notion user me
+
+# List all users
+notion user list
+```
+
 You're ready to use notion-cli!
 
-## Authentication Details
+## Configuration
 
-| Method | Command | Best for |
-|--------|---------|----------|
-| OAuth login | `notion auth login` | Personal use, actions attributed to you |
-| Integration token | `notion auth add-token` | Bots, automations, shared integrations |
+### Environment Variables
 
-**Other auth commands:**
-```bash
-notion auth status   # Check authentication status
-notion auth logout   # Remove stored credentials
+- `NOTION_TOKEN` - API token (alternative to keyring storage)
+- `NOTION_WORKSPACE` - Default workspace name for multi-workspace support
+
+### Config File (Optional)
+
+notion-cli supports a YAML configuration file at `~/.config/notion-cli/config.yaml` for persistent settings.
+
+```yaml
+# Example configuration
+output: json
+color: always
+default_workspace: personal
 ```
 
-**Environment variable (alternative):**
-```bash
-export NOTION_TOKEN="your_token_here"
-```
+**Note:** CLI flags always override config file settings. See [Configuration Documentation](docs/configuration.md) for details.
+
+## Security
+
+### Credential Storage
+
+Credentials are stored securely in your system's keychain:
+- **macOS**: Keychain Access
+- **Linux**: Secret Service (GNOME Keyring, KWallet)
+- **Windows**: Credential Manager
+
+### Best Practices
+
+- **Never commit tokens** - Keep API tokens out of version control
+- Use `notion auth login` for personal use (browser-based OAuth)
+- Use `notion auth add-token` for integration/bot access (prompted securely)
+- Rotate API tokens regularly for security
+- The CLI warns about tokens older than 90 days
+
+### Configuration File Security
+
+- Config directory created with `0700` permissions (owner read/write/execute only)
+- Config file created with `0600` permissions (owner read/write only)
+- Token information is NOT stored in the config file
 
 ## Commands
+
+### Authentication
+
+```bash
+notion auth login              # Authenticate via browser (OAuth)
+notion auth add-token          # Add integration token manually
+notion auth status             # Check authentication status
+notion auth logout             # Remove stored credentials
+```
 
 ### Search
 
@@ -80,9 +148,10 @@ notion search                           # Search all pages and databases
 notion search "project notes"           # Search with query
 notion search "meeting" --filter page   # Search only pages
 notion search "tasks" --filter database # Search only databases
+notion search --page-size 10            # Limit results per page
 ```
 
-### User
+### Users
 
 ```bash
 notion user me              # Get current user
@@ -90,16 +159,17 @@ notion user list            # List all workspace users
 notion user get <user-id>   # Get user by ID
 ```
 
-### Page
+### Pages
 
 ```bash
 notion page get <page-id>                              # Get page
 notion page create --parent <id> --properties <json>   # Create page
 notion page update <page-id> --properties <json>       # Update page
+notion page move <page-id> --parent <new-parent-id>    # Move page
 notion page property <page-id> <property-id>           # Get property
 ```
 
-### Database
+### Databases
 
 ```bash
 notion db get <database-id>                            # Get database
@@ -108,7 +178,22 @@ notion db create --parent <id> --properties <json>     # Create database
 notion db update <database-id> --properties <json>     # Update database
 ```
 
-### Block
+**Query with filters and sorts:**
+
+```bash
+# Query with filter
+notion db query <database-id> \
+  --filter '{"property":"Status","select":{"equals":"Done"}}'
+
+# Query with sorts
+notion db query <database-id> \
+  --sorts '[{"property":"Created","direction":"descending"}]'
+
+# Query with pagination
+notion db query <database-id> --page-size 10 --start-cursor abc123
+```
+
+### Blocks
 
 ```bash
 notion block get <block-id>                        # Get block
@@ -119,6 +204,7 @@ notion block delete <block-id>                     # Delete block
 ```
 
 **Quick block creation:**
+
 ```bash
 notion block add-toc <parent-id>                   # Add table of contents
 notion block add-toc <parent-id> --color blue      # With color
@@ -134,35 +220,309 @@ notion comment list <block-id>                  # List comments
 notion comment add <block-id> --text "Comment"  # Add comment
 ```
 
+### File Uploads
+
+```bash
+notion file upload <filepath>                      # Upload file
+notion file get <upload-id>                        # Get upload status
+notion file list                                   # List file uploads
+```
+
+**Upload and attach to page property:**
+
+```bash
+notion file upload ./receipt.pdf --page abc123 --property "Attachments"
+```
+
+### Data Sources
+
+```bash
+notion datasource templates                        # List available templates
+notion datasource create --template <name>         # Create from template
+notion datasource get <datasource-id>              # Get data source
+notion datasource query <datasource-id>            # Query data source
+notion datasource update <datasource-id> <json>    # Update data source
+```
+
+Alias: `notion ds` (shorthand for `notion datasource`)
+
 ## Output Formats
 
-```bash
-notion user me --output text   # Human-readable (default)
-notion user me --output json   # JSON
-notion user list --output table # Table format
-```
+### Text (Default)
 
-## Configuration
-
-notion-cli supports a configuration file for persistent settings at `~/.config/notion-cli/config.yaml`.
+Human-readable output with formatting:
 
 ```bash
-# View configuration
-notion config show
-
-# Set default output format
-notion config set output json
-
-# Set color mode
-notion config set color always
-
-# View config file location
-notion config path
+$ notion user me
+NAME         EMAIL                  TYPE
+John Doe     john@example.com       person
 ```
 
-See [Configuration Documentation](docs/configuration.md) for details.
+### JSON
 
-**Note:** CLI flags always override config file settings.
+Machine-readable output for scripting:
+
+```bash
+$ notion user me --output json
+{
+  "id": "user_123",
+  "name": "John Doe",
+  "avatar_url": "https://...",
+  "type": "person",
+  "person": {
+    "email": "john@example.com"
+  }
+}
+```
+
+### Table
+
+Structured table output:
+
+```bash
+$ notion user list --output table
++----------+----------------------+--------+
+| NAME     | EMAIL                | TYPE   |
++----------+----------------------+--------+
+| John Doe | john@example.com     | person |
+| Bot      | bot@integration      | bot    |
++----------+----------------------+--------+
+```
+
+### YAML
+
+YAML format for configuration-style output:
+
+```bash
+$ notion user me --output yaml
+id: user_123
+name: John Doe
+type: person
+person:
+  email: john@example.com
+```
+
+Data goes to stdout, errors and progress to stderr for clean piping.
+
+## Examples
+
+### Create a page with content
+
+```bash
+# Create a page
+notion page create \
+  --parent <parent-id> \
+  --properties '{"title":[{"text":{"content":"New Page"}}]}'
+
+# Add content blocks
+notion block append <page-id> \
+  --children '[{"object":"block","type":"paragraph","paragraph":{"rich_text":[{"text":{"content":"Hello world"}}]}}]'
+```
+
+### Query a database and filter results
+
+```bash
+# Get all completed tasks
+notion db query <database-id> \
+  --filter '{"property":"Status","select":{"equals":"Done"}}' \
+  --output json | jq '.results[] | {title: .properties.Name.title[0].text.content}'
+```
+
+### Upload a file and attach to page
+
+```bash
+# Upload and attach in one command
+notion file upload ./document.pdf --page <page-id> --property "Attachments"
+
+# Or upload first, then attach manually
+notion file upload ./image.png
+# Use the returned upload ID to attach via page update
+```
+
+### Search and export results
+
+```bash
+# Search and save to JSON file
+notion search "project" --output json > projects.json
+
+# Search only databases
+notion search --filter database --output table
+```
+
+### Add table of contents to page
+
+```bash
+# Add TOC at the beginning
+notion block add-toc <page-id>
+
+# Add colored TOC
+notion block add-toc <page-id> --color blue_background
+```
+
+### Create multi-column layout
+
+```bash
+# Create 2-column layout
+notion block add-columns <page-id> --columns 2
+
+# Create 3-column layout
+notion block add-columns <page-id> --columns 3
+```
+
+## Advanced Features
+
+### Debug Mode
+
+Enable verbose output for troubleshooting:
+
+```bash
+notion --debug user me
+# Shows: HTTP request method, URL, headers
+# Shows: HTTP response status, body
+```
+
+Debug output goes to stderr, keeping stdout clean for piping.
+
+### Pagination
+
+Handle large result sets with pagination:
+
+```bash
+# First page
+notion search --page-size 10
+
+# Next page (use start_cursor from previous response)
+notion search --page-size 10 --start-cursor "abc123"
+
+# Database query pagination
+notion db query <database-id> --page-size 25 --start-cursor "xyz789"
+```
+
+### Agent-Friendly Flags
+
+For automation and scripting with AI agents or shell scripts:
+
+```bash
+# Skip confirmation prompts (for destructive operations)
+notion page delete <page-id> --yes
+notion block delete <block-id> -y
+
+# Limit results
+notion db query <database-id> --limit 10
+notion search "meeting notes" --limit 5
+
+# Sort results
+notion search "project" --sort-by created_time --desc
+notion db query <database-id> --sort-by last_edited_time
+
+# Filter JSON output with jq expressions
+notion page get <page-id> --output json --query '.properties.Status'
+notion db query <database-id> --output json --query '.results[].properties.Name'
+```
+
+The `--query` flag passes output through jq for filtering. Requires `--output json`.
+
+### Batch Operations
+
+Process multiple items from JSON files:
+
+```bash
+# Create pages from JSON array file
+notion page batch-create --file pages.json
+
+# Create pages from NDJSON file (one JSON object per line)
+notion page batch-create --file pages.ndjson
+
+# Update multiple pages
+notion page batch-update --file updates.json
+
+# Delete multiple pages (requires --yes for safety)
+notion page batch-delete --file page-ids.json --yes
+```
+
+**JSON array format:**
+
+```json
+[
+  {"parent": {"database_id": "abc123"}, "properties": {"Name": {"title": [{"text": {"content": "Page 1"}}]}}},
+  {"parent": {"database_id": "abc123"}, "properties": {"Name": {"title": [{"text": {"content": "Page 2"}}]}}}
+]
+```
+
+**NDJSON format (one object per line):**
+
+```json
+{"parent": {"database_id": "abc123"}, "properties": {"Name": {"title": [{"text": {"content": "Page 1"}}]}}}
+{"parent": {"database_id": "abc123"}, "properties": {"Name": {"title": [{"text": {"content": "Page 2"}}]}}}
+```
+
+Limits: Maximum 10MB file size, 10000 items per batch.
+
+## Global Flags
+
+All commands support these flags:
+
+- `--output <format>` - Output format: `text` (default), `json`, `table`, or `yaml`
+- `--debug` - Enable debug output (shows HTTP requests/responses)
+- `--workspace <name>` or `-w <name>` - Workspace to use (overrides NOTION_WORKSPACE env var)
+- `--yes` or `-y` - Skip confirmation prompts (for destructive operations)
+- `--limit <N>` - Limit number of results (for list/query commands)
+- `--sort-by <field>` - Sort results by field (e.g., `created_time`, `last_edited_time`)
+- `--desc` - Sort in descending order (use with `--sort-by`)
+- `--query <expr>` - Filter JSON output with jq expression (requires `--output json`)
+- `--help` or `-h` - Show help for any command
+- `--version` or `-v` - Show version information
+
+## Shell Completions
+
+Generate shell completions for your preferred shell:
+
+### Bash
+
+```bash
+# macOS (with Homebrew):
+notion completion bash > $(brew --prefix)/etc/bash_completion.d/notion
+
+# Linux:
+notion completion bash > /etc/bash_completion.d/notion
+
+# Or load for current session only:
+source <(notion completion bash)
+```
+
+### Zsh
+
+```zsh
+# Save to completion directory:
+notion completion zsh > "${fpath[1]}/_notion"
+
+# Or add to .zshrc for auto-load:
+echo 'source <(notion completion zsh)' >> ~/.zshrc
+
+# Then restart your shell
+```
+
+### Fish
+
+```fish
+# Save to Fish completions directory:
+notion completion fish > ~/.config/fish/completions/notion.fish
+
+# Or load for current session only:
+notion completion fish | source
+```
+
+### PowerShell
+
+```powershell
+# Load for current session:
+notion completion powershell | Out-String | Invoke-Expression
+
+# Or add to PowerShell profile for persistence:
+notion completion powershell >> $PROFILE
+```
+
+After installing completions, restart your shell or source your shell configuration file.
 
 ## Go Library
 
@@ -296,6 +656,24 @@ make setup
 
 This installs [lefthook](https://github.com/evilmartians/lefthook) pre-commit and pre-push hooks for linting and testing.
 
+### Available Make Targets
+
+```bash
+make build         # Build binary to bin/notion
+make test          # Run tests
+make lint          # Run linter
+make fmt           # Format code
+make fmt-check     # Check formatting (CI)
+make clean         # Clean build artifacts
+make ci            # Run all CI checks (fmt-check, lint, test)
+```
+
 ## License
 
 MIT
+
+## Links
+
+- [Notion API Documentation](https://developers.notion.com/reference)
+- [GitHub Repository](https://github.com/salmonumbrella/notion-cli)
+- [Configuration Guide](docs/configuration.md)
