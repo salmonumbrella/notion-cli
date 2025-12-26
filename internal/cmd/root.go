@@ -19,6 +19,12 @@ var (
 	debugMode     bool
 	workspaceName string
 
+	// Agent-friendly flags
+	yesFlag   bool
+	limitFlag int
+	sortBy    string
+	descFlag  bool
+
 	// Version information
 	version   = "dev"
 	commit    = "unknown"
@@ -73,6 +79,12 @@ var rootCmd = &cobra.Command{
 		ctx = output.WithQuery(ctx, query)
 		ctx = debug.WithDebug(ctx, debugMode)
 		ctx = WithWorkspace(ctx, ws)
+
+		// Inject agent-friendly flags into context
+		ctx = output.WithYes(ctx, yesFlag)
+		ctx = output.WithLimit(ctx, limitFlag)
+		ctx = output.WithSort(ctx, sortBy, descFlag)
+
 		cmd.SetContext(ctx)
 
 		// Check token age and warn if old (skip for auth and config commands)
@@ -95,6 +107,12 @@ func init() {
 	rootCmd.PersistentFlags().String("query", "", "jq expression to filter JSON output")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output (shows HTTP requests/responses)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceName, "workspace", "w", "", "Workspace to use (overrides NOTION_WORKSPACE env var)")
+
+	// Agent-friendly flags
+	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts (for automation)")
+	rootCmd.PersistentFlags().IntVar(&limitFlag, "limit", 0, "Limit number of results (0 = unlimited)")
+	rootCmd.PersistentFlags().StringVar(&sortBy, "sort-by", "", "Sort results by field")
+	rootCmd.PersistentFlags().BoolVar(&descFlag, "desc", false, "Sort in descending order")
 
 	// Register subcommands
 	rootCmd.AddCommand(newAuthCmd())

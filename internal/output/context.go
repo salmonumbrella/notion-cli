@@ -37,3 +37,53 @@ func QueryFromContext(ctx context.Context) string {
 	}
 	return ""
 }
+
+// Agent-friendly flag context keys
+type yesKey struct{}
+type limitKey struct{}
+type sortFieldKey struct{}
+type sortDescKey struct{}
+
+// WithYes sets the --yes flag in context.
+func WithYes(ctx context.Context, yes bool) context.Context {
+	return context.WithValue(ctx, yesKey{}, yes)
+}
+
+// YesFromContext returns true if --yes flag is set.
+func YesFromContext(ctx context.Context) bool {
+	if y, ok := ctx.Value(yesKey{}).(bool); ok {
+		return y
+	}
+	return false
+}
+
+// WithLimit sets the --limit value in context.
+func WithLimit(ctx context.Context, limit int) context.Context {
+	return context.WithValue(ctx, limitKey{}, limit)
+}
+
+// LimitFromContext returns the --limit value (0 = unlimited).
+func LimitFromContext(ctx context.Context) int {
+	if l, ok := ctx.Value(limitKey{}).(int); ok {
+		return l
+	}
+	return 0
+}
+
+// WithSort sets sort field and direction in context.
+func WithSort(ctx context.Context, field string, desc bool) context.Context {
+	ctx = context.WithValue(ctx, sortFieldKey{}, field)
+	ctx = context.WithValue(ctx, sortDescKey{}, desc)
+	return ctx
+}
+
+// SortFromContext returns sort field and direction.
+func SortFromContext(ctx context.Context) (field string, desc bool) {
+	if f, ok := ctx.Value(sortFieldKey{}).(string); ok {
+		field = f
+	}
+	if d, ok := ctx.Value(sortDescKey{}).(bool); ok {
+		desc = d
+	}
+	return
+}
