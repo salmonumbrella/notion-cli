@@ -34,8 +34,9 @@ func TestIsNewer(t *testing.T) {
 		{"1.0.0", "1.0.0", false},
 		{"1.0.1", "1.0.0", false},
 		{"1.0.0", "2.0.0", true},
-		{"dev", "1.0.0", false}, // dev version, don't prompt
-		{"", "1.0.0", false},    // empty version, don't prompt
+		{"1.9.0", "1.10.0", true}, // integer comparison, not string
+		{"dev", "1.0.0", false},   // dev version, don't prompt
+		{"", "1.0.0", false},      // empty version, don't prompt
 	}
 
 	for _, tt := range tests {

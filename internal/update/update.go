@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -135,15 +136,16 @@ func isNewer(current, latest string) bool {
 		return false
 	}
 
-	// Simple string comparison (works for semver)
 	currentParts := strings.Split(current, ".")
 	latestParts := strings.Split(latest, ".")
 
 	for i := 0; i < len(currentParts) && i < len(latestParts); i++ {
-		if latestParts[i] > currentParts[i] {
+		c, _ := strconv.Atoi(currentParts[i])
+		l, _ := strconv.Atoi(latestParts[i])
+		if l > c {
 			return true
 		}
-		if latestParts[i] < currentParts[i] {
+		if l < c {
 			return false
 		}
 	}
