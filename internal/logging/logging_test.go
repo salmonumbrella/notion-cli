@@ -8,7 +8,18 @@ import (
 	"testing"
 )
 
+// saveAndRestoreLogger saves the current default logger and returns a cleanup function.
+func saveAndRestoreLogger(t *testing.T) {
+	t.Helper()
+	original := slog.Default()
+	t.Cleanup(func() {
+		slog.SetDefault(original)
+	})
+}
+
 func TestSetup_DebugMode(t *testing.T) {
+	saveAndRestoreLogger(t)
+
 	var buf bytes.Buffer
 	Setup(true, &buf)
 
@@ -24,6 +35,8 @@ func TestSetup_DebugMode(t *testing.T) {
 }
 
 func TestSetup_NormalMode(t *testing.T) {
+	saveAndRestoreLogger(t)
+
 	var buf bytes.Buffer
 	Setup(false, &buf)
 
@@ -40,19 +53,45 @@ func TestSetup_NormalMode(t *testing.T) {
 }
 
 func TestSetup_NilWriter(t *testing.T) {
+	saveAndRestoreLogger(t)
+
 	// Should not panic when writer is nil (defaults to stderr)
 	Setup(false, nil)
 	slog.Info("test") // Should not panic
 }
 
-func TestSetupJSON(t *testing.T) {
+func TestSetupJSON_DebugMode(t *testing.T) {
+	saveAndRestoreLogger(t)
+
 	var buf bytes.Buffer
 	SetupJSON(true, &buf)
 
-	slog.Info("json test", "key", "value")
+	slog.Debug("debug json", "key", "value")
+	slog.Info("info json")
 
 	output := buf.String()
-	if !strings.Contains(output, `"msg":"json test"`) {
-		t.Errorf("expected JSON format, got: %s", output)
+	if !strings.Contains(output, `"msg":"debug json"`) {
+		t.Errorf("expected debug message in JSON output, got: %s", output)
+	}
+	if !strings.Contains(output, `"msg":"info json"`) {
+		t.Errorf("expected info message in JSON output, got: %s", output)
+	}
+}
+
+func TestSetupJSON_NormalMode(t *testing.T) {
+	saveAndRestoreLogger(t)
+
+	var buf bytes.Buffer
+	SetupJSON(false, &buf)
+
+	slog.Debug("debug message")
+	slog.Info("info message")
+
+	output := buf.String()
+	if strings.Contains(output, "debug message") {
+		t.Errorf("debug message should not appear in normal JSON mode")
+	}
+	if !strings.Contains(output, `"msg":"info message"`) {
+		t.Errorf("info message should appear in JSON format, got: %s", output)
 	}
 }
