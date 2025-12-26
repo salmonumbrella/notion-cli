@@ -77,3 +77,43 @@ func IsValidationError(err error) bool {
 	var e *ValidationError
 	return errors.As(err, &e)
 }
+
+// ContextualError wraps an error with HTTP request context for debugging.
+type ContextualError struct {
+	Method     string
+	URL        string
+	StatusCode int
+	Err        error
+}
+
+// WrapContext wraps an error with HTTP request context.
+// StatusCode can be 0 if the request never completed.
+// Returns nil if err is nil.
+func WrapContext(method, url string, statusCode int, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &ContextualError{
+		Method:     method,
+		URL:        url,
+		StatusCode: statusCode,
+		Err:        err,
+	}
+}
+
+func (e *ContextualError) Error() string {
+	if e.StatusCode > 0 {
+		return fmt.Sprintf("%s %s (%d): %s", e.Method, e.URL, e.StatusCode, e.Err)
+	}
+	return fmt.Sprintf("%s %s: %s", e.Method, e.URL, e.Err)
+}
+
+func (e *ContextualError) Unwrap() error {
+	return e.Err
+}
+
+// IsContextualError checks if an error is a ContextualError.
+func IsContextualError(err error) bool {
+	var ce *ContextualError
+	return errors.As(err, &ce)
+}

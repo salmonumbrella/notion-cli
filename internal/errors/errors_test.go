@@ -149,3 +149,58 @@ func TestErrorWrapping(t *testing.T) {
 		t.Error("Properly typed error should match IsAPIError")
 	}
 }
+
+func TestContextualError(t *testing.T) {
+	inner := errors.New("connection refused")
+	err := WrapContext("POST", "https://api.notion.com/v1/pages", 0, inner)
+
+	ctxErr, ok := err.(*ContextualError)
+	if !ok {
+		t.Fatalf("expected *ContextualError, got %T", err)
+	}
+
+	if ctxErr.Method != "POST" {
+		t.Errorf("expected method POST, got %s", ctxErr.Method)
+	}
+	if ctxErr.URL != "https://api.notion.com/v1/pages" {
+		t.Errorf("expected URL, got %s", ctxErr.URL)
+	}
+	if !errors.Is(err, inner) {
+		t.Errorf("expected Unwrap to return inner error")
+	}
+
+	expected := "POST https://api.notion.com/v1/pages: connection refused"
+	if err.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestContextualError_WithStatusCode(t *testing.T) {
+	inner := errors.New("not found")
+	err := WrapContext("GET", "/pages/123", 404, inner)
+
+	expected := "GET /pages/123 (404): not found"
+	if err.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestContextualError_NilError(t *testing.T) {
+	err := WrapContext("GET", "/test", 200, nil)
+	if err != nil {
+		t.Errorf("expected nil when wrapping nil error, got %v", err)
+	}
+}
+
+func TestIsContextualError(t *testing.T) {
+	inner := errors.New("test error")
+	err := WrapContext("GET", "/test", 500, inner)
+
+	if !IsContextualError(err) {
+		t.Error("expected IsContextualError to return true")
+	}
+
+	if IsContextualError(inner) {
+		t.Error("expected IsContextualError to return false for non-contextual error")
+	}
+}
