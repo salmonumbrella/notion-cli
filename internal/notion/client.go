@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/salmonumbrella/notion-cli/internal/debug"
+	ctxerrors "github.com/salmonumbrella/notion-cli/internal/errors"
 )
 
 const (
@@ -181,9 +182,11 @@ func (c *Client) WithDebug() *Client {
 
 // doRequest performs an HTTP request with retry logic for rate limits and transient errors
 func (c *Client) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
+	url := c.baseURL + path
+
 	// Check if circuit breaker is open
 	if c.circuitBreaker.isOpen() {
-		return nil, ErrCircuitOpen
+		return nil, ctxerrors.WrapContext(method, url, 0, ErrCircuitOpen)
 	}
 
 	var lastErr error
@@ -211,7 +214,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				return nil, ctxerrors.WrapContext(method, url, 0, ctx.Err())
 			case <-time.After(delay):
 			}
 		}
@@ -228,7 +231,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			}
 
 			// Non-retryable error, return immediately
-			return nil, err
+			return nil, ctxerrors.WrapContext(method, url, getStatusCode(err), err)
 		}
 
 		// Success - record it to reset circuit breaker
@@ -241,7 +244,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 		c.circuitBreaker.recordFailure()
 	}
 
-	return nil, lastErr
+	return nil, ctxerrors.WrapContext(method, url, getStatusCode(lastErr), lastErr)
 }
 
 // doRequestOnce performs a single HTTP request attempt with proper headers and error handling
@@ -303,13 +306,13 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body in
 func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName string, file io.Reader, filename string, result interface{}) error {
 	// Check if circuit breaker is open
 	if c.circuitBreaker.isOpen() {
-		return ErrCircuitOpen
+		return ctxerrors.WrapContext(http.MethodPost, url, 0, ErrCircuitOpen)
 	}
 
 	// Read the entire file into memory so we can retry if needed
 	fileData, err := io.ReadAll(file)
 	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
+		return ctxerrors.WrapContext(http.MethodPost, url, 0, fmt.Errorf("failed to read file: %w", err))
 	}
 
 	var lastErr error
@@ -335,7 +338,7 @@ func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName s
 
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return ctxerrors.WrapContext(http.MethodPost, url, 0, ctx.Err())
 			case <-time.After(delay):
 			}
 		}
@@ -352,7 +355,7 @@ func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName s
 			}
 
 			// Non-retryable error, return immediately
-			return err
+			return ctxerrors.WrapContext(http.MethodPost, url, getStatusCode(err), err)
 		}
 
 		// Success - record it to reset circuit breaker
@@ -365,7 +368,7 @@ func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName s
 		c.circuitBreaker.recordFailure()
 	}
 
-	return lastErr
+	return ctxerrors.WrapContext(http.MethodPost, url, getStatusCode(lastErr), lastErr)
 }
 
 // doMultipartRequestOnce performs a single multipart/form-data POST request
@@ -466,6 +469,14 @@ func parseRetryAfter(retryAfter string) time.Duration {
 		}
 	}
 
+	return 0
+}
+
+// getStatusCode extracts the HTTP status code from an error if it's an APIError
+func getStatusCode(err error) int {
+	if apiErr, ok := err.(*APIError); ok {
+		return apiErr.StatusCode
+	}
 	return 0
 }
 

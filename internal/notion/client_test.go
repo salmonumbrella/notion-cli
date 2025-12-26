@@ -3,6 +3,7 @@ package notion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -203,9 +204,9 @@ func TestDoRequest_ErrorResponse(t *testing.T) {
 				t.Fatal("expected error, got nil")
 			}
 
-			apiErr, ok := err.(*APIError)
-			if !ok {
-				t.Fatalf("expected *APIError, got %T", err)
+			var apiErr *APIError
+			if !errors.As(err, &apiErr) {
+				t.Fatalf("expected error to wrap *APIError, got %T", err)
 			}
 
 			if apiErr.StatusCode != tt.expectedStatus {
@@ -245,9 +246,9 @@ func TestDoRequest_MalformedErrorResponse(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	apiErr, ok := err.(*APIError)
-	if !ok {
-		t.Fatalf("expected *APIError, got %T", err)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected error to wrap *APIError, got %T", err)
 	}
 
 	if apiErr.StatusCode != http.StatusInternalServerError {
@@ -542,14 +543,14 @@ func TestCircuitBreaker_OpenAfterFailures(t *testing.T) {
 		}
 
 		// Should not be circuit open error yet
-		if err == ErrCircuitOpen {
+		if errors.Is(err, ErrCircuitOpen) {
 			t.Fatalf("circuit opened too early at failure %d", i+1)
 		}
 	}
 
 	// Next request should fail immediately with circuit open error
 	_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
-	if err != ErrCircuitOpen {
+	if !errors.Is(err, ErrCircuitOpen) {
 		t.Errorf("expected ErrCircuitOpen, got %v", err)
 	}
 
@@ -607,7 +608,7 @@ func TestCircuitBreaker_ResetOnSuccess(t *testing.T) {
 
 	// Circuit should not be open yet
 	_, err = client.doRequest(ctx, http.MethodGet, "/test", nil)
-	if err == ErrCircuitOpen {
+	if errors.Is(err, ErrCircuitOpen) {
 		t.Error("circuit opened prematurely after success reset")
 	}
 }
@@ -657,7 +658,7 @@ func TestCircuitBreaker_AutoRecovery(t *testing.T) {
 
 	// Verify circuit is open
 	_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
-	if err != ErrCircuitOpen {
+	if !errors.Is(err, ErrCircuitOpen) {
 		t.Errorf("expected ErrCircuitOpen, got %v", err)
 	}
 
@@ -704,7 +705,7 @@ func TestCircuitBreaker_DisabledByDefault(t *testing.T) {
 	// Make many requests - circuit breaker should not open
 	for i := 0; i < defaultCircuitBreakerThreshold+5; i++ {
 		_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
-		if err == ErrCircuitOpen {
+		if errors.Is(err, ErrCircuitOpen) {
 			t.Fatal("circuit breaker should be disabled by default")
 		}
 	}
@@ -734,7 +735,7 @@ func TestCircuitBreaker_Only5xxErrors(t *testing.T) {
 	// Make many 4xx requests - should not open circuit
 	for i := 0; i < defaultCircuitBreakerThreshold+5; i++ {
 		_, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
-		if err == ErrCircuitOpen {
+		if errors.Is(err, ErrCircuitOpen) {
 			t.Fatal("circuit should not open for 4xx errors")
 		}
 	}

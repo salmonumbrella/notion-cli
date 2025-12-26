@@ -3,6 +3,7 @@ package notion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -148,9 +149,9 @@ func TestDoRequest_NoRetryOn404(t *testing.T) {
 		t.Errorf("expected only 1 attempt (no retry), got %d", attemptCount)
 	}
 
-	apiErr, ok := err.(*APIError)
-	if !ok {
-		t.Fatalf("expected *APIError, got %T", err)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected error to wrap *APIError, got %T", err)
 	}
 
 	if apiErr.StatusCode != 404 {
@@ -186,9 +187,9 @@ func TestDoRequest_ExhaustedRetries(t *testing.T) {
 		t.Errorf("expected 4 attempts (initial + 3 retries), got %d", attemptCount)
 	}
 
-	apiErr, ok := err.(*APIError)
-	if !ok {
-		t.Fatalf("expected *APIError, got %T", err)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected error to wrap *APIError, got %T", err)
 	}
 
 	if apiErr.StatusCode != 429 {

@@ -3,6 +3,7 @@ package notion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -78,9 +79,9 @@ func TestGetUser_NotFound(t *testing.T) {
 		t.Fatal("expected error for nonexistent user")
 	}
 
-	apiErr, ok := err.(*APIError)
-	if !ok {
-		t.Fatalf("expected *APIError, got %T", err)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected error to wrap *APIError, got %T", err)
 	}
 	if apiErr.StatusCode != 404 {
 		t.Errorf("expected status 404, got %d", apiErr.StatusCode)
@@ -276,9 +277,9 @@ func TestGetSelf_Unauthorized(t *testing.T) {
 		t.Fatal("expected error for unauthorized request")
 	}
 
-	apiErr, ok := err.(*APIError)
-	if !ok {
-		t.Fatalf("expected *APIError, got %T", err)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected error to wrap *APIError, got %T", err)
 	}
 	if apiErr.StatusCode != 401 {
 		t.Errorf("expected status 401, got %d", apiErr.StatusCode)
