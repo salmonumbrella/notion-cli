@@ -1,0 +1,423 @@
+package output
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"reflect"
+	"sort"
+	"strings"
+	"text/tabwriter"
+
+	"github.com/itchyny/gojq"
+	"gopkg.in/yaml.v3"
+)
+
+// Format represents the output format type.
+type Format string
+
+const (
+	// FormatText is human-readable key-value format (default).
+	FormatText Format = "text"
+	// FormatJSON is pretty-printed JSON format.
+	FormatJSON Format = "json"
+	// FormatTable is tabular format for lists.
+	FormatTable Format = "table"
+	// FormatYAML is YAML format.
+	FormatYAML Format = "yaml"
+)
+
+// ParseFormat converts a string to a Format type.
+// Empty string defaults to FormatText.
+// Returns error if the format is invalid.
+func ParseFormat(s string) (Format, error) {
+	switch Format(strings.ToLower(strings.TrimSpace(s))) {
+	case FormatText, "":
+		return FormatText, nil
+	case FormatJSON:
+		return FormatJSON, nil
+	case FormatTable:
+		return FormatTable, nil
+	case FormatYAML:
+		return FormatYAML, nil
+	default:
+		return "", errors.New("invalid --output format (expected text|json|table|yaml)")
+	}
+}
+
+// Printer handles output formatting across different formats.
+type Printer struct {
+	w      io.Writer
+	format Format
+}
+
+// NewPrinter creates a new Printer that writes to w in the given format.
+func NewPrinter(w io.Writer, format Format) *Printer {
+	return &Printer{
+		w:      w,
+		format: format,
+	}
+}
+
+// Print outputs data in the configured format.
+// For single objects: JSON or text key-value display.
+// For slices: JSON array or table with headers.
+func (p *Printer) Print(ctx context.Context, data interface{}) error {
+	if data == nil {
+		return nil
+	}
+
+	switch p.format {
+	case FormatJSON:
+		return p.printJSON(ctx, data)
+	case FormatYAML:
+		return p.printYAML(data)
+	case FormatTable:
+		return p.printTable(data)
+	case FormatText:
+		return p.printText(data)
+	default:
+		return fmt.Errorf("unsupported format: %s", p.format)
+	}
+}
+
+// printJSON outputs data as pretty-printed JSON.
+// If a jq query is present in the context, it filters the output.
+func (p *Printer) printJSON(ctx context.Context, data interface{}) error {
+	query := QueryFromContext(ctx)
+	if query == "" {
+		// Normal JSON output
+		enc := json.NewEncoder(p.w)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+		return enc.Encode(data)
+	}
+
+	// Parse and run jq query
+	parsed, err := gojq.Parse(query)
+	if err != nil {
+		return fmt.Errorf("invalid --query: %w", err)
+	}
+
+	code, err := gojq.Compile(parsed)
+	if err != nil {
+		return fmt.Errorf("invalid --query: %w", err)
+	}
+
+	iter := code.Run(data)
+	enc := json.NewEncoder(p.w)
+	enc.SetEscapeHTML(false)
+
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, isErr := v.(error); isErr {
+			return fmt.Errorf("query error: %w", err)
+		}
+		if err := enc.Encode(v); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// printYAML outputs data as YAML.
+func (p *Printer) printYAML(data interface{}) error {
+	enc := yaml.NewEncoder(p.w)
+	enc.SetIndent(2)
+	defer enc.Close()
+	return enc.Encode(data)
+}
+
+// printText outputs data as human-readable text.
+// For maps and structs: key-value pairs.
+// For slices: one item per line.
+// For primitives: direct output.
+func (p *Printer) printText(data interface{}) error {
+	v := reflect.ValueOf(data)
+	if !v.IsValid() {
+		return nil
+	}
+
+	// Dereference pointers
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.Map:
+		return p.printTextMap(v)
+	case reflect.Struct:
+		return p.printTextStruct(v)
+	case reflect.Slice, reflect.Array:
+		return p.printTextSlice(v)
+	default:
+		_, err := fmt.Fprintf(p.w, "%v\n", data)
+		return err
+	}
+}
+
+// printTextMap outputs a map as key-value pairs.
+func (p *Printer) printTextMap(v reflect.Value) error {
+	iter := v.MapRange()
+	for iter.Next() {
+		key := iter.Key()
+		val := iter.Value()
+		if _, err := fmt.Fprintf(p.w, "%v: %v\n", key, val); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// printTextStruct outputs a struct as key-value pairs.
+func (p *Printer) printTextStruct(v reflect.Value) error {
+	t := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		// Skip unexported fields
+		if !field.IsExported() {
+			continue
+		}
+
+		// Use json tag if available, otherwise use field name
+		name := field.Name
+		if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
+			// Handle "field,omitempty" format
+			if idx := strings.Index(tag, ","); idx > 0 {
+				name = tag[:idx]
+			} else {
+				name = tag
+			}
+		}
+
+		value := v.Field(i)
+		if _, err := fmt.Fprintf(p.w, "%s: %v\n", name, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// printTextSlice outputs a slice as one item per line.
+func (p *Printer) printTextSlice(v reflect.Value) error {
+	for i := 0; i < v.Len(); i++ {
+		item := v.Index(i)
+		if _, err := fmt.Fprintf(p.w, "%v\n", item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// printTable outputs data in tabular format using text/tabwriter.
+// Only works with slices of maps or structs.
+func (p *Printer) printTable(data interface{}) error {
+	v := reflect.ValueOf(data)
+	if !v.IsValid() {
+		return nil
+	}
+
+	// Dereference pointers
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
+	}
+
+	// Table format only makes sense for slices
+	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
+		return errors.New("table format requires a slice or array")
+	}
+
+	if v.Len() == 0 {
+		return nil
+	}
+
+	// Get first element to determine columns
+	first := v.Index(0)
+	for first.Kind() == reflect.Ptr {
+		if first.IsNil() {
+			return errors.New("table format cannot handle nil elements")
+		}
+		first = first.Elem()
+	}
+
+	switch first.Kind() {
+	case reflect.Map:
+		return p.printTableFromMaps(v)
+	case reflect.Struct:
+		return p.printTableFromStructs(v)
+	default:
+		return errors.New("table format requires slice of maps or structs")
+	}
+}
+
+// printTableFromMaps outputs a table from a slice of maps.
+func (p *Printer) printTableFromMaps(v reflect.Value) error {
+	if v.Len() == 0 {
+		return nil
+	}
+
+	// Collect all unique keys from all maps
+	keysMap := make(map[string]bool)
+	for i := 0; i < v.Len(); i++ {
+		m := v.Index(i)
+		for m.Kind() == reflect.Ptr {
+			if m.IsNil() {
+				break
+			}
+			m = m.Elem()
+		}
+		if m.Kind() == reflect.Ptr {
+			continue
+		}
+		iter := m.MapRange()
+		for iter.Next() {
+			key := fmt.Sprintf("%v", iter.Key())
+			keysMap[key] = true
+		}
+	}
+
+	// Convert to sorted slice for consistent column order
+	keys := make([]string, 0, len(keysMap))
+	for k := range keysMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	tw := tabwriter.NewWriter(p.w, 0, 0, 2, ' ', 0)
+	defer tw.Flush()
+
+	// Print header
+	for i, key := range keys {
+		if i > 0 {
+			fmt.Fprint(tw, "\t")
+		}
+		fmt.Fprint(tw, strings.ToUpper(key))
+	}
+	fmt.Fprintln(tw)
+
+	// Print rows
+	for i := 0; i < v.Len(); i++ {
+		m := v.Index(i)
+		for m.Kind() == reflect.Ptr {
+			if m.IsNil() {
+				break
+			}
+			m = m.Elem()
+		}
+		if m.Kind() == reflect.Ptr {
+			continue
+		}
+
+		for j, key := range keys {
+			if j > 0 {
+				fmt.Fprint(tw, "\t")
+			}
+			val := m.MapIndex(reflect.ValueOf(key))
+			if val.IsValid() {
+				fmt.Fprintf(tw, "%v", val)
+			} else {
+				fmt.Fprint(tw, "-")
+			}
+		}
+		fmt.Fprintln(tw)
+	}
+
+	return nil
+}
+
+// printTableFromStructs outputs a table from a slice of structs.
+func (p *Printer) printTableFromStructs(v reflect.Value) error {
+	if v.Len() == 0 {
+		return nil
+	}
+
+	first := v.Index(0)
+	for first.Kind() == reflect.Ptr {
+		if first.IsNil() {
+			return errors.New("table format cannot handle nil elements")
+		}
+		first = first.Elem()
+	}
+
+	t := first.Type()
+
+	// Collect exported fields and their display names
+	type fieldInfo struct {
+		index int
+		name  string
+	}
+	var fields []fieldInfo
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+
+		// Use json tag if available, otherwise use field name
+		name := field.Name
+		if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
+			// Handle "field,omitempty" format
+			if idx := strings.Index(tag, ","); idx > 0 {
+				name = tag[:idx]
+			} else {
+				name = tag
+			}
+		}
+
+		fields = append(fields, fieldInfo{index: i, name: name})
+	}
+
+	if len(fields) == 0 {
+		return errors.New("no exported fields in struct")
+	}
+
+	tw := tabwriter.NewWriter(p.w, 0, 0, 2, ' ', 0)
+	defer tw.Flush()
+
+	// Print header
+	for i, fi := range fields {
+		if i > 0 {
+			fmt.Fprint(tw, "\t")
+		}
+		fmt.Fprint(tw, strings.ToUpper(fi.name))
+	}
+	fmt.Fprintln(tw)
+
+	// Print rows
+	for i := 0; i < v.Len(); i++ {
+		item := v.Index(i)
+		for item.Kind() == reflect.Ptr {
+			if item.IsNil() {
+				break
+			}
+			item = item.Elem()
+		}
+		if item.Kind() == reflect.Ptr {
+			continue
+		}
+
+		for j, fi := range fields {
+			if j > 0 {
+				fmt.Fprint(tw, "\t")
+			}
+			val := item.Field(fi.index)
+			fmt.Fprintf(tw, "%v", val)
+		}
+		fmt.Fprintln(tw)
+	}
+
+	return nil
+}
