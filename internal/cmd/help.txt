@@ -1,0 +1,132 @@
+ntn - Notion CLI for humans and agents
+
+IMPORTANT: Always use the shortest alias. Full names waste tokens.
+
+Aliases (resource → short):
+  page=p  block=b  db  datasource=ds  comment=c  user=u
+  file=f  search=s  webhook=wh  workspace=ws  skill=sk  mcp  workers=wk
+
+Aliases (shortcut → short):
+  login  logout  whoami  open=o  get  create  delete=rm|del
+  list=ls  resolve=res  fetch  import=im  bulk  api
+
+Aliases (subcommand → short):
+  list=ls  get=g  create=mk  update=up  delete=rm|del
+  query=q  append=ap  children=ls  properties=props
+  export=ex  duplicate=dup  move=mv  sync=sy  backup=bak
+  upload=up  add=a
+
+Quick start:
+  ntn login                               One-time OAuth setup
+  ntn whoami                              Confirm token + identity
+  ntn s "meeting notes" --li -j           Search pages (compact JSON)
+
+Lookup:
+  ntn get ID                              Auto-detect type (page/db/block)
+  ntn p g ID --li -j                      Page by ID (light JSON)
+  ntn p g ID --include-children           Page with child blocks
+  ntn db g ID -j                          Database schema
+  ntn b g ID -j                           Block by ID
+  ntn res "name" -j                       Resolve alias/name to ID
+  ntn fetch URL -j                        Fetch any Notion URL
+
+Search:
+  ntn s "query" --fi page --li -j         Search pages
+  ntn s "query" --fi database --li -j     Search databases
+  ntn s "query" --li -j --jq '.rs[0].id'  First result ID
+  ntn p ls "title" --li -j               List pages by title
+
+Create:
+  ntn create "My page"                    Quick create (uses skill file DB)
+  ntn p mk --pa DB --parent-type db --title "Task" --props '{"Status":{"status":{"name":"Todo"}}}'
+  ntn b ap PAGE --md '# Heading\n- item'  Append markdown blocks
+  ntn b a para PAGE "text"                Add paragraph block
+  ntn c a --pa PAGE --text "comment"      Add comment (mentions supported)
+
+Modify:
+  ntn p up ID --title "New title"         Update page title
+  ntn p up ID --props '{"Status":{"status":{"name":"Done"}}}'
+  ntn rm ID                               Archive page
+  ntn p mv ID --to PARENT                 Move page
+  ntn p dup ID                            Duplicate page
+
+Database query:
+  ntn db q DB                             Query all rows
+  ntn db q DB --filter '{"property":"Status","status":{"equals":"Done"}}'
+  ntn db q DB -j --jq '.rs[].id'          All row IDs
+
+Files:
+  ntn f up path.pdf --pg PAGE --prop "File"  Upload + attach
+  ntn f ls PAGE -j                           List page files
+
+MCP (capabilities beyond REST):
+  ntn mcp login                           One-time MCP OAuth
+  ntn mcp search "query" --ai             Semantic AI search
+  ntn mcp q 'SELECT * FROM "coll://ID" LIMIT 10' coll://ID
+  ntn mcp edit PAGE --replace "md"        Markdown page edit
+  ntn mcp mn --filter '{"operator":"and","filters":[...]}'  Query meeting notes
+  ntn mcp call notion-fetch --args '{"id":"https://www.notion.so/..."}'  Invoke any MCP tool
+  ntn mcp tools --schema -j               List tools with JSON schemas
+
+Workers (official CLI passthrough):
+  ntn workers new my-worker                Scaffold pinned workers template + metadata file
+  ntn workers status . --no-compare        Show pinned vs project template state
+  ntn workers upgrade . --plan             Preview file-level pinned upgrade changes
+  ntn workers upgrade . --force            Apply pinned upgrade to local scaffold
+  ntn workers deploy                       Delegate to official Notion workers CLI
+  ntn workers runs list                    Run any official workers subcommand
+  ntn workers doctor                       Check node/npm/npx + pinned official CLI version
+  Env: NTN_WORKERS_CLI_VERSION, NTN_WORKERS_NPX_BIN
+
+Output formats:
+  -o text       Human-readable (default)
+  -o json / -j  Full JSON envelope
+  -o ndjson     Newline-delimited JSON (streaming)
+  -o table      Tabulated columns
+  -o yaml       YAML
+  --jq EXPR     Built-in jq filter (preferred over piping)
+  --fields F    Project fields (CSV paths, key=path to rename)
+  --items-only  Emit only results array
+  --li          Light mode: minimal payload (saves tokens)
+  --compact-json/--cj  Compact JSON output (enabled by default with --li unless overridden)
+  -Q            Quiet: suppress non-essential output
+
+Common flags:
+  -w WORKSPACE  Choose configured workspace
+  -y / --yes    Skip confirmation prompts
+  --limit N     Limit results (0 = no limit)
+  --sort-by F   Sort by field (with --desc)
+  --latest      Shortcut: --sort-by created_time --desc --limit 1
+  --recent N    Shortcut: --sort-by created_time --desc --limit N
+  --fail-empty  Exit non-zero on empty results
+  --debug       Show HTTP request/response details
+
+Exit codes:
+  0  Success
+  1  System error
+  2  Usage error (invalid flags/arguments)
+  3  Authentication error
+  4  Not found (404)
+  5  Rate limited (429)
+  6  Temporary error (circuit breaker)
+  130  Canceled (SIGINT)
+
+Environment:
+  NOTION_TOKEN          API token (overrides keyring)
+  NOTION_CREDENTIALS_DIR  Credentials root (stores at <dir>/notion-cli/keyring)
+  OPENCLAW_CREDENTIALS_DIR Shared credentials root fallback
+  NOTION_API_BASE_URL   Custom API base URL
+  NOTION_WORKSPACE      Default workspace name
+  NOTION_OUTPUT         Default output format
+  Auto-loads ~/.openclaw/.env when present (without overriding existing env vars)
+
+Skill file:
+  ntn sk init|sync|path|edit
+  Default: ~/.claude/skills/notion-cli/notion-cli.md
+
+Discovery:
+  ntn --help-json              Full command tree as JSON (agent discovery)
+  ntn CMD --help               Detailed help for any command
+  ntn CMD --help-json          Subcommand JSON (flags + subcommands)
+
+Use "ntn CMD --help" for detailed help on any command.

@@ -1,0 +1,25 @@
+name: Update Homebrew
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-homebrew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger homebrew-tap update
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4.0.1
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          repository: salmonumbrella/homebrew-tap
+          event-type: update-formula
+          client-payload: |
+            {
+              "formula_name": "notion-cli",
+              "version": "${{ github.event.release.tag_name }}",
+              "repo": "salmonumbrella/notion-cli",
+              "binary_name": "notion",
+              "archive_prefix": "notion",
+              "description": "CLI for Notion API"
+            }

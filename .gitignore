@@ -1,0 +1,36 @@
+# Build artifacts
+/bin/
+*.out
+coverage.out
+
+# Tools
+.tools/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Docs (internal planning, not for public repo)
+docs/
+
+# Editor
+.cursor/
+.specstory/
+.cursorindexingignore
+
+# Generated
+.gitingest/
+/notion
+/ntn
+
+# Test utilities (manual testing scripts with //go:build ignore)
+internal/skill/sort_test.go
+
+# Internal docs
+CIRCUIT_BREAKER.md
+.private-journal/
+research.md
