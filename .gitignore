@@ -14,8 +14,8 @@ coverage.out
 # OS
 .DS_Store
 
-# Planning docs (not for public repo)
-docs/plans/
+# Docs (internal planning, not for public repo)
+docs/
 
 # Editor
 .cursor/
