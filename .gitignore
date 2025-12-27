@@ -25,3 +25,6 @@ docs/
 # Generated
 .gitingest/
 /notion
+
+# Internal docs
+CIRCUIT_BREAKER.md
