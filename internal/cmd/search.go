@@ -68,9 +68,14 @@ Example - Fetch all results:
 				if filterType != "page" && filterType != "database" {
 					return fmt.Errorf("filter must be either 'page' or 'database'")
 				}
+				// Notion API 2025-09-03+ uses "data_source" instead of "database"
+				apiFilterValue := filterType
+				if filterType == "database" {
+					apiFilterValue = "data_source"
+				}
 				filter = map[string]interface{}{
 					"property": "object",
-					"value":    filterType,
+					"value":    apiFilterValue,
 				}
 			}
 

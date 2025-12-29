@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/salmonumbrella/notion-cli/internal/config"
+	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -164,8 +165,9 @@ func newWorkspaceRemoveCmd() *cobra.Command {
 			// Check if this is the default workspace
 			isDefault := cfg.DefaultWorkspace == name
 
-			// Confirm if removing default workspace
-			if isDefault {
+			// Confirm if removing default workspace (unless -y flag is set)
+			ctx := cmd.Context()
+			if isDefault && !output.YesFromContext(ctx) {
 				fmt.Printf("Warning: %q is the default workspace.\n", name)
 				if !confirmAction("Are you sure you want to remove it?") {
 					fmt.Println("Cancelled.")

@@ -573,7 +573,7 @@ Does not display the actual token value.`,
 			}
 
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-			return printer.Print(context.Background(), result)
+			return printer.Print(cmd.Context(), result)
 		},
 	}
 }
@@ -605,7 +605,7 @@ you will need to unset it separately.`,
 				"message": "Logged out successfully",
 			}
 
-			return printer.Print(context.Background(), result)
+			return printer.Print(cmd.Context(), result)
 		},
 	}
 }

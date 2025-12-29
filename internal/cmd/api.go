@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -46,12 +48,42 @@ Use --refresh to make a fresh API call and get updated rate limit info.`,
 
 			info := client.GetRateLimitInfo()
 			if info == nil {
+				// Check output format - for JSON/YAML, output empty object
+				if GetOutputFormat() == output.FormatJSON || GetOutputFormat() == output.FormatYAML {
+					printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+					return printer.Print(ctx, map[string]interface{}{
+						"available": false,
+						"message":   "No rate limit information available. Make an API call first, or use --refresh to fetch fresh data.",
+					})
+				}
 				fmt.Println("No rate limit information available.")
 				fmt.Println("Make an API call first, or use --refresh to fetch fresh data.")
 				return nil
 			}
 
-			// Display rate limit info
+			// Build rate limit data structure
+			data := map[string]interface{}{
+				"available":  true,
+				"remaining":  info.Remaining,
+				"limit":      info.Limit,
+				"request_id": info.RequestID,
+			}
+
+			if !info.ResetAt.IsZero() {
+				data["reset_at"] = info.ResetAt.Format(time.RFC3339)
+				remaining := time.Until(info.ResetAt)
+				if remaining > 0 {
+					data["resets_in_seconds"] = int(remaining.Seconds())
+				}
+			}
+
+			// Check output format
+			if GetOutputFormat() == output.FormatJSON || GetOutputFormat() == output.FormatYAML {
+				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				return printer.Print(ctx, data)
+			}
+
+			// Display rate limit info in text format
 			fmt.Printf("Rate Limit Status\n")
 			fmt.Printf("─────────────────\n")
 			fmt.Printf("Remaining:  %d / %d requests\n", info.Remaining, info.Limit)
