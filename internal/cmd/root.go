@@ -130,6 +130,8 @@ func init() {
 	rootCmd.AddCommand(newCommentCmd())
 	rootCmd.AddCommand(newFileCmd())
 	rootCmd.AddCommand(newDataSourceCmd())
+	rootCmd.AddCommand(newFetchCmd())
+	rootCmd.AddCommand(newWebhookCmd())
 	rootCmd.AddCommand(newCompletionCmd())
 	rootCmd.AddCommand(newAPICmd())
 }

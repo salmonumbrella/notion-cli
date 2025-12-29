@@ -9,10 +9,14 @@ Command-line interface for the Notion API with secure authentication, file uploa
 - **Comments** - List and add comments to pages
 - **Data Sources** - Create and query Notion data sources (API v2025-09-03)
 - **Databases** - Create, query, and update databases with full property support
+- **Export** - Export pages to Markdown or JSON block trees
 - **File Uploads** - Upload files with automatic chunking for large files (multi-part upload)
+- **Fetch by URL** - Fetch pages or databases by Notion URL
 - **jq Integration** - Filter JSON output with jq expressions via `--query`
 - **Pages** - Create, update, and move pages with full property support
+- **Pages (Batch/Duplicate)** - Batch-create pages and duplicate pages with content
 - **Search** - Full-text search across pages and databases with filtering and pagination
+- **Webhooks** - Verify and parse webhook payloads
 
 ## Installation
 
@@ -131,6 +135,9 @@ notion user get <user-id>          # Get user by ID
 ```bash
 notion page get <page-id>                              # Get page
 notion page create --parent <id> --properties <json>   # Create page
+notion page create-batch --parent <id> --pages <json>  # Create multiple pages
+notion page duplicate <page-id>                        # Duplicate page
+notion page export <page-id> --format markdown         # Export page content
 notion page update <page-id> --properties <json>       # Update page
 notion page move <page-id> --parent <new-parent-id>    # Move page
 notion page property <page-id> <property-id>           # Get property
@@ -141,6 +148,7 @@ notion page property <page-id> <property-id>           # Get property
 ```bash
 notion db get <database-id>                            # Get database
 notion db query <database-id>                          # Query database
+notion db query <database-id> --data-source <id>        # Query a specific data source
 notion db create --parent <id> --properties <json>     # Create database
 notion db update <database-id> --properties <json>     # Update database
 ```
@@ -210,6 +218,22 @@ notion datasource update <datasource-id> <json>    # Update data source
 
 Alias: `notion ds` works as shorthand for `notion datasource`.
 
+### Fetch
+
+```bash
+notion fetch <notion-url>                              # Fetch page or database by URL
+notion fetch <notion-url> --type page                  # Force page fetch
+notion fetch <notion-url> --type database              # Force database fetch
+```
+
+### Webhooks
+
+```bash
+notion webhook verify --secret <secret> --payload payload.json --signature <sig>
+notion webhook verify --secret <secret> --payload payload.json           # Compute signature
+notion webhook parse --payload payload.json
+```
+
 ## Output Formats
 
 ### Text
@@ -259,6 +283,16 @@ notion block append <page-id> \
 notion db query <database-id> \
   --filter '{"property":"Status","select":{"equals":"Done"}}' \
   --output json | jq '.results[].properties.Name'
+```
+
+### Duplicate and Export Pages
+
+```bash
+# Duplicate a page with its content
+notion page duplicate <page-id>
+
+# Export page content to Markdown
+notion page export <page-id> --format markdown
 ```
 
 ### Automation

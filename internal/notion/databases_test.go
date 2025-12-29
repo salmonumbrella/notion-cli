@@ -122,6 +122,37 @@ func TestQueryDatabase_Success(t *testing.T) {
 	}
 }
 
+func TestQueryDatabase_MultipleDataSources(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET method for database fetch, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(Database{
+			Object: "database",
+			ID:     "db123",
+			DataSources: []DataSourceRef{
+				{ID: "ds1", Name: "Primary"},
+				{ID: "ds2", Name: "Secondary"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient("test-token").WithBaseURL(server.URL)
+	ctx := context.Background()
+
+	_, err := client.QueryDatabase(ctx, "db123", &DatabaseQueryRequest{})
+	if err == nil {
+		t.Fatal("expected error for multiple data sources")
+	}
+
+	expected := "database has multiple data sources; specify a data source ID"
+	if err.Error() != expected {
+		t.Errorf("expected error %q, got %q", expected, err.Error())
+	}
+}
+
 func TestQueryDatabase_EmptyID(t *testing.T) {
 	client := NewClient("test-token")
 	ctx := context.Background()
@@ -198,8 +229,10 @@ func TestCreateDatabase_Success(t *testing.T) {
 		if req.Parent == nil {
 			t.Error("expected parent to be set")
 		}
-		if len(req.Properties) == 0 {
-			t.Error("expected properties to be set")
+		if req.InitialDataSource == nil {
+			t.Error("expected initial_data_source to be set")
+		} else if len(req.InitialDataSource.Properties) == 0 {
+			t.Error("expected initial_data_source.properties to be set")
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -207,7 +240,7 @@ func TestCreateDatabase_Success(t *testing.T) {
 			Object:     "database",
 			ID:         "newdb123",
 			Title:      req.Title,
-			Properties: req.Properties,
+			Properties: req.InitialDataSource.Properties,
 			Archived:   false,
 		})
 	}))
@@ -218,8 +251,10 @@ func TestCreateDatabase_Success(t *testing.T) {
 
 	req := &CreateDatabaseRequest{
 		Parent: map[string]interface{}{"page_id": "parent123"},
-		Properties: map[string]map[string]interface{}{
-			"Name": {"title": map[string]interface{}{}},
+		InitialDataSource: &InitialDataSource{
+			Properties: map[string]map[string]interface{}{
+				"Name": {"title": map[string]interface{}{}},
+			},
 		},
 	}
 
@@ -253,8 +288,10 @@ func TestCreateDatabase_MissingParent(t *testing.T) {
 	ctx := context.Background()
 
 	req := &CreateDatabaseRequest{
-		Properties: map[string]map[string]interface{}{
-			"Name": {"title": map[string]interface{}{}},
+		InitialDataSource: &InitialDataSource{
+			Properties: map[string]map[string]interface{}{
+				"Name": {"title": map[string]interface{}{}},
+			},
 		},
 	}
 
@@ -269,7 +306,7 @@ func TestCreateDatabase_MissingParent(t *testing.T) {
 	}
 }
 
-func TestCreateDatabase_MissingProperties(t *testing.T) {
+func TestCreateDatabase_MissingInitialDataSource(t *testing.T) {
 	client := NewClient("test-token")
 	ctx := context.Background()
 
@@ -279,10 +316,30 @@ func TestCreateDatabase_MissingProperties(t *testing.T) {
 
 	_, err := client.CreateDatabase(ctx, req)
 	if err == nil {
+		t.Fatal("expected error for missing initial_data_source")
+	}
+
+	expected := "initial_data_source is required"
+	if err.Error() != expected {
+		t.Errorf("expected error %q, got %q", expected, err.Error())
+	}
+}
+
+func TestCreateDatabase_MissingProperties(t *testing.T) {
+	client := NewClient("test-token")
+	ctx := context.Background()
+
+	req := &CreateDatabaseRequest{
+		Parent:            map[string]interface{}{"page_id": "parent123"},
+		InitialDataSource: &InitialDataSource{},
+	}
+
+	_, err := client.CreateDatabase(ctx, req)
+	if err == nil {
 		t.Fatal("expected error for missing properties")
 	}
 
-	expected := "properties are required"
+	expected := "initial_data_source.properties are required"
 	if err.Error() != expected {
 		t.Errorf("expected error %q, got %q", expected, err.Error())
 	}

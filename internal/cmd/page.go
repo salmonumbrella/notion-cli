@@ -20,6 +20,9 @@ func newPageCmd() *cobra.Command {
 	cmd.AddCommand(newPageGetCmd())
 	cmd.AddCommand(newPageCreateCmd())
 	cmd.AddCommand(newPageUpdateCmd())
+	cmd.AddCommand(newPageCreateBatchCmd())
+	cmd.AddCommand(newPageDuplicateCmd())
+	cmd.AddCommand(newPageExportCmd())
 	cmd.AddCommand(newPagePropertyCmd())
 	cmd.AddCommand(newPageMoveCmd())
 
@@ -65,6 +68,7 @@ func newPageCreateCmd() *cobra.Command {
 	var parentID string
 	var parentType string
 	var propertiesJSON string
+	var dataSourceID string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -75,7 +79,8 @@ The --properties flag accepts a JSON string with the page properties.
 The simplest format for a basic page is:
   {"title": [{"text": {"content": "Page Title"}}]}
 
-The --parent-type flag specifies whether the parent is a "page" (default) or "database".
+The --parent-type flag specifies whether the parent is a "page" (default), "database", or "data-source".
+Use --data-source to target a specific data source (overrides --parent-type database).
 
 Examples:
   # Create page under another page
@@ -89,8 +94,8 @@ Examples:
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate required flags
-			if parentID == "" {
-				return fmt.Errorf("--parent flag is required")
+			if parentID == "" && dataSourceID == "" {
+				return fmt.Errorf("--parent flag is required (or use --data-source)")
 			}
 			if propertiesJSON == "" {
 				return fmt.Errorf("--properties flag is required")
@@ -100,17 +105,6 @@ Examples:
 			var properties map[string]interface{}
 			if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
 				return fmt.Errorf("failed to parse properties JSON: %w", err)
-			}
-
-			// Determine parent key based on parent type
-			var parentKey string
-			switch parentType {
-			case "database":
-				parentKey = "database_id"
-			case "page":
-				parentKey = "page_id"
-			default:
-				return fmt.Errorf("invalid parent-type: %s (expected 'page' or 'database')", parentType)
 			}
 
 			// Get token from context (respects workspace selection)
@@ -123,11 +117,14 @@ Examples:
 			// Create client
 			client := NewNotionClient(token)
 
+			parent, err := resolvePageParent(ctx, client, parentID, parentType, dataSourceID)
+			if err != nil {
+				return err
+			}
+
 			// Build request
 			req := &notion.CreatePageRequest{
-				Parent: map[string]interface{}{
-					parentKey: parentID,
-				},
+				Parent:     parent,
 				Properties: properties,
 			}
 
@@ -144,8 +141,9 @@ Examples:
 	}
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page or database ID (required)")
-	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page' or 'database'")
+	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'data-source'")
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON (required)")
+	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID (optional, overrides --parent-type database)")
 
 	return cmd
 }

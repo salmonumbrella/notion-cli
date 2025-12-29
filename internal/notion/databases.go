@@ -56,23 +56,28 @@ type DatabaseQueryResult struct {
 
 // CreateDatabaseRequest represents the request body for creating a database.
 type CreateDatabaseRequest struct {
-	Parent      map[string]interface{}            `json:"parent"`
-	Title       []map[string]interface{}          `json:"title,omitempty"`
-	Description []map[string]interface{}          `json:"description,omitempty"`
-	Properties  map[string]map[string]interface{} `json:"properties"`
-	Icon        map[string]interface{}            `json:"icon,omitempty"`
-	Cover       map[string]interface{}            `json:"cover,omitempty"`
-	IsInline    bool                              `json:"is_inline,omitempty"`
+	Parent            map[string]interface{}   `json:"parent"`
+	Title             []map[string]interface{} `json:"title,omitempty"`
+	Description       []map[string]interface{} `json:"description,omitempty"`
+	Icon              map[string]interface{}   `json:"icon,omitempty"`
+	Cover             map[string]interface{}   `json:"cover,omitempty"`
+	IsInline          bool                     `json:"is_inline,omitempty"`
+	InitialDataSource *InitialDataSource       `json:"initial_data_source"`
 }
 
 // UpdateDatabaseRequest represents the request body for updating a database.
 type UpdateDatabaseRequest struct {
-	Title       []map[string]interface{}          `json:"title,omitempty"`
-	Description []map[string]interface{}          `json:"description,omitempty"`
-	Properties  map[string]map[string]interface{} `json:"properties,omitempty"`
-	Icon        map[string]interface{}            `json:"icon,omitempty"`
-	Cover       map[string]interface{}            `json:"cover,omitempty"`
-	Archived    *bool                             `json:"archived,omitempty"`
+	Title       []map[string]interface{} `json:"title,omitempty"`
+	Description []map[string]interface{} `json:"description,omitempty"`
+	Icon        map[string]interface{}   `json:"icon,omitempty"`
+	Cover       map[string]interface{}   `json:"cover,omitempty"`
+	Archived    *bool                    `json:"archived,omitempty"`
+}
+
+// InitialDataSource represents the initial data source created with a database.
+type InitialDataSource struct {
+	Title      []RichText                        `json:"title,omitempty"`
+	Properties map[string]map[string]interface{} `json:"properties"`
 }
 
 // GetDatabase retrieves a database by ID.
@@ -110,6 +115,9 @@ func (c *Client) QueryDatabase(ctx context.Context, databaseID string, req *Data
 	if len(database.DataSources) == 0 {
 		return nil, fmt.Errorf("database has no data sources")
 	}
+	if len(database.DataSources) > 1 {
+		return nil, fmt.Errorf("database has multiple data sources; specify a data source ID")
+	}
 
 	// Use the first data source (primary data source)
 	dataSourceID := database.DataSources[0].ID
@@ -137,8 +145,11 @@ func (c *Client) CreateDatabase(ctx context.Context, req *CreateDatabaseRequest)
 	if req.Parent == nil {
 		return nil, fmt.Errorf("parent is required")
 	}
-	if len(req.Properties) == 0 {
-		return nil, fmt.Errorf("properties are required")
+	if req.InitialDataSource == nil {
+		return nil, fmt.Errorf("initial_data_source is required")
+	}
+	if len(req.InitialDataSource.Properties) == 0 {
+		return nil, fmt.Errorf("initial_data_source.properties are required")
 	}
 
 	var database Database
@@ -149,7 +160,7 @@ func (c *Client) CreateDatabase(ctx context.Context, req *CreateDatabaseRequest)
 	return &database, nil
 }
 
-// UpdateDatabase updates a database's metadata and properties.
+// UpdateDatabase updates a database's metadata (title, description, icon, cover, archived).
 // See: https://developers.notion.com/reference/update-a-database
 func (c *Client) UpdateDatabase(ctx context.Context, databaseID string, req *UpdateDatabaseRequest) (*Database, error) {
 	if databaseID == "" {

@@ -68,6 +68,7 @@ func newDBQueryCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
+	var dataSourceID string
 
 	cmd := &cobra.Command{
 		Use:   "query <database-id>",
@@ -81,6 +82,7 @@ The --sorts-file flag reads sorts JSON from a file.
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
+Use --data-source to query a specific data source in a multi-source database.
 
 Example - Query all pages:
   notion db query 12345678-1234-1234-1234-123456789012
@@ -156,22 +158,27 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			// Create client
 			client := NewNotionClient(token)
 
+			resolvedDataSourceID, err := resolveDataSourceID(ctx, client, databaseID, dataSourceID)
+			if err != nil {
+				return err
+			}
+
 			// If --all flag is set, fetch all pages
 			if all {
 				var allPages []notion.Page
 				cursor := startCursor
 
 				for {
-					req := &notion.DatabaseQueryRequest{
+					req := &notion.QueryDataSourceRequest{
 						Filter:      filter,
 						Sorts:       sorts,
 						StartCursor: cursor,
 						PageSize:    pageSize,
 					}
 
-					result, err := client.QueryDatabase(ctx, databaseID, req)
+					result, err := client.QueryDataSource(ctx, resolvedDataSourceID, req)
 					if err != nil {
-						return fmt.Errorf("failed to query database: %w", err)
+						return fmt.Errorf("failed to query data source: %w", err)
 					}
 
 					allPages = append(allPages, result.Results...)
@@ -188,16 +195,16 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			}
 
 			// Single page request
-			req := &notion.DatabaseQueryRequest{
+			req := &notion.QueryDataSourceRequest{
 				Filter:      filter,
 				Sorts:       sorts,
 				StartCursor: startCursor,
 				PageSize:    pageSize,
 			}
 
-			result, err := client.QueryDatabase(ctx, databaseID, req)
+			result, err := client.QueryDataSource(ctx, resolvedDataSourceID, req)
 			if err != nil {
-				return fmt.Errorf("failed to query database: %w", err)
+				return fmt.Errorf("failed to query data source: %w", err)
 			}
 
 			// Print result
@@ -213,6 +220,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
+	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID to query (optional)")
 
 	return cmd
 }
@@ -221,6 +229,7 @@ func newDBCreateCmd() *cobra.Command {
 	var parentID string
 	var titleText string
 	var propertiesJSON string
+	var dataSourceTitle string
 	var descriptionJSON string
 	var iconJSON string
 	var coverJSON string
@@ -234,6 +243,7 @@ func newDBCreateCmd() *cobra.Command {
 The --parent flag specifies the parent page ID (required).
 The --title flag specifies the database title as plain text.
 The --properties flag accepts a JSON object defining the database schema (required).
+The --data-source-title flag sets the title of the initial data source (optional).
 
 Example - Create a simple task database:
   notion db create \
@@ -281,6 +291,17 @@ Example - Create with description:
 				}
 			}
 
+			// Build initial data source title if provided
+			var dataSourceTitleRT []notion.RichText
+			if dataSourceTitle != "" {
+				dataSourceTitleRT = []notion.RichText{
+					{
+						Type: "text",
+						Text: &notion.TextContent{Content: dataSourceTitle},
+					},
+				}
+			}
+
 			// Parse optional fields
 			var description []map[string]interface{}
 			if descriptionJSON != "" {
@@ -318,10 +339,13 @@ Example - Create with description:
 				Parent:      parent,
 				Title:       title,
 				Description: description,
-				Properties:  properties,
 				Icon:        icon,
 				Cover:       cover,
 				IsInline:    isInline,
+				InitialDataSource: &notion.InitialDataSource{
+					Title:      dataSourceTitleRT,
+					Properties: properties,
+				},
 			}
 
 			// Create database
@@ -339,6 +363,7 @@ Example - Create with description:
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page ID (required)")
 	cmd.Flags().StringVar(&titleText, "title", "", "Database title as plain text")
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database properties as JSON object (required)")
+	cmd.Flags().StringVar(&dataSourceTitle, "data-source-title", "", "Initial data source title (optional)")
 	cmd.Flags().StringVar(&descriptionJSON, "description", "", "Database description as JSON array")
 	cmd.Flags().StringVar(&iconJSON, "icon", "", "Database icon as JSON object")
 	cmd.Flags().StringVar(&coverJSON, "cover", "", "Database cover as JSON object")
@@ -356,6 +381,7 @@ func newDBUpdateCmd() *cobra.Command {
 	var archived bool
 	var setArchived bool
 	var dryRun bool
+	var dataSourceID string
 
 	cmd := &cobra.Command{
 		Use:   "update <database-id>",
@@ -363,14 +389,15 @@ func newDBUpdateCmd() *cobra.Command {
 		Long: `Update a Notion database's metadata and properties.
 
 The --title flag updates the database title.
-The --properties flag accepts a JSON object to update the database schema.
+The --properties flag accepts a JSON object to update the data source schema.
+Use --data-source to target a specific data source in a multi-source database.
 The --description flag updates the database description.
 The --archived flag archives or unarchives the database.
 
 Example - Update title:
   notion db update 12345678-1234-1234-1234-123456789012 --title "Updated Tasks"
 
-Example - Add a new property:
+Example - Add a new property (data source schema):
   notion db update 12345678-1234-1234-1234-123456789012 \
     --properties '{"Priority":{"select":{"options":[{"name":"High","color":"red"},{"name":"Low","color":"blue"}]}}}'
 
@@ -433,6 +460,14 @@ Example - Archive database:
 			// Create client
 			client := NewNotionClient(token)
 
+			var resolvedDataSourceID string
+			if propertiesJSON != "" {
+				resolvedDataSourceID, err = resolveDataSourceID(ctx, client, databaseID, dataSourceID)
+				if err != nil {
+					return err
+				}
+			}
+
 			if dryRun {
 				// Fetch current database to show what would be updated
 				currentDB, err := client.GetDatabase(ctx, databaseID)
@@ -467,7 +502,11 @@ Example - Archive database:
 
 				// Show properties to update
 				if propertiesJSON != "" {
-					printer.Section("Properties to update:")
+					label := "Properties to update:"
+					if resolvedDataSourceID != "" {
+						label = fmt.Sprintf("Properties to update (data source %s):", resolvedDataSourceID)
+					}
+					printer.Section(label)
 					for propName := range properties {
 						if _, exists := currentDB.Properties[propName]; exists {
 							fmt.Fprintf(os.Stderr, "  - %s (updating existing)\n", propName)
@@ -487,29 +526,57 @@ Example - Archive database:
 				return nil
 			}
 
-			// Build request
-			req := &notion.UpdateDatabaseRequest{
-				Title:       title,
-				Description: description,
-				Properties:  properties,
-				Icon:        icon,
-				Cover:       cover,
+			var updatedDB *notion.Database
+			var updatedDataSource *notion.DataSource
+
+			// Update data source schema if properties were provided
+			if propertiesJSON != "" {
+				dsReq := &notion.UpdateDataSourceRequest{
+					Properties: properties,
+				}
+				ds, err := client.UpdateDataSource(ctx, resolvedDataSourceID, dsReq)
+				if err != nil {
+					return fmt.Errorf("failed to update data source: %w", err)
+				}
+				updatedDataSource = ds
 			}
 
-			// Set archived flag if specified
-			if setArchived {
-				req.Archived = &archived
+			// Update database metadata if needed
+			if titleText != "" || descriptionJSON != "" || iconJSON != "" || coverJSON != "" || setArchived {
+				req := &notion.UpdateDatabaseRequest{
+					Title:       title,
+					Description: description,
+					Icon:        icon,
+					Cover:       cover,
+				}
+
+				// Set archived flag if specified
+				if setArchived {
+					req.Archived = &archived
+				}
+
+				db, err := client.UpdateDatabase(ctx, databaseID, req)
+				if err != nil {
+					return fmt.Errorf("failed to update database: %w", err)
+				}
+				updatedDB = db
 			}
 
-			// Update database
-			database, err := client.UpdateDatabase(ctx, databaseID, req)
-			if err != nil {
-				return fmt.Errorf("failed to update database: %w", err)
+			if updatedDB == nil && updatedDataSource == nil {
+				return fmt.Errorf("no updates specified")
 			}
 
-			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-			return printer.Print(ctx, database)
+			if updatedDB != nil && updatedDataSource != nil {
+				return printer.Print(ctx, map[string]interface{}{
+					"database":    updatedDB,
+					"data_source": updatedDataSource,
+				})
+			}
+			if updatedDB != nil {
+				return printer.Print(ctx, updatedDB)
+			}
+			return printer.Print(ctx, updatedDataSource)
 		},
 	}
 
@@ -520,6 +587,7 @@ Example - Archive database:
 	cmd.Flags().StringVar(&coverJSON, "cover", "", "Database cover as JSON object")
 	cmd.Flags().BoolVar(&archived, "archived", false, "Archive the database")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
+	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID for schema updates (optional)")
 
 	// Track if archived flag was explicitly set
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
