@@ -249,7 +249,9 @@ Example:
 			// Update page
 			page, err := client.UpdatePage(ctx, pageID, req)
 			if err != nil {
-				return fmt.Errorf("failed to update page: %w", err)
+				// Try to enhance status validation errors with valid options
+				enhanced := notion.EnhanceStatusError(ctx, client, pageID, err)
+				return fmt.Errorf("failed to update page: %w", enhanced)
 			}
 
 			// Print result
