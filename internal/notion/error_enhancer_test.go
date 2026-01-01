@@ -2,6 +2,7 @@ package notion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -160,5 +161,144 @@ func TestEnhanceStatusError_NotStatusError(t *testing.T) {
 	// Should return original error unchanged
 	if result != originalErr {
 		t.Error("non-status errors should pass through unchanged")
+	}
+}
+
+func TestEnhanceStatusError_NilError(t *testing.T) {
+	result := EnhanceStatusError(context.Background(), nil, "page123", nil)
+	if result != nil {
+		t.Errorf("expected nil for nil error, got %v", result)
+	}
+}
+
+func TestEnhanceStatusError_StatusErrorNoClient(t *testing.T) {
+	// When client is nil, should return original error unchanged
+	originalErr := &APIError{
+		Response: &ErrorResponse{
+			Status:  400,
+			Code:    "validation_error",
+			Message: `Invalid status option. Status option "Test" does not exist".`,
+		},
+	}
+
+	result := EnhanceStatusError(context.Background(), nil, "page123", originalErr)
+
+	// Should return original error unchanged since client is nil
+	if result != originalErr {
+		t.Errorf("expected original error when client is nil, got %v", result)
+	}
+}
+
+func TestExtractStatusOptions_EmptyProperties(t *testing.T) {
+	options := ExtractStatusOptions(nil)
+	if len(options) != 0 {
+		t.Errorf("expected empty slice for nil properties, got %d items", len(options))
+	}
+
+	options = ExtractStatusOptions(map[string]interface{}{})
+	if len(options) != 0 {
+		t.Errorf("expected empty slice for empty properties, got %d items", len(options))
+	}
+}
+
+func TestExtractStatusOptions_MalformedData(t *testing.T) {
+	tests := []struct {
+		name          string
+		properties    map[string]interface{}
+		expectedProps int // number of status properties returned
+	}{
+		{
+			name: "property value not a map",
+			properties: map[string]interface{}{
+				"Status": "not a map",
+			},
+			expectedProps: 0,
+		},
+		{
+			name: "status config not a map",
+			properties: map[string]interface{}{
+				"Status": map[string]interface{}{
+					"type":   "status",
+					"status": "not a map",
+				},
+			},
+			expectedProps: 0,
+		},
+		{
+			name: "options not a slice",
+			properties: map[string]interface{}{
+				"Status": map[string]interface{}{
+					"type": "status",
+					"status": map[string]interface{}{
+						"options": "not a slice",
+					},
+				},
+			},
+			expectedProps: 0,
+		},
+		{
+			name: "option not a map - returns property with empty options",
+			properties: map[string]interface{}{
+				"Status": map[string]interface{}{
+					"type": "status",
+					"status": map[string]interface{}{
+						"options": []interface{}{"not a map"},
+					},
+				},
+			},
+			// This case returns a StatusProperty with empty Options slice
+			// because the status property structure is valid, just the individual
+			// option is malformed and gets skipped
+			expectedProps: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			options := ExtractStatusOptions(tt.properties)
+			if len(options) != tt.expectedProps {
+				t.Errorf("expected %d status properties, got %d", tt.expectedProps, len(options))
+			}
+			// For the case with 1 property but malformed options, verify options are empty
+			if tt.expectedProps == 1 && len(options) == 1 && len(options[0].Options) != 0 {
+				t.Errorf("expected 0 options for malformed option data, got %d", len(options[0].Options))
+			}
+		})
+	}
+}
+
+func TestEnhancedStatusError_EmptyStatusProperties(t *testing.T) {
+	err := &EnhancedStatusError{
+		InvalidValue:     "Test",
+		StatusProperties: nil,
+		OriginalError:    errors.New("original"),
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "Test") {
+		t.Error("error message should contain invalid value")
+	}
+}
+
+func TestEnhancedStatusError_OptionWithDescription(t *testing.T) {
+	err := &EnhancedStatusError{
+		InvalidValue: "Bad",
+		StatusProperties: []StatusProperty{
+			{
+				Name: "Status",
+				Options: []StatusOption{
+					{Name: "Good", Description: "A good state"},
+					{Name: "Better", Description: ""},
+				},
+			},
+		},
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "Good (A good state)") {
+		t.Errorf("expected description in parentheses, got: %s", msg)
+	}
+	if strings.Contains(msg, "Better (") {
+		t.Errorf("should not show parentheses for empty description, got: %s", msg)
 	}
 }
