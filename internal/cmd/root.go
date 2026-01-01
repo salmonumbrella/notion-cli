@@ -59,9 +59,13 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Get output format from flag or config file
+		// Priority: --format (alias) > --output > config file > default
 		formatStr, _ := cmd.Flags().GetString("output")
-		// If flag was not explicitly set by user, use config file default
-		if !cmd.Flags().Changed("output") && cfg.GetOutput() != "" {
+		if cmd.Flags().Changed("format") {
+			// --format alias takes precedence if explicitly used
+			formatStr, _ = cmd.Flags().GetString("format")
+		} else if !cmd.Flags().Changed("output") && cfg.GetOutput() != "" {
+			// Fall back to config file default
 			formatStr = cfg.GetOutput()
 		}
 
@@ -107,7 +111,10 @@ func init() {
 	rootCmd.SetVersionTemplate(fmt.Sprintf("notion-cli %s (commit: %s, built: %s)\n", version, commit, buildTime))
 
 	// Global flags
-	rootCmd.PersistentFlags().String("output", "text", "Output format (text|json|table|yaml)")
+	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format (text|json|table|yaml)")
+	// Alias --format to --output for agent discoverability
+	rootCmd.PersistentFlags().String("format", "text", "Alias for --output")
+	_ = rootCmd.PersistentFlags().MarkHidden("format") // ignore error, flag always exists
 	rootCmd.PersistentFlags().String("query", "", "jq expression to filter JSON output")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output (shows HTTP requests/responses)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceName, "workspace", "w", "", "Workspace to use (overrides NOTION_WORKSPACE env var)")
