@@ -101,9 +101,10 @@ type SelectOption struct {
 
 // StatusOption represents a status property option.
 type StatusOption struct {
-	ID    string `json:"id,omitempty"`
-	Name  string `json:"name"`
-	Color string `json:"color,omitempty"`
+	ID          string `json:"id,omitempty"`
+	Name        string `json:"name"`
+	Color       string `json:"color,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // FileReference represents a file in a files property.

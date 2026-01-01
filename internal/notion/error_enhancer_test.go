@@ -74,3 +74,46 @@ func TestExtractInvalidStatusValue(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractStatusOptions(t *testing.T) {
+	// Simulate datasource properties with a status property
+	properties := map[string]interface{}{
+		"電匯已發送 | Sent": map[string]interface{}{
+			"type": "status",
+			"status": map[string]interface{}{
+				"options": []interface{}{
+					map[string]interface{}{
+						"name":        "未發送",
+						"description": "Not Sent",
+						"color":       "yellow",
+					},
+					map[string]interface{}{
+						"name":        "已完成",
+						"description": "Completed",
+						"color":       "green",
+					},
+				},
+			},
+		},
+		"Name": map[string]interface{}{
+			"type": "title",
+		},
+	}
+
+	options := ExtractStatusOptions(properties)
+
+	if len(options) != 1 {
+		t.Fatalf("expected 1 status property, got %d", len(options))
+	}
+
+	prop := options[0]
+	if prop.Name != "電匯已發送 | Sent" {
+		t.Errorf("expected property name '電匯已發送 | Sent', got %q", prop.Name)
+	}
+	if len(prop.Options) != 2 {
+		t.Errorf("expected 2 options, got %d", len(prop.Options))
+	}
+	if prop.Options[0].Name != "未發送" {
+		t.Errorf("expected first option '未發送', got %q", prop.Options[0].Name)
+	}
+}

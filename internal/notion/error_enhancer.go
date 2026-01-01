@@ -21,3 +21,66 @@ func ExtractInvalidStatusValue(message string) string {
 	}
 	return matches[1]
 }
+
+// StatusProperty represents a status property with its options.
+type StatusProperty struct {
+	Name    string
+	Options []StatusOption
+}
+
+// ExtractStatusOptions extracts all status properties and their options from datasource properties.
+func ExtractStatusOptions(properties map[string]interface{}) []StatusProperty {
+	var result []StatusProperty
+
+	for propName, propValue := range properties {
+		propMap, ok := propValue.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		propType, _ := propMap["type"].(string)
+		if propType != "status" {
+			continue
+		}
+
+		statusConfig, ok := propMap["status"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		optionsRaw, ok := statusConfig["options"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		var options []StatusOption
+		for _, optRaw := range optionsRaw {
+			optMap, ok := optRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			opt := StatusOption{
+				Name:        getString(optMap, "name"),
+				Description: getString(optMap, "description"),
+				Color:       getString(optMap, "color"),
+			}
+			options = append(options, opt)
+		}
+
+		result = append(result, StatusProperty{
+			Name:    propName,
+			Options: options,
+		})
+	}
+
+	return result
+}
+
+// getString safely extracts a string from a map.
+func getString(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
