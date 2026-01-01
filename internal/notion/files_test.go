@@ -119,7 +119,7 @@ func TestSendFileUpload_Success(t *testing.T) {
 	ctx := context.Background()
 
 	fileContent := bytes.NewReader([]byte("test file content"))
-	upload, err := client.SendFileUpload(ctx, server.URL+"/upload", fileContent, "test.pdf")
+	upload, err := client.SendFileUpload(ctx, server.URL+"/upload", fileContent, "test.pdf", "application/pdf")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestSendFileUpload_EmptyURL(t *testing.T) {
 	ctx := context.Background()
 
 	fileContent := bytes.NewReader([]byte("test"))
-	_, err := client.SendFileUpload(ctx, "", fileContent, "test.pdf")
+	_, err := client.SendFileUpload(ctx, "", fileContent, "test.pdf", "application/pdf")
 	if err == nil {
 		t.Fatal("expected error for empty upload URL")
 	}
