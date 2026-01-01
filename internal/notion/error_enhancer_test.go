@@ -1,6 +1,8 @@
 package notion
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -147,5 +149,16 @@ func TestEnhancedStatusError_Error(t *testing.T) {
 	}
 	if !strings.Contains(msg, "已完成") {
 		t.Error("error should contain valid option")
+	}
+}
+
+func TestEnhanceStatusError_NotStatusError(t *testing.T) {
+	originalErr := fmt.Errorf("some other error")
+
+	result := EnhanceStatusError(context.Background(), nil, "", originalErr)
+
+	// Should return original error unchanged
+	if result != originalErr {
+		t.Error("non-status errors should pass through unchanged")
 	}
 }

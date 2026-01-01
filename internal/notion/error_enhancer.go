@@ -1,6 +1,8 @@
 package notion
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -118,4 +120,96 @@ func (e *EnhancedStatusError) Error() string {
 // Unwrap returns the original error.
 func (e *EnhancedStatusError) Unwrap() error {
 	return e.OriginalError
+}
+
+// EnhanceStatusError attempts to enhance a status validation error with valid options.
+// If the error is not a status validation error or enhancement fails, returns the original error.
+func EnhanceStatusError(ctx context.Context, client *Client, pageID string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// Extract the error message
+	var message string
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.Response != nil {
+		message = apiErr.Response.Message
+	} else {
+		message = err.Error()
+	}
+
+	// Check if it's a status validation error
+	if !IsStatusValidationError(message) {
+		return err
+	}
+
+	invalidValue := ExtractInvalidStatusValue(message)
+	if invalidValue == "" {
+		return err
+	}
+
+	// If no client provided, can't enhance
+	if client == nil {
+		return err
+	}
+
+	// Try to fetch schema and enhance the error
+	statusProps, fetchErr := fetchStatusProperties(ctx, client, pageID)
+	if fetchErr != nil || len(statusProps) == 0 {
+		return err // Fall back to original error
+	}
+
+	return &EnhancedStatusError{
+		InvalidValue:     invalidValue,
+		StatusProperties: statusProps,
+		OriginalError:    err,
+	}
+}
+
+// fetchStatusProperties fetches status properties for a page's parent database.
+func fetchStatusProperties(ctx context.Context, client *Client, pageID string) ([]StatusProperty, error) {
+	// 1. Get page to find parent database
+	page, err := client.GetPage(ctx, pageID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Extract database ID from parent
+	parent := page.Parent
+	if parent == nil {
+		return nil, fmt.Errorf("page has no parent")
+	}
+
+	dbID, _ := parent["database_id"].(string)
+	if dbID == "" {
+		// Try data_source_id for newer API
+		dsID, _ := parent["data_source_id"].(string)
+		if dsID != "" {
+			return fetchStatusPropertiesFromDataSource(ctx, client, dsID)
+		}
+		return nil, fmt.Errorf("page parent is not a database")
+	}
+
+	// 3. Get database to find data source
+	db, err := client.GetDatabase(ctx, dbID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(db.DataSources) == 0 {
+		return nil, fmt.Errorf("database has no data sources")
+	}
+
+	// 4. Get data source schema
+	return fetchStatusPropertiesFromDataSource(ctx, client, db.DataSources[0].ID)
+}
+
+// fetchStatusPropertiesFromDataSource fetches status properties from a data source.
+func fetchStatusPropertiesFromDataSource(ctx context.Context, client *Client, dsID string) ([]StatusProperty, error) {
+	ds, err := client.GetDataSource(ctx, dsID)
+	if err != nil {
+		return nil, err
+	}
+
+	return ExtractStatusOptions(ds.Properties), nil
 }
