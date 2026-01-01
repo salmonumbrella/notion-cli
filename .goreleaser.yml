@@ -48,17 +48,14 @@ changelog:
       - '^docs:'
       - '^test:'
 
-homebrew_casks:
+brews:
   - name: notion-cli
     repository:
       owner: salmonumbrella
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Casks
+    directory: Formula
     homepage: "https://github.com/salmonumbrella/notion-cli"
     description: "CLI for Notion API"
-    hooks:
-      post:
-        install: |
-          system_command "/usr/bin/xattr",
-            args: ["-dr", "com.apple.quarantine", "#{staged_path}/notion"]
+    install: |
+      bin.install "notion"
