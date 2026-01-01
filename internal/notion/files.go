@@ -67,13 +67,13 @@ func (c *Client) CreateFileUpload(ctx context.Context, req *CreateFileUploadRequ
 
 // SendFileUpload uploads the file content to Notion.
 // See: https://developers.notion.com/reference/send-a-file-upload
-func (c *Client) SendFileUpload(ctx context.Context, uploadURL string, file io.Reader, filename string) (*FileUpload, error) {
+func (c *Client) SendFileUpload(ctx context.Context, uploadURL string, file io.Reader, filename, contentType string) (*FileUpload, error) {
 	if uploadURL == "" {
 		return nil, fmt.Errorf("upload URL is required")
 	}
 
 	var upload FileUpload
-	if err := c.doMultipartRequest(ctx, uploadURL, "file", file, filename, &upload); err != nil {
+	if err := c.doMultipartRequest(ctx, uploadURL, "file", file, filename, contentType, &upload); err != nil {
 		return nil, err
 	}
 

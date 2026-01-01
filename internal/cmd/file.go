@@ -90,7 +90,7 @@ Example - Upload and attach to page property:
 			}
 
 			// Step 2: Send file
-			upload, err = client.SendFileUpload(ctx, upload.UploadURL, file, filename)
+			upload, err = client.SendFileUpload(ctx, upload.UploadURL, file, filename, contentType)
 			if err != nil {
 				return fmt.Errorf("failed to upload file: %w", err)
 			}

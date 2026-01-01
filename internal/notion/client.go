@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"strconv"
@@ -303,7 +304,7 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body in
 }
 
 // doMultipartRequest performs a multipart/form-data POST request with retry logic
-func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName string, file io.Reader, filename string, result interface{}) error {
+func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName string, file io.Reader, filename, contentType string, result interface{}) error {
 	// Check if circuit breaker is open
 	if c.circuitBreaker.isOpen() {
 		return ctxerrors.WrapContext(http.MethodPost, url, 0, ErrCircuitOpen)
@@ -343,7 +344,7 @@ func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName s
 			}
 		}
 
-		err := c.doMultipartRequestOnce(ctx, url, fieldName, bytes.NewReader(fileData), filename, result)
+		err := c.doMultipartRequestOnce(ctx, url, fieldName, bytes.NewReader(fileData), filename, contentType, result)
 		if err != nil {
 			lastErr = err
 
@@ -372,13 +373,21 @@ func (c *Client) doMultipartRequest(ctx context.Context, url string, fieldName s
 }
 
 // doMultipartRequestOnce performs a single multipart/form-data POST request
-func (c *Client) doMultipartRequestOnce(ctx context.Context, url string, fieldName string, file io.Reader, filename string, result interface{}) error {
+func (c *Client) doMultipartRequestOnce(ctx context.Context, url string, fieldName string, file io.Reader, filename, contentType string, result interface{}) error {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	part, err := writer.CreateFormFile(fieldName, filename)
+	// Create form part with correct content type (not application/octet-stream default)
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldName, filename))
+	if contentType != "" {
+		h.Set("Content-Type", contentType)
+	} else {
+		h.Set("Content-Type", "application/octet-stream")
+	}
+	part, err := writer.CreatePart(h)
 	if err != nil {
-		return fmt.Errorf("failed to create form file: %w", err)
+		return fmt.Errorf("failed to create form part: %w", err)
 	}
 
 	if _, err := io.Copy(part, file); err != nil {
@@ -395,6 +404,7 @@ func (c *Client) doMultipartRequestOnce(ctx context.Context, url string, fieldNa
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Notion-Version", c.version)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := c.httpClient.Do(req)

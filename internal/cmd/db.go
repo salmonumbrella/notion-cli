@@ -53,6 +53,21 @@ Example:
 				return fmt.Errorf("failed to get database: %w", err)
 			}
 
+			// In API 2025-09-03+, properties live on data sources, not databases.
+			// Auto-populate properties from the primary data source for convenience.
+			if database.Properties == nil && len(database.DataSources) == 1 {
+				dataSource, err := client.GetDataSource(ctx, database.DataSources[0].ID)
+				if err == nil && dataSource.Properties != nil {
+					// Convert map[string]interface{} to map[string]map[string]interface{}
+					database.Properties = make(map[string]map[string]interface{})
+					for k, v := range dataSource.Properties {
+						if propMap, ok := v.(map[string]interface{}); ok {
+							database.Properties[k] = propMap
+						}
+					}
+				}
+			}
+
 			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
 			return printer.Print(ctx, database)
@@ -531,8 +546,13 @@ Example - Archive database:
 
 			// Update data source schema if properties were provided
 			if propertiesJSON != "" {
+				// Convert map[string]map[string]interface{} to map[string]interface{}
+				propsForDS := make(map[string]interface{})
+				for k, v := range properties {
+					propsForDS[k] = v
+				}
 				dsReq := &notion.UpdateDataSourceRequest{
-					Properties: properties,
+					Properties: propsForDS,
 				}
 				ds, err := client.UpdateDataSource(ctx, resolvedDataSourceID, dsReq)
 				if err != nil {
