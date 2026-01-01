@@ -14,10 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/salmonumbrella/notion-cli/internal/auth"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/salmonumbrella/notion-cli/internal/auth"
+	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 const (

@@ -5,9 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/salmonumbrella/notion-cli/internal/config"
 )
 
 func newConfigCmd() *cobra.Command {

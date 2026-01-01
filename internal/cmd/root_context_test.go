@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 // TestRootCmd_ContextInjection verifies that the root command correctly

@@ -165,12 +165,16 @@ func (p *Printer) printText(data interface{}) error {
 	}
 }
 
-// printTextMap outputs a map as key-value pairs.
+// printTextMap outputs a map as key-value pairs sorted by key.
 func (p *Printer) printTextMap(v reflect.Value) error {
-	iter := v.MapRange()
-	for iter.Next() {
-		key := iter.Key()
-		val := iter.Value()
+	// Collect keys and sort for consistent output
+	keys := v.MapKeys()
+	sort.Slice(keys, func(i, j int) bool {
+		return fmt.Sprintf("%v", keys[i]) < fmt.Sprintf("%v", keys[j])
+	})
+
+	for _, key := range keys {
+		val := v.MapIndex(key)
 		if _, err := fmt.Fprintf(p.w, "%v: %v\n", key, val); err != nil {
 			return err
 		}

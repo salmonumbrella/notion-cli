@@ -7,9 +7,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/salmonumbrella/notion-cli/internal/output"
-	"github.com/spf13/cobra"
 )
 
 func newWorkspaceCmd() *cobra.Command {

@@ -7,8 +7,9 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 // ListResult represents a paginated list response.

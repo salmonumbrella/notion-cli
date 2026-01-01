@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/salmonumbrella/notion-cli/internal/debug"
 	"github.com/salmonumbrella/notion-cli/internal/logging"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
-	"github.com/spf13/cobra"
 )
 
 var (

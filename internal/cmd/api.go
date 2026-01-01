@@ -5,8 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 func newAPICmd() *cobra.Command {

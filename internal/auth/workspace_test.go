@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/99designs/keyring"
+
 	"github.com/salmonumbrella/notion-cli/internal/config"
 )
 
