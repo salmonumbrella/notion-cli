@@ -48,7 +48,7 @@ func newWorkspaceListCmd() *cobra.Command {
 
 			// Create tabwriter for aligned columns
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-			fmt.Fprintln(w, "NAME\tTOKEN SOURCE\tDEFAULT")
+			_, _ = fmt.Fprintln(w, "NAME\tTOKEN SOURCE\tDEFAULT")
 
 			// Print each workspace
 			names := cfg.ListWorkspaces()
@@ -61,10 +61,10 @@ func newWorkspaceListCmd() *cobra.Command {
 				if isDefault {
 					defaultMarker = "*"
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", name, source, defaultMarker)
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", name, source, defaultMarker)
 			}
 
-			w.Flush()
+			_ = w.Flush()
 			return nil
 		},
 	}

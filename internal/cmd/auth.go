@@ -202,7 +202,7 @@ func runOAuthLogin() error {
 	if err != nil {
 		return fmt.Errorf("failed to start callback server: %w", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	port := listener.Addr().(*net.TCPAddr).Port
 	redirectURI := fmt.Sprintf("http://localhost:%d/callback", port)
@@ -264,12 +264,12 @@ func runOAuthLogin() error {
 
 		// Send success response
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(notionSuccessPage))
+		_, _ = w.Write([]byte(notionSuccessPage))
 	})
 
 	server := &http.Server{Handler: mux}
-	go server.Serve(listener)
-	defer server.Close()
+	go func() { _ = server.Serve(listener) }()
+	defer func() { _ = server.Close() }()
 
 	// Build OAuth URL
 	authURL := fmt.Sprintf("%s/auth/start?redirect_uri=%s&state=%s",

@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-
 // setupMockKeyring configures tests to use a mock keyring with no stored token
 func setupMockKeyring() func() {
 	mock := NewMockKeyringProvider()
@@ -45,8 +44,8 @@ func TestGetToken_FromEnvironment(t *testing.T) {
 
 	// Set environment variable
 	expectedToken := "secret_test_token_12345"
-	os.Setenv("NOTION_TOKEN", expectedToken)
-	defer os.Unsetenv("NOTION_TOKEN")
+	_ = os.Setenv("NOTION_TOKEN", expectedToken)
+	defer func() { _ = os.Unsetenv("NOTION_TOKEN") }()
 
 	token, err := GetToken()
 	if err != nil {
@@ -62,7 +61,7 @@ func TestGetToken_NoTokenAvailable(t *testing.T) {
 	defer cleanup()
 
 	// Ensure env var is not set
-	os.Unsetenv("NOTION_TOKEN")
+	_ = os.Unsetenv("NOTION_TOKEN")
 
 	_, err := GetToken()
 	if err == nil {
@@ -74,8 +73,8 @@ func TestHasToken_WithEnvironment(t *testing.T) {
 	cleanup := setupNoKeyring()
 	defer cleanup()
 
-	os.Setenv("NOTION_TOKEN", "test_token")
-	defer os.Unsetenv("NOTION_TOKEN")
+	_ = os.Setenv("NOTION_TOKEN", "test_token")
+	defer func() { _ = os.Unsetenv("NOTION_TOKEN") }()
 
 	if !HasToken() {
 		t.Error("expected HasToken to return true with env var set")
@@ -86,7 +85,7 @@ func TestHasToken_WithoutToken(t *testing.T) {
 	cleanup := setupNoKeyring()
 	defer cleanup()
 
-	os.Unsetenv("NOTION_TOKEN")
+	_ = os.Unsetenv("NOTION_TOKEN")
 
 	if HasToken() {
 		t.Error("expected HasToken to return false with no token available")
@@ -127,7 +126,7 @@ func TestMockKeyring_StoreAndRetrieve(t *testing.T) {
 	}
 
 	// Retrieve the token (should come from mock keyring, not env var)
-	os.Unsetenv("NOTION_TOKEN")
+	_ = os.Unsetenv("NOTION_TOKEN")
 	token, err := GetToken()
 	if err != nil {
 		t.Fatalf("failed to get token: %v", err)

@@ -26,8 +26,8 @@ func TestIsValidNotionTokenFormat(t *testing.T) {
 		{"uppercase NTN", "NTN_abc123", false},
 		{"secret without underscore", "secretabc123", false},
 		{"ntn without underscore", "ntnabc123", false},
-		{"only prefix secret_", "secret_", true}, // technically valid format
-		{"only prefix ntn_", "ntn_", true},       // technically valid format
+		{"only prefix secret_", "secret_", true},   // technically valid format
+		{"only prefix ntn_", "ntn_", true},         // technically valid format
 		{"space in token", "secret_ abc123", true}, // format check only
 		{"special chars", "secret_!@#$%", true},    // format check only
 	}
@@ -59,7 +59,8 @@ func TestGenerateState(t *testing.T) {
 
 		// Check for hex characters only
 		for _, c := range state {
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			isHexDigit := (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+			if !isHexDigit {
 				t.Errorf("generateState() contains non-hex character: %c", c)
 			}
 		}

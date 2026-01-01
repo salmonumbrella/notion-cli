@@ -42,11 +42,11 @@ func TestWorkspaceFlag_Integration(t *testing.T) {
 	}
 
 	// Set up environment variables
-	os.Setenv("DEFAULT_TOKEN", "token-default-123")
-	os.Setenv("WORK_TOKEN", "token-work-456")
+	_ = os.Setenv("DEFAULT_TOKEN", "token-default-123")
+	_ = os.Setenv("WORK_TOKEN", "token-work-456")
 	defer func() {
-		os.Unsetenv("DEFAULT_TOKEN")
-		os.Unsetenv("WORK_TOKEN")
+		_ = os.Unsetenv("DEFAULT_TOKEN")
+		_ = os.Unsetenv("WORK_TOKEN")
 	}()
 
 	tests := []struct {
@@ -79,11 +79,11 @@ func TestWorkspaceFlag_Integration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up environment
 			if tt.workspaceEnv != "" {
-				os.Setenv("NOTION_WORKSPACE", tt.workspaceEnv)
+				_ = os.Setenv("NOTION_WORKSPACE", tt.workspaceEnv)
 			} else {
-				os.Unsetenv("NOTION_WORKSPACE")
+				_ = os.Unsetenv("NOTION_WORKSPACE")
 			}
-			defer os.Unsetenv("NOTION_WORKSPACE")
+			defer func() { _ = os.Unsetenv("NOTION_WORKSPACE") }()
 
 			// Simulate context setup like in PersistentPreRunE
 			ctx := context.Background()
@@ -168,18 +168,18 @@ func TestWorkspaceFlag_BackwardCompatibility(t *testing.T) {
 
 			// Set up environment
 			if tt.envToken != "" {
-				os.Setenv("NOTION_TOKEN", tt.envToken)
+				_ = os.Setenv("NOTION_TOKEN", tt.envToken)
 			} else {
-				os.Unsetenv("NOTION_TOKEN")
+				_ = os.Unsetenv("NOTION_TOKEN")
 			}
-			defer os.Unsetenv("NOTION_TOKEN")
+			defer func() { _ = os.Unsetenv("NOTION_TOKEN") }()
 
 			if tt.workspaceEnv != "" {
-				os.Setenv("NOTION_WORKSPACE", tt.workspaceEnv)
+				_ = os.Setenv("NOTION_WORKSPACE", tt.workspaceEnv)
 			} else {
-				os.Unsetenv("NOTION_WORKSPACE")
+				_ = os.Unsetenv("NOTION_WORKSPACE")
 			}
-			defer os.Unsetenv("NOTION_WORKSPACE")
+			defer func() { _ = os.Unsetenv("NOTION_WORKSPACE") }()
 
 			// Simulate context setup
 			ctx := context.Background()

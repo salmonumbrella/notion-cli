@@ -29,7 +29,7 @@ func TestCreateFileUpload_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUpload{
+		_ = json.NewEncoder(w).Encode(FileUpload{
 			Object:    "file_upload",
 			ID:        "upload123",
 			Status:    "pending",
@@ -107,7 +107,7 @@ func TestSendFileUpload_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUpload{
+		_ = json.NewEncoder(w).Encode(FileUpload{
 			Object: "file_upload",
 			ID:     "upload123",
 			Status: "uploaded",
@@ -155,7 +155,7 @@ func TestCompleteFileUpload_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUpload{
+		_ = json.NewEncoder(w).Encode(FileUpload{
 			Object: "file_upload",
 			ID:     "upload123",
 			Status: "complete",
@@ -201,7 +201,7 @@ func TestGetFileUpload_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUpload{
+		_ = json.NewEncoder(w).Encode(FileUpload{
 			Object:   "file_upload",
 			ID:       "upload123",
 			Status:   "complete",
@@ -249,7 +249,7 @@ func TestGetFileUpload_EmptyID(t *testing.T) {
 func TestGetFileUpload_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  404,
 			Code:    "object_not_found",
@@ -285,7 +285,7 @@ func TestListFileUploads_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUploadList{
+		_ = json.NewEncoder(w).Encode(FileUploadList{
 			Object: "list",
 			Results: []*FileUpload{
 				{Object: "file_upload", ID: "upload1"},
@@ -319,7 +319,7 @@ func TestListFileUploads_WithOptions(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUploadList{
+		_ = json.NewEncoder(w).Encode(FileUploadList{
 			Object:  "list",
 			Results: []*FileUpload{},
 			HasMore: false,
@@ -345,7 +345,7 @@ func TestListFileUploads_Pagination(t *testing.T) {
 	nextCursor := "next123"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUploadList{
+		_ = json.NewEncoder(w).Encode(FileUploadList{
 			Object: "list",
 			Results: []*FileUpload{
 				{Object: "file_upload", ID: "upload1"},
@@ -375,14 +375,14 @@ func TestListFileUploads_Pagination(t *testing.T) {
 func TestCreateFileUpload_MultiPart(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req CreateFileUploadRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		if req.Mode != "multi_part" {
 			t.Errorf("expected mode 'multi_part', got %q", req.Mode)
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUpload{
+		_ = json.NewEncoder(w).Encode(FileUpload{
 			Object:    "file_upload",
 			ID:        "upload123",
 			Status:    "pending",
@@ -418,7 +418,7 @@ func TestSendFilePart_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(FileUploadPart{
+		_ = json.NewEncoder(w).Encode(FileUploadPart{
 			PartNumber: 1,
 			Status:     "uploaded",
 		})
@@ -447,7 +447,7 @@ func TestUploadLargeFile_Integration(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/file_uploads" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUpload{
+			_ = json.NewEncoder(w).Encode(FileUpload{
 				ID:        "upload123",
 				Status:    "pending",
 				UploadURL: serverURL + "/upload",
@@ -457,12 +457,12 @@ func TestUploadLargeFile_Integration(t *testing.T) {
 		if r.URL.Path == "/upload" && r.Method == "POST" {
 			partCount++
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUploadPart{PartNumber: partCount, Status: "uploaded"})
+			_ = json.NewEncoder(w).Encode(FileUploadPart{PartNumber: partCount, Status: "uploaded"})
 			return
 		}
 		if r.URL.Path == "/file_uploads/upload123/complete" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUpload{ID: "upload123", Status: "complete"})
+			_ = json.NewEncoder(w).Encode(FileUpload{ID: "upload123", Status: "complete"})
 			return
 		}
 	}))
@@ -547,7 +547,7 @@ func TestUploadLargeFile_EmptyFile(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/file_uploads" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUpload{
+			_ = json.NewEncoder(w).Encode(FileUpload{
 				ID:        "upload123",
 				Status:    "pending",
 				UploadURL: serverURL + "/upload",
@@ -556,7 +556,7 @@ func TestUploadLargeFile_EmptyFile(t *testing.T) {
 		}
 		if r.URL.Path == "/file_uploads/upload123/complete" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUpload{ID: "upload123", Status: "complete"})
+			_ = json.NewEncoder(w).Encode(FileUpload{ID: "upload123", Status: "complete"})
 			return
 		}
 	}))
@@ -587,7 +587,7 @@ func TestUploadLargeFile_SingleChunk(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/file_uploads" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUpload{
+			_ = json.NewEncoder(w).Encode(FileUpload{
 				ID:        "upload123",
 				Status:    "pending",
 				UploadURL: serverURL + "/upload",
@@ -597,12 +597,12 @@ func TestUploadLargeFile_SingleChunk(t *testing.T) {
 		if r.URL.Path == "/upload" && r.Method == "POST" {
 			partCount++
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUploadPart{PartNumber: partCount, Status: "uploaded"})
+			_ = json.NewEncoder(w).Encode(FileUploadPart{PartNumber: partCount, Status: "uploaded"})
 			return
 		}
 		if r.URL.Path == "/file_uploads/upload123/complete" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUpload{ID: "upload123", Status: "complete"})
+			_ = json.NewEncoder(w).Encode(FileUpload{ID: "upload123", Status: "complete"})
 			return
 		}
 	}))
@@ -639,7 +639,7 @@ func TestUploadLargeFile_ExactChunkSize(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/file_uploads" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUpload{
+			_ = json.NewEncoder(w).Encode(FileUpload{
 				ID:        "upload123",
 				Status:    "pending",
 				UploadURL: serverURL + "/upload",
@@ -649,12 +649,12 @@ func TestUploadLargeFile_ExactChunkSize(t *testing.T) {
 		if r.URL.Path == "/upload" && r.Method == "POST" {
 			partCount++
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUploadPart{PartNumber: partCount, Status: "uploaded"})
+			_ = json.NewEncoder(w).Encode(FileUploadPart{PartNumber: partCount, Status: "uploaded"})
 			return
 		}
 		if r.URL.Path == "/file_uploads/upload123/complete" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(FileUpload{ID: "upload123", Status: "complete"})
+			_ = json.NewEncoder(w).Encode(FileUpload{ID: "upload123", Status: "complete"})
 			return
 		}
 	}))

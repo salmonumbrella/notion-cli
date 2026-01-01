@@ -66,10 +66,10 @@ const (
 
 // PropertyValue is a generic property value that can hold any property type.
 type PropertyValue struct {
-	ID      string                   `json:"id,omitempty"`
-	Type    string                   `json:"type"`
-	Formula *FormulaValue            `json:"formula,omitempty"`
-	Rollup  *RollupValue             `json:"rollup,omitempty"`
+	ID      string        `json:"id,omitempty"`
+	Type    string        `json:"type"`
+	Formula *FormulaValue `json:"formula,omitempty"`
+	Rollup  *RollupValue  `json:"rollup,omitempty"`
 	// Other common property types
 	Title          []RichText               `json:"title,omitempty"`
 	RichText       []RichText               `json:"rich_text,omitempty"`

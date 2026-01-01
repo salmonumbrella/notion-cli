@@ -18,12 +18,12 @@ func TestGetBlock_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"object":      "block",
-			"id":          "block123",
-			"type":        "paragraph",
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"object":       "block",
+			"id":           "block123",
+			"type":         "paragraph",
 			"has_children": false,
-			"archived":    false,
+			"archived":     false,
 			"paragraph": map[string]interface{}{
 				"rich_text": []interface{}{},
 			},
@@ -79,8 +79,8 @@ func TestGetBlockChildren_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"object":  "list",
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"object": "list",
 			"results": []interface{}{
 				map[string]interface{}{
 					"object": "block",
@@ -139,9 +139,9 @@ func TestGetBlockChildren_WithPagination(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"object":  "list",
-			"results": []interface{}{},
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"object":      "list",
+			"results":     []interface{}{},
 			"has_more":    false,
 			"next_cursor": nil,
 		})
@@ -180,9 +180,9 @@ func TestAppendBlockChildren_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"object":  "list",
-			"results": req.Children,
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"object":      "list",
+			"results":     req.Children,
 			"has_more":    false,
 			"next_cursor": nil,
 		})
@@ -277,7 +277,7 @@ func TestUpdateBlock_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"object":   "block",
 			"id":       "block123",
 			"type":     "paragraph",
@@ -354,7 +354,7 @@ func TestDeleteBlock_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"object":   "block",
 			"id":       "block123",
 			"type":     "paragraph",

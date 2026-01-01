@@ -28,7 +28,7 @@ func ExampleWithFormat() {
 		"status":  "success",
 		"message": "Using context-based dependency injection",
 	}
-	printer.Print(ctx, data)
+	_ = printer.Print(ctx, data)
 
 	fmt.Print(buf.String())
 	// Output:
@@ -62,7 +62,7 @@ func ExampleFormatFromContext_command() {
 		"name":  "notion-cli",
 		"theme": "context-based DI",
 	}
-	printer.Print(ctx, data)
+	_ = printer.Print(ctx, data)
 
 	// Output:
 	// name: notion-cli

@@ -41,8 +41,8 @@ func TestNew(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.noColor != "" {
 				old := os.Getenv("NO_COLOR")
-				os.Setenv("NO_COLOR", tt.noColor)
-				defer os.Setenv("NO_COLOR", old)
+				_ = os.Setenv("NO_COLOR", tt.noColor)
+				defer func() { _ = os.Setenv("NO_COLOR", old) }()
 			}
 
 			ui := New(tt.mode)
@@ -195,8 +195,8 @@ func TestColorProfile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear NO_COLOR for this test
 			old := os.Getenv("NO_COLOR")
-			os.Unsetenv("NO_COLOR")
-			defer os.Setenv("NO_COLOR", old)
+			_ = os.Unsetenv("NO_COLOR")
+			defer func() { _ = os.Setenv("NO_COLOR", old) }()
 
 			ui := New(tt.mode)
 			if ui == nil {

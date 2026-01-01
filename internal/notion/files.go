@@ -14,15 +14,15 @@ import (
 // FileUpload represents a Notion file upload object.
 // See: https://developers.notion.com/reference/file-upload-object
 type FileUpload struct {
-	Object        string  `json:"object"`
-	ID            string  `json:"id"`
-	CreatedTime   string  `json:"created_time"`
-	ExpiryTime    string  `json:"expiry_time"`
-	FileName      string  `json:"file_name,omitempty"`
-	MimeType      string  `json:"mime_type,omitempty"`
-	Size          int64   `json:"size,omitempty"`
-	Status        string  `json:"status"`
-	UploadURL     string  `json:"upload_url,omitempty"`
+	Object      string `json:"object"`
+	ID          string `json:"id"`
+	CreatedTime string `json:"created_time"`
+	ExpiryTime  string `json:"expiry_time"`
+	FileName    string `json:"file_name,omitempty"`
+	MimeType    string `json:"mime_type,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+	Status      string `json:"status"`
+	UploadURL   string `json:"upload_url,omitempty"`
 }
 
 // FileUploadList represents a paginated list of file uploads.
@@ -173,7 +173,7 @@ func (c *Client) SendFilePart(ctx context.Context, uploadURL string, part io.Rea
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		var errResp ErrorResponse

@@ -86,7 +86,7 @@ func TestDoRequest_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -97,7 +97,7 @@ func TestDoRequest_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, resp.StatusCode)
@@ -127,7 +127,7 @@ func TestDoRequest_WithBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 }
 
 func TestDoRequest_ErrorResponse(t *testing.T) {
@@ -184,7 +184,7 @@ func TestDoRequest_ErrorResponse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				json.NewEncoder(w).Encode(tt.responseBody)
+				_ = json.NewEncoder(w).Encode(tt.responseBody)
 			}))
 			defer server.Close()
 
@@ -233,7 +233,7 @@ func TestDoRequest_ErrorResponse(t *testing.T) {
 func TestDoRequest_MalformedErrorResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("not json"))
+		_, _ = w.Write([]byte("not json"))
 	}))
 	defer server.Close()
 
@@ -272,7 +272,7 @@ func TestDoGet(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(testResponse{
+		_ = json.NewEncoder(w).Encode(testResponse{
 			ID:   "123",
 			Name: "Test",
 		})
@@ -312,7 +312,7 @@ func TestDoGet_WithQueryParams(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -358,7 +358,7 @@ func TestDoPost(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(testResponse{ID: "456"})
+		_ = json.NewEncoder(w).Encode(testResponse{ID: "456"})
 	}))
 	defer server.Close()
 
@@ -385,7 +385,7 @@ func TestDoPatch(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
 	}))
 	defer server.Close()
 
@@ -410,7 +410,7 @@ func TestDoDelete(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]bool{"archived": true})
+		_ = json.NewEncoder(w).Encode(map[string]bool{"archived": true})
 	}))
 	defer server.Close()
 
@@ -518,7 +518,7 @@ func TestCircuitBreaker_OpenAfterFailures(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  503,
 			Code:    "service_unavailable",
@@ -568,7 +568,7 @@ func TestCircuitBreaker_ResetOnSuccess(t *testing.T) {
 		if failCount <= 3 {
 			// Fail first 3 requests
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			_ = json.NewEncoder(w).Encode(ErrorResponse{
 				Object:  "error",
 				Status:  503,
 				Code:    "service_unavailable",
@@ -577,7 +577,7 @@ func TestCircuitBreaker_ResetOnSuccess(t *testing.T) {
 		} else {
 			// Succeed on 4th request
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		}
 	}))
 	defer server.Close()
@@ -590,7 +590,7 @@ func TestCircuitBreaker_ResetOnSuccess(t *testing.T) {
 
 	// Make 3 failing requests
 	for i := 0; i < 3; i++ {
-		client.doRequest(ctx, http.MethodGet, "/test", nil)
+		_, _ = client.doRequest(ctx, http.MethodGet, "/test", nil)
 	}
 
 	// Make successful request - should reset failure counter
@@ -598,12 +598,12 @@ func TestCircuitBreaker_ResetOnSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected success, got error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Now make more failing requests - should need 5 more to open circuit
 	failCount = 0 // Reset server counter
 	for i := 0; i < defaultCircuitBreakerThreshold-1; i++ {
-		client.doRequest(ctx, http.MethodGet, "/test", nil)
+		_, _ = client.doRequest(ctx, http.MethodGet, "/test", nil)
 	}
 
 	// Circuit should not be open yet
@@ -627,7 +627,7 @@ func TestCircuitBreaker_AutoRecovery(t *testing.T) {
 		// After circuit opens and recovers, we succeed
 		if currentCall < defaultCircuitBreakerThreshold {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			_ = json.NewEncoder(w).Encode(ErrorResponse{
 				Object:  "error",
 				Status:  503,
 				Code:    "service_unavailable",
@@ -636,7 +636,7 @@ func TestCircuitBreaker_AutoRecovery(t *testing.T) {
 		} else {
 			// Succeed after circuit recovery
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		}
 	}))
 	defer server.Close()
@@ -653,7 +653,7 @@ func TestCircuitBreaker_AutoRecovery(t *testing.T) {
 		mu.Lock()
 		doRequestCallCount = i
 		mu.Unlock()
-		client.doRequest(ctx, http.MethodGet, "/test", nil)
+		_, _ = client.doRequest(ctx, http.MethodGet, "/test", nil)
 	}
 
 	// Verify circuit is open
@@ -675,7 +675,7 @@ func TestCircuitBreaker_AutoRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected success after recovery timeout, got error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Circuit should now be fully closed
 	if client.circuitBreaker.isOpen() {
@@ -688,7 +688,7 @@ func TestCircuitBreaker_DisabledByDefault(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  503,
 			Code:    "service_unavailable",
@@ -717,7 +717,7 @@ func TestCircuitBreaker_Only5xxErrors(t *testing.T) {
 		attempts++
 		// Return 4xx errors which should not trigger circuit breaker
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  404,
 			Code:    "object_not_found",

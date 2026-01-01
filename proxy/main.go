@@ -96,10 +96,10 @@ var limiter = newRateLimiter(30, time.Minute) // 30 requests per minute per IP
 // State signing for CSRF protection
 // The proxy signs states it issues so it can verify them on callback
 type signedState struct {
-	ClientState string `json:"s"`       // Original state from CLI
-	RedirectURI string `json:"r"`       // Original redirect_uri
-	Timestamp   int64  `json:"t"`       // Unix timestamp for expiration
-	Signature   string `json:"sig"`     // HMAC signature
+	ClientState string `json:"s"`   // Original state from CLI
+	RedirectURI string `json:"r"`   // Original redirect_uri
+	Timestamp   int64  `json:"t"`   // Unix timestamp for expiration
+	Signature   string `json:"sig"` // HMAC signature
 }
 
 const stateMaxAge = 10 * time.Minute
@@ -207,7 +207,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"status":"ok"}`))
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 func handleAuthChoice(w http.ResponseWriter, r *http.Request) {
@@ -340,7 +340,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 			// Use auto-submitting form to POST token (avoids browser history exposure)
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
-			fmt.Fprintf(w, `<!DOCTYPE html>
+			_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html><head><title>Redirecting...</title></head>
 <body>
 <form id="f" method="POST" action="%s">
@@ -411,14 +411,14 @@ func exchangeCodeForToken(code, redirectURI string) (*tokenResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp struct {
 			Error   string `json:"error"`
 			Message string `json:"message"`
 		}
-		json.NewDecoder(resp.Body).Decode(&errResp)
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Message != "" {
 			return nil, fmt.Errorf("%s: %s", errResp.Error, errResp.Message)
 		}

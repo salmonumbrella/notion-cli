@@ -38,7 +38,7 @@ func TestDebugTransport_Request(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "success"}`))
+		_, _ = w.Write([]byte(`{"message": "success"}`))
 	}))
 	defer server.Close()
 
@@ -60,7 +60,7 @@ func TestDebugTransport_Request(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	_, err = io.ReadAll(resp.Body)
@@ -120,7 +120,7 @@ func TestDebugTransport_RequestBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Verify debug output
 	output := buf.String()
@@ -135,7 +135,7 @@ func TestDebugTransport_LongBody(t *testing.T) {
 	// Create a test server that returns a large response
 	largeBody := strings.Repeat("x", 2000)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(largeBody))
+		_, _ = w.Write([]byte(largeBody))
 	}))
 	defer server.Close()
 
@@ -156,7 +156,7 @@ func TestDebugTransport_LongBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	_, err = io.ReadAll(resp.Body)
@@ -217,7 +217,7 @@ func TestDebugTransport_RateLimitHeaders(t *testing.T) {
 		w.Header().Set("X-RateLimit-Reset", "1766149200") // Some future timestamp
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	}))
 	defer server.Close()
 
@@ -238,7 +238,7 @@ func TestDebugTransport_RateLimitHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	_, err = io.ReadAll(resp.Body)
@@ -260,7 +260,7 @@ func TestDebugTransport_NoRateLimitHeaders(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	}))
 	defer server.Close()
 
@@ -281,7 +281,7 @@ func TestDebugTransport_NoRateLimitHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	_, err = io.ReadAll(resp.Body)

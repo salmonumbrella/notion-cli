@@ -116,8 +116,8 @@ func TestResolveWorkspaceToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup environment variables
 			for k, v := range tt.envVars {
-				os.Setenv(k, v)
-				defer os.Unsetenv(k)
+				_ = os.Setenv(k, v)
+				defer func(key string) { _ = os.Unsetenv(key) }(k)
 			}
 
 			// Setup keyring mock if provided
@@ -266,8 +266,8 @@ func TestGetWorkspaceToken_WithConfig(t *testing.T) {
 
 			// Override config path via environment
 			originalHome := os.Getenv("HOME")
-			os.Setenv("HOME", tmpDir)
-			defer os.Setenv("HOME", originalHome)
+			_ = os.Setenv("HOME", tmpDir)
+			defer func() { _ = os.Setenv("HOME", originalHome) }()
 
 			// Create .config/notion-cli directory structure
 			notionCliDir := filepath.Join(tmpDir, ".config", "notion-cli")
@@ -283,8 +283,8 @@ func TestGetWorkspaceToken_WithConfig(t *testing.T) {
 
 			// Setup environment variables
 			for k, v := range tt.setupEnv {
-				os.Setenv(k, v)
-				defer os.Unsetenv(k)
+				_ = os.Setenv(k, v)
+				defer func(key string) { _ = os.Unsetenv(key) }(k)
 			}
 
 			// Setup keyring mock if provided
@@ -324,8 +324,8 @@ func TestGetWorkspaceToken_NoConfigFallback(t *testing.T) {
 
 	// Override HOME to point to temp dir
 	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", originalHome) }()
 
 	// Setup keyring mock
 	originalProvider := defaultProvider

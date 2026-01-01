@@ -50,7 +50,7 @@ type UserInfo struct {
 // TokenMetadata contains metadata about the stored token
 type TokenMetadata struct {
 	Token     string    `json:"token"`
-	Source    string    `json:"source"`      // "oauth" or "internal"
+	Source    string    `json:"source"` // "oauth" or "internal"
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -366,10 +366,12 @@ func FormatTokenAge(createdAt time.Time) string {
 	}
 	age := TokenAgeDays(createdAt)
 	dateStr := createdAt.Format("2006-01-02")
-	if age == 0 {
+	switch age {
+	case 0:
 		return fmt.Sprintf("created today (%s)", dateStr)
-	} else if age == 1 {
+	case 1:
 		return fmt.Sprintf("1 day ago (created %s)", dateStr)
+	default:
+		return fmt.Sprintf("%d days ago (created %s)", age, dateStr)
 	}
-	return fmt.Sprintf("%d days ago (created %s)", age, dateStr)
 }

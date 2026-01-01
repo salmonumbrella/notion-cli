@@ -24,7 +24,7 @@ func TestSearch_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(SearchResult{
+		_ = json.NewEncoder(w).Encode(SearchResult{
 			Object: "list",
 			Results: []map[string]interface{}{
 				{
@@ -70,7 +70,7 @@ func TestSearch_NilRequest(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(SearchResult{
+		_ = json.NewEncoder(w).Encode(SearchResult{
 			Object:  "list",
 			Results: []map[string]interface{}{},
 			HasMore: false,
@@ -109,7 +109,7 @@ func TestSearch_WithFilter(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(SearchResult{
+		_ = json.NewEncoder(w).Encode(SearchResult{
 			Object:  "list",
 			Results: []map[string]interface{}{},
 			HasMore: false,
@@ -151,7 +151,7 @@ func TestSearch_WithSort(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(SearchResult{
+		_ = json.NewEncoder(w).Encode(SearchResult{
 			Object:  "list",
 			Results: []map[string]interface{}{},
 			HasMore: false,
@@ -165,8 +165,8 @@ func TestSearch_WithSort(t *testing.T) {
 	req := &SearchRequest{
 		Query: "test",
 		Sort: map[string]interface{}{
-			"direction":  "descending",
-			"timestamp":  "last_edited_time",
+			"direction": "descending",
+			"timestamp": "last_edited_time",
 		},
 	}
 
@@ -192,7 +192,7 @@ func TestSearch_WithPagination(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 		nextCursor := "nextcursor456"
-		json.NewEncoder(w).Encode(SearchResult{
+		_ = json.NewEncoder(w).Encode(SearchResult{
 			Object:     "list",
 			Results:    []map[string]interface{}{},
 			HasMore:    true,
@@ -236,7 +236,7 @@ func TestSearch_EmptyQuery(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(SearchResult{
+		_ = json.NewEncoder(w).Encode(SearchResult{
 			Object:  "list",
 			Results: []map[string]interface{}{},
 			HasMore: false,
@@ -264,7 +264,7 @@ func TestSearch_EmptyQuery(t *testing.T) {
 func TestSearch_ErrorResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  401,
 			Code:    "unauthorized",

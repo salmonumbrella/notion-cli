@@ -256,8 +256,8 @@ func TestRollupValue_GetNumber_WrongType(t *testing.T) {
 
 func TestFormulaValue_NilPointerFields(t *testing.T) {
 	tests := []struct {
-		name     string
-		formula  *FormulaValue
+		name      string
+		formula   *FormulaValue
 		getString string
 		getNumber float64
 		getBool   bool

@@ -40,8 +40,8 @@ func TestIsLocalhostURI(t *testing.T) {
 
 func TestSignAndVerifyState(t *testing.T) {
 	// Set a known signing key for testing
-	os.Setenv("CLIENT_SECRET", "test-secret-key")
-	defer os.Unsetenv("CLIENT_SECRET")
+	_ = os.Setenv("CLIENT_SECRET", "test-secret-key")
+	defer func() { _ = os.Unsetenv("CLIENT_SECRET") }()
 
 	clientState := "abc123"
 	redirectURI := "http://localhost:12345/callback"
@@ -67,14 +67,14 @@ func TestSignAndVerifyState(t *testing.T) {
 }
 
 func TestVerifyState_InvalidSignature(t *testing.T) {
-	os.Setenv("CLIENT_SECRET", "test-secret-key")
-	defer os.Unsetenv("CLIENT_SECRET")
+	_ = os.Setenv("CLIENT_SECRET", "test-secret-key")
+	defer func() { _ = os.Unsetenv("CLIENT_SECRET") }()
 
 	// Sign with one key
 	signed := signState("state1", "http://localhost:8080/callback")
 
 	// Change key and try to verify
-	os.Setenv("CLIENT_SECRET", "different-key")
+	_ = os.Setenv("CLIENT_SECRET", "different-key")
 	_, err := verifyState(signed)
 	if err == nil {
 		t.Error("verifyState should fail with different signing key")
@@ -88,7 +88,7 @@ func TestVerifyState_InvalidFormat(t *testing.T) {
 	}{
 		{"empty", ""},
 		{"not base64", "!!!invalid!!!"},
-		{"valid base64 but not json", "aGVsbG8gd29ybGQ="}, // "hello world"
+		{"valid base64 but not json", "aGVsbG8gd29ybGQ="},    // "hello world"
 		{"json but wrong structure", "eyJmb28iOiJiYXIifQ=="}, // {"foo":"bar"}
 	}
 

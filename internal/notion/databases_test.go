@@ -18,7 +18,7 @@ func TestGetDatabase_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Database{
+		_ = json.NewEncoder(w).Encode(Database{
 			Object:     "database",
 			ID:         "db123",
 			Title:      []map[string]interface{}{{"type": "text", "text": map[string]interface{}{"content": "Test Database"}}},
@@ -73,7 +73,7 @@ func TestQueryDatabase_Success(t *testing.T) {
 				t.Errorf("expected path /databases/db123, got %s", r.URL.Path)
 			}
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(Database{
+			_ = json.NewEncoder(w).Encode(Database{
 				Object:      "database",
 				ID:          "db123",
 				DataSources: []DataSourceRef{{ID: "ds456"}},
@@ -94,7 +94,7 @@ func TestQueryDatabase_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DatabaseQueryResult{
+		_ = json.NewEncoder(w).Encode(DatabaseQueryResult{
 			Object:  "list",
 			Results: []Page{},
 			HasMore: false,
@@ -128,7 +128,7 @@ func TestQueryDatabase_MultipleDataSources(t *testing.T) {
 			t.Errorf("expected GET method for database fetch, got %s", r.Method)
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Database{
+		_ = json.NewEncoder(w).Encode(Database{
 			Object: "database",
 			ID:     "db123",
 			DataSources: []DataSourceRef{
@@ -176,7 +176,7 @@ func TestQueryDatabase_NilRequest(t *testing.T) {
 		if requestCount == 1 {
 			// First request: GET database
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(Database{
+			_ = json.NewEncoder(w).Encode(Database{
 				Object:      "database",
 				ID:          "db123",
 				DataSources: []DataSourceRef{{ID: "ds456"}},
@@ -190,7 +190,7 @@ func TestQueryDatabase_NilRequest(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DatabaseQueryResult{
+		_ = json.NewEncoder(w).Encode(DatabaseQueryResult{
 			Object:  "list",
 			Results: []Page{},
 			HasMore: false,
@@ -236,7 +236,7 @@ func TestCreateDatabase_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Database{
+		_ = json.NewEncoder(w).Encode(Database{
 			Object:     "database",
 			ID:         "newdb123",
 			Title:      req.Title,
@@ -360,7 +360,7 @@ func TestUpdateDatabase_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Database{
+		_ = json.NewEncoder(w).Encode(Database{
 			Object:     "database",
 			ID:         "db123",
 			Title:      req.Title,

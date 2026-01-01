@@ -18,46 +18,46 @@ func NewDryRunPrinter(w io.Writer) *DryRunPrinter {
 // Header prints the header line indicating the action that would be taken.
 // Example: [DRY-RUN] Would delete block abc-123
 func (p *DryRunPrinter) Header(action, resourceType, id string) {
-	fmt.Fprintf(p.w, "[DRY-RUN] Would %s %s %s\n", action, resourceType, id)
+	_, _ = fmt.Fprintf(p.w, "[DRY-RUN] Would %s %s %s\n", action, resourceType, id)
 }
 
 // Field prints a single field with its value.
 // Example:   Type: paragraph
 func (p *DryRunPrinter) Field(name, value string) {
-	fmt.Fprintf(p.w, "  %s: %s\n", name, value)
+	_, _ = fmt.Fprintf(p.w, "  %s: %s\n", name, value)
 }
 
 // Change prints a field that would change from one value to another.
 // Example:   Status: "In Progress" -> "Done"
 func (p *DryRunPrinter) Change(name, oldVal, newVal string) {
 	if oldVal == "" {
-		fmt.Fprintf(p.w, "  %s: (empty) -> %q\n", name, newVal)
+		_, _ = fmt.Fprintf(p.w, "  %s: (empty) -> %q\n", name, newVal)
 	} else if newVal == "" {
-		fmt.Fprintf(p.w, "  %s: %q -> (empty)\n", name, oldVal)
+		_, _ = fmt.Fprintf(p.w, "  %s: %q -> (empty)\n", name, oldVal)
 	} else {
-		fmt.Fprintf(p.w, "  %s: %q -> %q\n", name, oldVal, newVal)
+		_, _ = fmt.Fprintf(p.w, "  %s: %q -> %q\n", name, oldVal, newVal)
 	}
 }
 
 // Unchanged prints a field that would remain unchanged.
 // Example:   Priority: (unchanged)
 func (p *DryRunPrinter) Unchanged(name string) {
-	fmt.Fprintf(p.w, "  %s: (unchanged)\n", name)
+	_, _ = fmt.Fprintf(p.w, "  %s: (unchanged)\n", name)
 }
 
 // Section prints a section header.
 // Example:   Properties to update:
 func (p *DryRunPrinter) Section(title string) {
-	fmt.Fprintf(p.w, "\n%s\n", title)
+	_, _ = fmt.Fprintf(p.w, "\n%s\n", title)
 }
 
 // Footer prints the footer message indicating no changes were made.
 func (p *DryRunPrinter) Footer() {
-	fmt.Fprintf(p.w, "\n[DRY-RUN] No changes made.\n")
+	_, _ = fmt.Fprintf(p.w, "\n[DRY-RUN] No changes made.\n")
 }
 
 // Content prints multi-line content with proper indentation.
 // Example:   Content: "This is the block content..."
 func (p *DryRunPrinter) Content(name, value string) {
-	fmt.Fprintf(p.w, "  %s: %q\n", name, value)
+	_, _ = fmt.Fprintf(p.w, "  %s: %q\n", name, value)
 }

@@ -49,7 +49,7 @@ type Link struct {
 
 // Mention represents a mention in rich text.
 type Mention struct {
-	Type string      `json:"type"`
+	Type string       `json:"type"`
 	User *UserMention `json:"user,omitempty"`
 }
 

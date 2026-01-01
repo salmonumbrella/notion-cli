@@ -23,7 +23,7 @@ func TestListComments_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(CommentList{
+		_ = json.NewEncoder(w).Encode(CommentList{
 			Object: "list",
 			Results: []*Comment{
 				{
@@ -77,7 +77,7 @@ func TestListComments_WithOptions(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(CommentList{
+		_ = json.NewEncoder(w).Encode(CommentList{
 			Object:  "list",
 			Results: []*Comment{},
 			HasMore: false,
@@ -140,7 +140,7 @@ func TestCreateComment_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Comment{
+		_ = json.NewEncoder(w).Encode(Comment{
 			Object:   "comment",
 			ID:       "comment123",
 			RichText: req.RichText,
@@ -283,7 +283,7 @@ func TestCreateComment_WithDiscussionID(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Comment{
+		_ = json.NewEncoder(w).Encode(Comment{
 			Object:       "comment",
 			ID:           "comment123",
 			DiscussionID: req.DiscussionID,
@@ -347,7 +347,7 @@ func TestCreateComment_WithUserMention(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Comment{
+		_ = json.NewEncoder(w).Encode(Comment{
 			Object:   "comment",
 			ID:       "comment123",
 			RichText: req.RichText,
@@ -411,7 +411,7 @@ func TestCreateComment_WithMultipleMentions(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Comment{
+		_ = json.NewEncoder(w).Encode(Comment{
 			Object:   "comment",
 			ID:       "comment123",
 			RichText: req.RichText,

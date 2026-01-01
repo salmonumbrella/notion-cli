@@ -283,7 +283,7 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body in
 
 	// Check for error responses
 	if resp.StatusCode >= 400 {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var errResp ErrorResponse
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
@@ -411,7 +411,7 @@ func (c *Client) doMultipartRequestOnce(ctx context.Context, url string, fieldNa
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Update rate limit tracker with response headers
 	c.rateLimiter.Update(resp)
@@ -500,7 +500,7 @@ func (c *Client) doGet(ctx context.Context, path string, query url.Values, resul
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
@@ -517,7 +517,7 @@ func (c *Client) doPost(ctx context.Context, path string, body, result interface
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
@@ -534,7 +534,7 @@ func (c *Client) doPatch(ctx context.Context, path string, body, result interfac
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
@@ -551,7 +551,7 @@ func (c *Client) doDelete(ctx context.Context, path string, result interface{}) 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {

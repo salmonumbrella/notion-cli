@@ -53,7 +53,7 @@ func newPageExportCmd() *cobra.Command {
 				if title := pageTitleFromProperties(page.Properties); title != "" {
 					markdown = "# " + title + "\n\n" + markdown
 				}
-				fmt.Fprintln(os.Stdout, markdown)
+				_, _ = fmt.Fprintln(os.Stdout, markdown)
 				return nil
 			case "json":
 				printer := output.NewPrinter(os.Stdout, output.FormatJSON)

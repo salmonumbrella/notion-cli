@@ -19,7 +19,7 @@ func TestGetUser_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(User{
+		_ = json.NewEncoder(w).Encode(User{
 			Object: "user",
 			ID:     "user123",
 			Type:   "person",
@@ -62,7 +62,7 @@ func TestGetUser_EmptyID(t *testing.T) {
 func TestGetUser_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  404,
 			Code:    "object_not_found",
@@ -98,7 +98,7 @@ func TestListUsers_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(UserList{
+		_ = json.NewEncoder(w).Encode(UserList{
 			Object: "list",
 			Results: []*User{
 				{
@@ -143,7 +143,7 @@ func TestListUsers_WithOptions(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(UserList{
+		_ = json.NewEncoder(w).Encode(UserList{
 			Object:  "list",
 			Results: []*User{},
 			HasMore: false,
@@ -188,7 +188,7 @@ func TestListUsers_WithPagination(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		nextCursor := "nextcursor456"
-		json.NewEncoder(w).Encode(UserList{
+		_ = json.NewEncoder(w).Encode(UserList{
 			Object: "list",
 			Results: []*User{
 				{
@@ -232,7 +232,7 @@ func TestGetSelf_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(User{
+		_ = json.NewEncoder(w).Encode(User{
 			Object: "user",
 			ID:     "bot123",
 			Type:   "bot",
@@ -260,7 +260,7 @@ func TestGetSelf_Success(t *testing.T) {
 func TestGetSelf_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  401,
 			Code:    "unauthorized",
@@ -289,7 +289,7 @@ func TestGetSelf_Unauthorized(t *testing.T) {
 func TestGetUser_PersonType(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(User{
+		_ = json.NewEncoder(w).Encode(User{
 			Object: "user",
 			ID:     "person123",
 			Type:   "person",
@@ -323,7 +323,7 @@ func TestGetUser_PersonType(t *testing.T) {
 func TestGetUser_BotType(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(User{
+		_ = json.NewEncoder(w).Encode(User{
 			Object: "user",
 			ID:     "bot456",
 			Type:   "bot",

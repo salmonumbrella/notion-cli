@@ -130,7 +130,7 @@ func (p *Printer) printJSON(ctx context.Context, data interface{}) error {
 func (p *Printer) printYAML(data interface{}) error {
 	enc := yaml.NewEncoder(p.w)
 	enc.SetIndent(2)
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 	return enc.Encode(data)
 }
 
@@ -296,16 +296,16 @@ func (p *Printer) printTableFromMaps(v reflect.Value) error {
 	sort.Strings(keys)
 
 	tw := tabwriter.NewWriter(p.w, 0, 0, 2, ' ', 0)
-	defer tw.Flush()
+	defer func() { _ = tw.Flush() }()
 
 	// Print header
 	for i, key := range keys {
 		if i > 0 {
-			fmt.Fprint(tw, "\t")
+			_, _ = fmt.Fprint(tw, "\t")
 		}
-		fmt.Fprint(tw, strings.ToUpper(key))
+		_, _ = fmt.Fprint(tw, strings.ToUpper(key))
 	}
-	fmt.Fprintln(tw)
+	_, _ = fmt.Fprintln(tw)
 
 	// Print rows
 	for i := 0; i < v.Len(); i++ {
@@ -322,16 +322,16 @@ func (p *Printer) printTableFromMaps(v reflect.Value) error {
 
 		for j, key := range keys {
 			if j > 0 {
-				fmt.Fprint(tw, "\t")
+				_, _ = fmt.Fprint(tw, "\t")
 			}
 			val := m.MapIndex(reflect.ValueOf(key))
 			if val.IsValid() {
-				fmt.Fprintf(tw, "%v", val)
+				_, _ = fmt.Fprintf(tw, "%v", val)
 			} else {
-				fmt.Fprint(tw, "-")
+				_, _ = fmt.Fprint(tw, "-")
 			}
 		}
-		fmt.Fprintln(tw)
+		_, _ = fmt.Fprintln(tw)
 	}
 
 	return nil
@@ -385,16 +385,16 @@ func (p *Printer) printTableFromStructs(v reflect.Value) error {
 	}
 
 	tw := tabwriter.NewWriter(p.w, 0, 0, 2, ' ', 0)
-	defer tw.Flush()
+	defer func() { _ = tw.Flush() }()
 
 	// Print header
 	for i, fi := range fields {
 		if i > 0 {
-			fmt.Fprint(tw, "\t")
+			_, _ = fmt.Fprint(tw, "\t")
 		}
-		fmt.Fprint(tw, strings.ToUpper(fi.name))
+		_, _ = fmt.Fprint(tw, strings.ToUpper(fi.name))
 	}
-	fmt.Fprintln(tw)
+	_, _ = fmt.Fprintln(tw)
 
 	// Print rows
 	for i := 0; i < v.Len(); i++ {
@@ -411,12 +411,12 @@ func (p *Printer) printTableFromStructs(v reflect.Value) error {
 
 		for j, fi := range fields {
 			if j > 0 {
-				fmt.Fprint(tw, "\t")
+				_, _ = fmt.Fprint(tw, "\t")
 			}
 			val := item.Field(fi.index)
-			fmt.Fprintf(tw, "%v", val)
+			_, _ = fmt.Fprintf(tw, "%v", val)
 		}
-		fmt.Fprintln(tw)
+		_, _ = fmt.Fprintln(tw)
 	}
 
 	return nil

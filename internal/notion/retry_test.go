@@ -18,7 +18,7 @@ func TestDoRequest_RetryOn429(t *testing.T) {
 		if attemptCount < 3 {
 			// Return 429 for first two attempts
 			w.WriteHeader(http.StatusTooManyRequests)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			_ = json.NewEncoder(w).Encode(ErrorResponse{
 				Object:  "error",
 				Status:  429,
 				Code:    "rate_limited",
@@ -28,7 +28,7 @@ func TestDoRequest_RetryOn429(t *testing.T) {
 		}
 		// Success on third attempt
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -42,7 +42,7 @@ func TestDoRequest_RetryOn429(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected success after retries, got error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if attemptCount != 3 {
 		t.Errorf("expected 3 attempts, got %d", attemptCount)
@@ -61,7 +61,7 @@ func TestDoRequest_RetryOn500(t *testing.T) {
 		if attemptCount < 2 {
 			// Return 500 for first attempt
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			_ = json.NewEncoder(w).Encode(ErrorResponse{
 				Object:  "error",
 				Status:  500,
 				Code:    "internal_server_error",
@@ -71,7 +71,7 @@ func TestDoRequest_RetryOn500(t *testing.T) {
 		}
 		// Success on second attempt
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -82,7 +82,7 @@ func TestDoRequest_RetryOn500(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected success after retry, got error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if attemptCount != 2 {
 		t.Errorf("expected 2 attempts, got %d", attemptCount)
@@ -95,7 +95,7 @@ func TestDoRequest_RetryOn502(t *testing.T) {
 		attemptCount++
 		if attemptCount == 1 {
 			w.WriteHeader(http.StatusBadGateway)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			_ = json.NewEncoder(w).Encode(ErrorResponse{
 				Object:  "error",
 				Status:  502,
 				Code:    "bad_gateway",
@@ -104,7 +104,7 @@ func TestDoRequest_RetryOn502(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -115,7 +115,7 @@ func TestDoRequest_RetryOn502(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected success after retry, got error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if attemptCount != 2 {
 		t.Errorf("expected 2 attempts, got %d", attemptCount)
@@ -127,7 +127,7 @@ func TestDoRequest_NoRetryOn404(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attemptCount++
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  404,
 			Code:    "object_not_found",
@@ -164,7 +164,7 @@ func TestDoRequest_ExhaustedRetries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attemptCount++
 		w.WriteHeader(http.StatusTooManyRequests)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  429,
 			Code:    "rate_limited",
@@ -202,7 +202,7 @@ func TestDoRequest_ContextCancellationDuringRetry(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attemptCount++
 		w.WriteHeader(http.StatusTooManyRequests)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  429,
 			Code:    "rate_limited",
@@ -246,7 +246,7 @@ func TestDoRequest_RetryAfterHeader(t *testing.T) {
 		if attemptCount == 1 {
 			w.Header().Set("Retry-After", "2")
 			w.WriteHeader(http.StatusTooManyRequests)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			_ = json.NewEncoder(w).Encode(ErrorResponse{
 				Object:  "error",
 				Status:  429,
 				Code:    "rate_limited",
@@ -255,7 +255,7 @@ func TestDoRequest_RetryAfterHeader(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -269,7 +269,7 @@ func TestDoRequest_RetryAfterHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected success after retry, got error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if attemptCount != 2 {
 		t.Errorf("expected 2 attempts, got %d", attemptCount)

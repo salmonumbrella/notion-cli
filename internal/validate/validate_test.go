@@ -7,10 +7,10 @@ import (
 
 func TestUUID(t *testing.T) {
 	tests := []struct {
-		name      string
-		field     string
-		value     string
-		wantError bool
+		name        string
+		field       string
+		value       string
+		wantError   bool
 		errContains string
 	}{
 		{
@@ -26,38 +26,38 @@ func TestUUID(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name:      "valid UUID mixed case",
-			field:     "id",
-			value:     "12345678-1234-1234-1234-123456789ABC",
-			wantError: true, // regex requires lowercase
+			name:        "valid UUID mixed case",
+			field:       "id",
+			value:       "12345678-1234-1234-1234-123456789ABC",
+			wantError:   true, // regex requires lowercase
 			errContains: "must be a valid UUID",
 		},
 		{
-			name:      "empty UUID",
-			field:     "page_id",
-			value:     "",
-			wantError: true,
+			name:        "empty UUID",
+			field:       "page_id",
+			value:       "",
+			wantError:   true,
 			errContains: "cannot be empty",
 		},
 		{
-			name:      "invalid UUID too short",
-			field:     "page_id",
-			value:     "12345678-1234-1234-1234-12345678",
-			wantError: true,
+			name:        "invalid UUID too short",
+			field:       "page_id",
+			value:       "12345678-1234-1234-1234-12345678",
+			wantError:   true,
 			errContains: "must be a valid UUID",
 		},
 		{
-			name:      "invalid UUID with invalid chars",
-			field:     "page_id",
-			value:     "12345678-1234-1234-1234-12345678ghij",
-			wantError: true,
+			name:        "invalid UUID with invalid chars",
+			field:       "page_id",
+			value:       "12345678-1234-1234-1234-12345678ghij",
+			wantError:   true,
 			errContains: "must be a valid UUID",
 		},
 		{
-			name:      "invalid UUID wrong format",
-			field:     "page_id",
-			value:     "not-a-uuid",
-			wantError: true,
+			name:        "invalid UUID wrong format",
+			field:       "page_id",
+			value:       "not-a-uuid",
+			wantError:   true,
 			errContains: "must be a valid UUID",
 		},
 	}

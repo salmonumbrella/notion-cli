@@ -17,21 +17,21 @@ type WebhookEvent struct {
 
 // WebhookEventData contains the event payload data.
 type WebhookEventData struct {
-	PageID        string `json:"page_id,omitempty"`
-	DatabaseID    string `json:"database_id,omitempty"`
-	DataSourceID  string `json:"data_source_id,omitempty"`
-	WorkspaceID   string `json:"workspace_id,omitempty"`
-	CommentID     string `json:"comment_id,omitempty"`
-	DiscussionID  string `json:"discussion_id,omitempty"`
+	PageID       string `json:"page_id,omitempty"`
+	DatabaseID   string `json:"database_id,omitempty"`
+	DataSourceID string `json:"data_source_id,omitempty"`
+	WorkspaceID  string `json:"workspace_id,omitempty"`
+	CommentID    string `json:"comment_id,omitempty"`
+	DiscussionID string `json:"discussion_id,omitempty"`
 }
 
 // WebhookEventType constants for known event types.
 const (
-	WebhookEventPageContentUpdated   = "page.content_updated"
-	WebhookEventPageLocked           = "page.locked"
-	WebhookEventCommentCreated       = "comment.created"
-	WebhookEventDataSourceCreated    = "data_source.created"
-	WebhookEventDataSourceDeleted    = "data_source.deleted"
+	WebhookEventPageContentUpdated      = "page.content_updated"
+	WebhookEventPageLocked              = "page.locked"
+	WebhookEventCommentCreated          = "comment.created"
+	WebhookEventDataSourceCreated       = "data_source.created"
+	WebhookEventDataSourceDeleted       = "data_source.deleted"
 	WebhookEventDataSourceSchemaUpdated = "data_source.schema_updated"
 	WebhookEventDatabaseSchemaUpdated   = "database.schema_updated" // deprecated
 )

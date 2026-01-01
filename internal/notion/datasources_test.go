@@ -28,7 +28,7 @@ func TestCreateDataSource_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSource{
+		_ = json.NewEncoder(w).Encode(DataSource{
 			Object:     "data_source",
 			ID:         "ds123",
 			Properties: req.Properties,
@@ -98,7 +98,7 @@ func TestGetDataSource_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSource{
+		_ = json.NewEncoder(w).Encode(DataSource{
 			Object:         "data_source",
 			ID:             "ds123",
 			CreatedTime:    "2024-01-01T00:00:00.000Z",
@@ -141,7 +141,7 @@ func TestGetDataSource_EmptyID(t *testing.T) {
 func TestGetDataSource_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  404,
 			Code:    "object_not_found",
@@ -182,7 +182,7 @@ func TestUpdateDataSource_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSource{
+		_ = json.NewEncoder(w).Encode(DataSource{
 			Object:     "data_source",
 			ID:         "ds123",
 			Title:      req.Title,
@@ -246,7 +246,7 @@ func TestQueryDataSource_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSourceQueryResult{
+		_ = json.NewEncoder(w).Encode(DataSourceQueryResult{
 			Object: "list",
 			Results: []Page{
 				{Object: "page", ID: "page1"},
@@ -306,7 +306,7 @@ func TestQueryDataSource_WithFilter(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSourceQueryResult{
+		_ = json.NewEncoder(w).Encode(DataSourceQueryResult{
 			Object:  "list",
 			Results: []Page{},
 			HasMore: false,
@@ -342,7 +342,7 @@ func TestQueryDataSource_WithSorts(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSourceQueryResult{
+		_ = json.NewEncoder(w).Encode(DataSourceQueryResult{
 			Object:  "list",
 			Results: []Page{},
 			HasMore: false,
@@ -369,7 +369,7 @@ func TestQueryDataSource_Pagination(t *testing.T) {
 	nextCursor := "cursor456"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSourceQueryResult{
+		_ = json.NewEncoder(w).Encode(DataSourceQueryResult{
 			Object: "list",
 			Results: []Page{
 				{Object: "page", ID: "page1"},
@@ -406,7 +406,7 @@ func TestListDataSourceTemplates_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSourceTemplateList{
+		_ = json.NewEncoder(w).Encode(DataSourceTemplateList{
 			Object: "list",
 			Results: []*DataSourceTemplate{
 				{ID: "tpl1", Name: "Template 1", Description: "First template"},
@@ -435,7 +435,7 @@ func TestListDataSourceTemplates_Success(t *testing.T) {
 func TestListDataSourceTemplates_Empty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataSourceTemplateList{
+		_ = json.NewEncoder(w).Encode(DataSourceTemplateList{
 			Object:  "list",
 			Results: []*DataSourceTemplate{},
 		})

@@ -42,9 +42,10 @@ func New(mode ColorMode) *UI {
 	}
 
 	profile := termenv.ColorProfile()
-	if mode == ColorNever {
+	switch mode {
+	case ColorNever:
 		profile = termenv.Ascii
-	} else if mode == ColorAlways {
+	case ColorAlways:
 		// Use at least ANSI256 if forcing colors
 		if profile == termenv.Ascii {
 			profile = termenv.ANSI256
@@ -74,25 +75,25 @@ func FromContext(ctx context.Context) *UI {
 // Success prints a success message in green to stderr.
 func (u *UI) Success(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintln(u.out, u.out.String("✓ "+msg).Foreground(termenv.ANSIGreen))
+	_, _ = fmt.Fprintln(u.out, u.out.String("✓ "+msg).Foreground(termenv.ANSIGreen))
 }
 
 // Warning prints a warning message in yellow to stderr.
 func (u *UI) Warning(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintln(u.out, u.out.String("⚠ "+msg).Foreground(termenv.ANSIYellow))
+	_, _ = fmt.Fprintln(u.out, u.out.String("⚠ "+msg).Foreground(termenv.ANSIYellow))
 }
 
 // Error prints an error message in red to stderr.
 func (u *UI) Error(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintln(u.out, u.out.String("✗ "+msg).Foreground(termenv.ANSIRed))
+	_, _ = fmt.Fprintln(u.out, u.out.String("✗ "+msg).Foreground(termenv.ANSIRed))
 }
 
 // Info prints an informational message in blue to stderr.
 func (u *UI) Info(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintln(u.out, u.out.String("ℹ "+msg).Foreground(termenv.ANSIBlue))
+	_, _ = fmt.Fprintln(u.out, u.out.String("ℹ "+msg).Foreground(termenv.ANSIBlue))
 }
 
 // Writer returns the underlying writer for the UI (stderr).

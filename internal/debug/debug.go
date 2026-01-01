@@ -53,7 +53,7 @@ func (t *DebugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
 
 	// Log request
-	fmt.Fprintf(t.Output, "\n--> %s %s\n", req.Method, req.URL)
+	_, _ = fmt.Fprintf(t.Output, "\n--> %s %s\n", req.Method, req.URL)
 
 	// Log headers with token redaction
 	for key, values := range req.Header {
@@ -66,9 +66,9 @@ func (t *DebugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 					val = "Bearer ..." + token[len(token)-4:]
 				}
 			}
-			fmt.Fprintf(t.Output, "    %s: %s\n", key, val)
+			_, _ = fmt.Fprintf(t.Output, "    %s: %s\n", key, val)
 		} else {
-			fmt.Fprintf(t.Output, "    %s: %s\n", key, strings.Join(values, ", "))
+			_, _ = fmt.Fprintf(t.Output, "    %s: %s\n", key, strings.Join(values, ", "))
 		}
 	}
 
@@ -76,7 +76,7 @@ func (t *DebugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.Body != nil {
 		bodyBytes, err := io.ReadAll(req.Body)
 		if err != nil {
-			fmt.Fprintf(t.Output, "    [ERROR reading request body: %v]\n", err)
+			_, _ = fmt.Fprintf(t.Output, "    [ERROR reading request body: %v]\n", err)
 		} else {
 			req.Body = io.NopCloser(bytes.NewReader(bodyBytes)) // Restore body for actual request
 			if len(bodyBytes) > 0 {
@@ -84,7 +84,7 @@ func (t *DebugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				if len(bodyStr) > 500 {
 					bodyStr = bodyStr[:500] + "... [truncated]"
 				}
-				fmt.Fprintf(t.Output, "    Body: %s\n", bodyStr)
+				_, _ = fmt.Fprintf(t.Output, "    Body: %s\n", bodyStr)
 			}
 		}
 	}
@@ -96,12 +96,12 @@ func (t *DebugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Log error if request failed
 	if err != nil {
-		fmt.Fprintf(t.Output, "<-- ERROR: %v (%s)\n\n", err, duration)
+		_, _ = fmt.Fprintf(t.Output, "<-- ERROR: %v (%s)\n\n", err, duration)
 		return resp, err
 	}
 
 	// Log response
-	fmt.Fprintf(t.Output, "<-- %d %s (%s)\n", resp.StatusCode, resp.Status, duration)
+	_, _ = fmt.Fprintf(t.Output, "<-- %d %s (%s)\n", resp.StatusCode, resp.Status, duration)
 
 	// Show rate limit info if present (before showing all headers)
 	if rl := resp.Header.Get("X-RateLimit-Remaining"); rl != "" {
@@ -121,19 +121,19 @@ func (t *DebugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 		}
 
-		fmt.Fprintf(t.Output, "    Rate-Limit: %s/%s remaining%s\n", rl, limit, resetStr)
+		_, _ = fmt.Fprintf(t.Output, "    Rate-Limit: %s/%s remaining%s\n", rl, limit, resetStr)
 	}
 
 	// Log response headers
 	for key, values := range resp.Header {
-		fmt.Fprintf(t.Output, "    %s: %s\n", key, strings.Join(values, ", "))
+		_, _ = fmt.Fprintf(t.Output, "    %s: %s\n", key, strings.Join(values, ", "))
 	}
 
 	// Log response body if present
 	if resp.Body != nil {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Fprintf(t.Output, "    [ERROR reading response body: %v]\n\n", err)
+			_, _ = fmt.Fprintf(t.Output, "    [ERROR reading response body: %v]\n\n", err)
 		} else {
 			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes)) // Restore body for caller
 			if len(bodyBytes) > 0 {
@@ -141,12 +141,12 @@ func (t *DebugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				if len(bodyStr) > 1000 {
 					bodyStr = bodyStr[:1000] + "... [truncated]"
 				}
-				fmt.Fprintf(t.Output, "    Body: %s\n", bodyStr)
+				_, _ = fmt.Fprintf(t.Output, "    Body: %s\n", bodyStr)
 			}
 		}
 	}
 
-	fmt.Fprintln(t.Output)
+	_, _ = fmt.Fprintln(t.Output)
 
 	return resp, err
 }

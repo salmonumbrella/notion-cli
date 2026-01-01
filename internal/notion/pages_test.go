@@ -19,7 +19,7 @@ func TestGetPage_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			Object:     "page",
 			ID:         "page123",
 			Properties: map[string]interface{}{"title": "Test Page"},
@@ -62,7 +62,7 @@ func TestGetPage_EmptyID(t *testing.T) {
 func TestGetPage_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		_ = json.NewEncoder(w).Encode(ErrorResponse{
 			Object:  "error",
 			Status:  404,
 			Code:    "object_not_found",
@@ -110,7 +110,7 @@ func TestCreatePage_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			Object:     "page",
 			ID:         "newpage123",
 			Properties: req.Properties,
@@ -205,7 +205,7 @@ func TestUpdatePage_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			Object:     "page",
 			ID:         "page123",
 			Properties: req.Properties,
@@ -278,7 +278,7 @@ func TestUpdatePage_Archive(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			Object:   "page",
 			ID:       "page123",
 			Archived: *req.Archived,
@@ -313,7 +313,7 @@ func TestGetPageProperty_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"object": "property_item",
 			"id":     "prop123",
 			"type":   "title",
@@ -386,7 +386,7 @@ func TestMovePage_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			Object:   "page",
 			ID:       "page123",
 			Parent:   req.Parent,
@@ -475,7 +475,7 @@ func TestMovePage_ToDatabase(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			Object: "page",
 			ID:     "page123",
 			Parent: req.Parent,
@@ -512,7 +512,7 @@ func TestMovePage_WithAfter(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Page{
+		_ = json.NewEncoder(w).Encode(Page{
 			Object: "page",
 			ID:     "page123",
 		})
