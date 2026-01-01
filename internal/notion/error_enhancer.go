@@ -1,7 +1,9 @@
 package notion
 
 import (
+	"fmt"
 	"regexp"
+	"strings"
 )
 
 // statusOptionRegex matches "Status option "X" does not exist"
@@ -83,4 +85,37 @@ func getString(m map[string]interface{}, key string) string {
 		return v
 	}
 	return ""
+}
+
+// EnhancedStatusError provides a user-friendly error for invalid status values.
+type EnhancedStatusError struct {
+	InvalidValue     string
+	StatusProperties []StatusProperty
+	OriginalError    error
+}
+
+// Error implements the error interface with a formatted message showing valid options.
+func (e *EnhancedStatusError) Error() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("Invalid status value %q\n", e.InvalidValue))
+
+	for _, prop := range e.StatusProperties {
+		sb.WriteString(fmt.Sprintf("\nProperty: %s\n", prop.Name))
+		sb.WriteString("Valid options:\n")
+		for _, opt := range prop.Options {
+			if opt.Description != "" {
+				sb.WriteString(fmt.Sprintf("  - %s (%s)\n", opt.Name, opt.Description))
+			} else {
+				sb.WriteString(fmt.Sprintf("  - %s\n", opt.Name))
+			}
+		}
+	}
+
+	return sb.String()
+}
+
+// Unwrap returns the original error.
+func (e *EnhancedStatusError) Unwrap() error {
+	return e.OriginalError
 }

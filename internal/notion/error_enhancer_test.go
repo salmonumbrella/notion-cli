@@ -1,6 +1,7 @@
 package notion
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -115,5 +116,36 @@ func TestExtractStatusOptions(t *testing.T) {
 	}
 	if prop.Options[0].Name != "未發送" {
 		t.Errorf("expected first option '未發送', got %q", prop.Options[0].Name)
+	}
+}
+
+func TestEnhancedStatusError_Error(t *testing.T) {
+	err := &EnhancedStatusError{
+		InvalidValue: "已發送",
+		StatusProperties: []StatusProperty{
+			{
+				Name: "電匯已發送 | Sent",
+				Options: []StatusOption{
+					{Name: "未發送", Description: "Not Sent"},
+					{Name: "已完成", Description: "Completed"},
+				},
+			},
+		},
+	}
+
+	msg := err.Error()
+
+	// Check key parts are present
+	if !strings.Contains(msg, "已發送") {
+		t.Error("error should contain invalid value")
+	}
+	if !strings.Contains(msg, "電匯已發送 | Sent") {
+		t.Error("error should contain property name")
+	}
+	if !strings.Contains(msg, "未發送") {
+		t.Error("error should contain valid option")
+	}
+	if !strings.Contains(msg, "已完成") {
+		t.Error("error should contain valid option")
 	}
 }
