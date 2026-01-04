@@ -3,12 +3,114 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
+
+// mentionPattern matches @Name patterns in text (alphanumeric, hyphens, underscores)
+var mentionPattern = regexp.MustCompile(`@([A-Za-z0-9_-]+)`)
+
+// buildRichTextWithMentions parses text for @Name patterns and replaces them with
+// mention objects using the provided user IDs in order. Returns the rich_text array
+// with interleaved text and mention objects.
+func buildRichTextWithMentions(text string, userIDs []string) []notion.RichText {
+	if len(userIDs) == 0 {
+		// No mentions to process, return plain text
+		if text == "" {
+			return []notion.RichText{}
+		}
+		return []notion.RichText{
+			{
+				Type: "text",
+				Text: &notion.TextContent{Content: text},
+			},
+		}
+	}
+
+	matches := mentionPattern.FindAllStringIndex(text, -1)
+	if len(matches) == 0 {
+		// No @Name patterns found, append mentions at the end (legacy behavior)
+		richText := []notion.RichText{}
+		if text != "" {
+			richText = append(richText, notion.RichText{
+				Type: "text",
+				Text: &notion.TextContent{Content: text},
+			})
+		}
+		for _, userID := range userIDs {
+			richText = append(richText, notion.RichText{
+				Type: "mention",
+				Mention: &notion.Mention{
+					Type: "user",
+					User: &notion.UserMention{ID: userID},
+				},
+			})
+		}
+		return richText
+	}
+
+	// Build rich text with inline mentions
+	richText := []notion.RichText{}
+	lastEnd := 0
+	userIDIndex := 0
+
+	for _, match := range matches {
+		start, end := match[0], match[1]
+
+		// Add text before this mention
+		if start > lastEnd {
+			richText = append(richText, notion.RichText{
+				Type: "text",
+				Text: &notion.TextContent{Content: text[lastEnd:start]},
+			})
+		}
+
+		// Add mention if we have a user ID for it
+		if userIDIndex < len(userIDs) {
+			richText = append(richText, notion.RichText{
+				Type: "mention",
+				Mention: &notion.Mention{
+					Type: "user",
+					User: &notion.UserMention{ID: userIDs[userIDIndex]},
+				},
+			})
+			userIDIndex++
+		} else {
+			// No more user IDs, keep the @Name as plain text
+			richText = append(richText, notion.RichText{
+				Type: "text",
+				Text: &notion.TextContent{Content: text[start:end]},
+			})
+		}
+
+		lastEnd = end
+	}
+
+	// Add remaining text after the last mention
+	if lastEnd < len(text) {
+		richText = append(richText, notion.RichText{
+			Type: "text",
+			Text: &notion.TextContent{Content: text[lastEnd:]},
+		})
+	}
+
+	// If there are extra user IDs, append them at the end
+	for ; userIDIndex < len(userIDs); userIDIndex++ {
+		richText = append(richText, notion.RichText{
+			Type: "mention",
+			Mention: &notion.Mention{
+				Type: "user",
+				User: &notion.UserMention{ID: userIDs[userIDIndex]},
+			},
+		})
+	}
+
+	return richText
+}
 
 func newCommentCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -130,11 +232,18 @@ You must specify either --parent (to create a new discussion on a page) or
 The --text flag is required and contains the comment content.
 Use --mention to @-mention users (they will receive notifications).
 
+When @Name patterns appear in --text, they are replaced with mentions in order.
+For example, "Hey @Georges" with --mention user-id will replace @Georges with
+a proper mention object at that position.
+
 Example - Create a new comment on a page:
   notion comment add --parent abc123def456 --text "This is my comment"
 
-Example - Create comment with user mention:
-  notion comment add --parent abc123def456 --text "Please review" --mention user-id-123
+Example - Create comment with inline user mention:
+  notion comment add --parent abc123def456 --text "Hey @Georges, can you review?" --mention georges-user-id
+
+Example - Create comment with multiple mentions:
+  notion comment add --parent abc123def456 --text "@Alice and @Bob please review" --mention alice-id --mention bob-id
 
 Example - Add to an existing discussion:
   notion comment add --discussion-id thread123 --text "Reply to discussion"`,
@@ -163,27 +272,9 @@ Example - Add to an existing discussion:
 			// Create client
 			client := NewNotionClient(token)
 
-			// Build rich text with mentions
-			richText := []notion.RichText{}
-
-			// Add text
-			if text != "" {
-				richText = append(richText, notion.RichText{
-					Type: "text",
-					Text: &notion.TextContent{Content: text},
-				})
-			}
-
-			// Add mentions
-			for _, userID := range mentions {
-				richText = append(richText, notion.RichText{
-					Type: "mention",
-					Mention: &notion.Mention{
-						Type: "user",
-						User: &notion.UserMention{ID: userID},
-					},
-				})
-			}
+			// Build rich text with inline mentions
+			// @Name patterns in text are replaced with mention objects using provided user IDs
+			richText := buildRichTextWithMentions(text, mentions)
 
 			// Build request
 			req := &notion.CreateCommentRequest{
