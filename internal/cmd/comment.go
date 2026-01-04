@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,91 +15,264 @@ import (
 // mentionPattern matches @Name patterns in text (alphanumeric, hyphens, underscores)
 var mentionPattern = regexp.MustCompile(`@([A-Za-z0-9_-]+)`)
 
-// buildRichTextWithMentions parses text for @Name patterns and replaces them with
-// mention objects using the provided user IDs in order. Returns the rich_text array
-// with interleaved text and mention objects.
+// markdownToken represents a parsed markdown segment with its formatting
+type markdownToken struct {
+	content string
+	bold    bool
+	italic  bool
+	code    bool
+}
+
+// parseMarkdown parses text for markdown patterns and returns tokens.
+// Supports: **bold**, *italic*, _italic_, `code`, and combinations.
+// Unmatched markers are treated as literal text.
+func parseMarkdown(text string) []markdownToken {
+	if text == "" {
+		return nil
+	}
+
+	var tokens []markdownToken
+	remaining := text
+
+	for len(remaining) > 0 {
+		// Find the earliest markdown pattern
+		earliest := -1
+		var matched string
+		var tokenContent string
+		var bold, italic, code bool
+
+		// Check for code first (highest priority, doesn't nest)
+		if idx := strings.Index(remaining, "`"); idx != -1 {
+			endIdx := strings.Index(remaining[idx+1:], "`")
+			if endIdx != -1 {
+				if earliest == -1 || idx < earliest {
+					earliest = idx
+					tokenContent = remaining[idx+1 : idx+1+endIdx]
+					matched = remaining[idx : idx+1+endIdx+1]
+					code = true
+					bold = false
+					italic = false
+				}
+			}
+		}
+
+		// Check for bold+italic (***text*** or ___text___)
+		for _, marker := range []string{"***", "___"} {
+			if idx := strings.Index(remaining, marker); idx != -1 && (earliest == -1 || idx < earliest) {
+				endIdx := strings.Index(remaining[idx+3:], marker)
+				if endIdx != -1 {
+					earliest = idx
+					tokenContent = remaining[idx+3 : idx+3+endIdx]
+					matched = remaining[idx : idx+3+endIdx+3]
+					bold = true
+					italic = true
+					code = false
+				}
+			}
+		}
+
+		// Check for bold (**text** or __text__)
+		for _, marker := range []string{"**", "__"} {
+			if idx := strings.Index(remaining, marker); idx != -1 && (earliest == -1 || idx < earliest) {
+				endIdx := strings.Index(remaining[idx+2:], marker)
+				if endIdx != -1 {
+					earliest = idx
+					tokenContent = remaining[idx+2 : idx+2+endIdx]
+					matched = remaining[idx : idx+2+endIdx+2]
+					bold = true
+					italic = false
+					code = false
+				}
+			}
+		}
+
+		// Check for italic (*text* or _text_) - must not be ** or __
+		for _, marker := range []string{"*", "_"} {
+			doubleMarker := marker + marker
+			idx := strings.Index(remaining, marker)
+			// Skip if this is actually a double marker
+			if idx != -1 && strings.HasPrefix(remaining[idx:], doubleMarker) {
+				// Find next single marker that isn't part of a double
+				searchFrom := idx + 1
+				for searchFrom < len(remaining) {
+					nextIdx := strings.Index(remaining[searchFrom:], marker)
+					if nextIdx == -1 {
+						idx = -1
+						break
+					}
+					actualIdx := searchFrom + nextIdx
+					// Check if this is part of a double marker
+					if actualIdx > 0 && string(remaining[actualIdx-1]) == marker {
+						searchFrom = actualIdx + 1
+						continue
+					}
+					if actualIdx+1 < len(remaining) && string(remaining[actualIdx+1]) == marker {
+						searchFrom = actualIdx + 2
+						continue
+					}
+					idx = actualIdx
+					break
+				}
+				if idx == -1 {
+					continue
+				}
+			}
+			if idx != -1 && (earliest == -1 || idx < earliest) {
+				// Find closing marker that isn't part of a double
+				searchEnd := idx + 1
+				endIdx := -1
+				for searchEnd < len(remaining) {
+					nextEnd := strings.Index(remaining[searchEnd:], marker)
+					if nextEnd == -1 {
+						break
+					}
+					actualEnd := searchEnd + nextEnd
+					// Check if this closing marker is part of a double
+					if actualEnd+1 < len(remaining) && string(remaining[actualEnd+1]) == marker {
+						searchEnd = actualEnd + 2
+						continue
+					}
+					if actualEnd > 0 && string(remaining[actualEnd-1]) == marker {
+						searchEnd = actualEnd + 1
+						continue
+					}
+					endIdx = actualEnd - idx - 1
+					break
+				}
+				if endIdx > 0 {
+					earliest = idx
+					tokenContent = remaining[idx+1 : idx+1+endIdx]
+					matched = remaining[idx : idx+1+endIdx+1]
+					bold = false
+					italic = true
+					code = false
+				}
+			}
+		}
+
+		if earliest == -1 {
+			// No more markdown patterns, add remaining as plain text
+			tokens = append(tokens, markdownToken{content: remaining})
+			break
+		}
+
+		// Add text before the pattern
+		if earliest > 0 {
+			tokens = append(tokens, markdownToken{content: remaining[:earliest]})
+		}
+
+		// Add the formatted token
+		tokens = append(tokens, markdownToken{
+			content: tokenContent,
+			bold:    bold,
+			italic:  italic,
+			code:    code,
+		})
+
+		remaining = remaining[earliest+len(matched):]
+	}
+
+	return tokens
+}
+
+// createAnnotations creates a Notion Annotations object from formatting flags.
+// Returns nil if all formatting is default (allows omitempty to work).
+func createAnnotations(bold, italic, code bool) *notion.Annotations {
+	if !bold && !italic && !code {
+		return nil
+	}
+	return &notion.Annotations{
+		Bold:          bold,
+		Italic:        italic,
+		Strikethrough: false,
+		Underline:     false,
+		Code:          code,
+		Color:         "default",
+	}
+}
+
+// buildRichTextWithMentions parses text for markdown formatting and @Name patterns,
+// replacing them with properly formatted rich text and mention objects.
+// Supports: **bold**, *italic*, _italic_, `code`, ***bold italic***, and @mentions.
+// Returns the rich_text array with interleaved text and mention objects.
 func buildRichTextWithMentions(text string, userIDs []string) []notion.RichText {
-	if len(userIDs) == 0 {
-		// No mentions to process, return plain text
-		if text == "" {
-			return []notion.RichText{}
-		}
-		return []notion.RichText{
-			{
-				Type: "text",
-				Text: &notion.TextContent{Content: text},
-			},
-		}
+	if text == "" && len(userIDs) == 0 {
+		return []notion.RichText{}
 	}
 
-	matches := mentionPattern.FindAllStringIndex(text, -1)
-	if len(matches) == 0 {
-		// No @Name patterns found, append mentions at the end (legacy behavior)
-		richText := []notion.RichText{}
-		if text != "" {
-			richText = append(richText, notion.RichText{
-				Type: "text",
-				Text: &notion.TextContent{Content: text},
-			})
-		}
-		for _, userID := range userIDs {
-			richText = append(richText, notion.RichText{
-				Type: "mention",
-				Mention: &notion.Mention{
-					Type: "user",
-					User: &notion.UserMention{ID: userID},
-				},
-			})
-		}
-		return richText
+	// First, parse markdown to get formatted tokens
+	tokens := parseMarkdown(text)
+	if len(tokens) == 0 && len(userIDs) == 0 {
+		return []notion.RichText{}
 	}
 
-	// Build rich text with inline mentions
-	richText := []notion.RichText{}
-	lastEnd := 0
+	// Now process each token, looking for @mentions within them
+	var richText []notion.RichText
 	userIDIndex := 0
 
-	for _, match := range matches {
-		start, end := match[0], match[1]
+	for _, token := range tokens {
+		// Check for @mentions within this token's content
+		matches := mentionPattern.FindAllStringIndex(token.content, -1)
 
-		// Add text before this mention
-		if start > lastEnd {
-			richText = append(richText, notion.RichText{
-				Type: "text",
-				Text: &notion.TextContent{Content: text[lastEnd:start]},
-			})
+		if len(matches) == 0 {
+			// No mentions in this token, add it directly with its formatting
+			if token.content != "" {
+				richText = append(richText, notion.RichText{
+					Type:        "text",
+					Text:        &notion.TextContent{Content: token.content},
+					Annotations: createAnnotations(token.bold, token.italic, token.code),
+				})
+			}
+			continue
 		}
 
-		// Add mention if we have a user ID for it
-		if userIDIndex < len(userIDs) {
-			richText = append(richText, notion.RichText{
-				Type: "mention",
-				Mention: &notion.Mention{
-					Type: "user",
-					User: &notion.UserMention{ID: userIDs[userIDIndex]},
-				},
-			})
-			userIDIndex++
-		} else {
-			// No more user IDs, keep the @Name as plain text
-			richText = append(richText, notion.RichText{
-				Type: "text",
-				Text: &notion.TextContent{Content: text[start:end]},
-			})
+		// Process mentions within this formatted token
+		lastEnd := 0
+		for _, match := range matches {
+			start, end := match[0], match[1]
+
+			// Add text before this mention (with the token's formatting)
+			if start > lastEnd {
+				richText = append(richText, notion.RichText{
+					Type:        "text",
+					Text:        &notion.TextContent{Content: token.content[lastEnd:start]},
+					Annotations: createAnnotations(token.bold, token.italic, token.code),
+				})
+			}
+
+			// Add mention if we have a user ID for it
+			if userIDIndex < len(userIDs) {
+				richText = append(richText, notion.RichText{
+					Type: "mention",
+					Mention: &notion.Mention{
+						Type: "user",
+						User: &notion.UserMention{ID: userIDs[userIDIndex]},
+					},
+				})
+				userIDIndex++
+			} else {
+				// No more user IDs, keep the @Name as plain text with formatting
+				richText = append(richText, notion.RichText{
+					Type:        "text",
+					Text:        &notion.TextContent{Content: token.content[start:end]},
+					Annotations: createAnnotations(token.bold, token.italic, token.code),
+				})
+			}
+
+			lastEnd = end
 		}
 
-		lastEnd = end
+		// Add remaining text after the last mention (with formatting)
+		if lastEnd < len(token.content) {
+			richText = append(richText, notion.RichText{
+				Type:        "text",
+				Text:        &notion.TextContent{Content: token.content[lastEnd:]},
+				Annotations: createAnnotations(token.bold, token.italic, token.code),
+			})
+		}
 	}
 
-	// Add remaining text after the last mention
-	if lastEnd < len(text) {
-		richText = append(richText, notion.RichText{
-			Type: "text",
-			Text: &notion.TextContent{Content: text[lastEnd:]},
-		})
-	}
-
-	// If there are extra user IDs, append them at the end
+	// If there are extra user IDs (no matching @Name patterns), append them at the end
 	for ; userIDIndex < len(userIDs); userIDIndex++ {
 		richText = append(richText, notion.RichText{
 			Type: "mention",
@@ -232,12 +406,22 @@ You must specify either --parent (to create a new discussion on a page) or
 The --text flag is required and contains the comment content.
 Use --mention to @-mention users (they will receive notifications).
 
+MARKDOWN FORMATTING:
+The --text flag supports markdown formatting:
+  **bold**     - Bold text
+  *italic*     - Italic text (also _italic_)
+  ` + "`code`" + `       - Inline code
+  ***both***   - Bold and italic combined
+
 When @Name patterns appear in --text, they are replaced with mentions in order.
 For example, "Hey @Georges" with --mention user-id will replace @Georges with
 a proper mention object at that position.
 
 Example - Create a new comment on a page:
   notion comment add --parent abc123def456 --text "This is my comment"
+
+Example - Create comment with formatting:
+  notion comment add --parent abc123def456 --text "This is **bold** and *italic* and ` + "`code`" + `"
 
 Example - Create comment with inline user mention:
   notion comment add --parent abc123def456 --text "Hey @Georges, can you review?" --mention georges-user-id
