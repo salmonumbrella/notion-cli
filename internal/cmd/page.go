@@ -31,13 +31,20 @@ func newPageCmd() *cobra.Command {
 }
 
 func newPageGetCmd() *cobra.Command {
-	return &cobra.Command{
+	var editableOnly bool
+
+	cmd := &cobra.Command{
 		Use:   "get <page-id>",
 		Short: "Get a page by ID",
 		Long: `Retrieve a Notion page by its ID.
 
+Use --editable to filter out read-only computed properties (formula, rollup,
+created_by, created_time, last_edited_by, last_edited_time, unique_id, button).
+This is useful when you want to copy properties to create or update a page.
+
 Example:
-  notion page get 12345678-1234-1234-1234-123456789012`,
+  notion page get 12345678-1234-1234-1234-123456789012
+  notion page get 12345678-1234-1234-1234-123456789012 --editable -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pageID := args[0]
@@ -58,11 +65,37 @@ Example:
 				return fmt.Errorf("failed to get page: %w", err)
 			}
 
+			// Filter out read-only properties if requested
+			if editableOnly {
+				page.Properties = filterEditableProperties(page.Properties)
+			}
+
 			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
 			return printer.Print(ctx, page)
 		},
 	}
+
+	cmd.Flags().BoolVar(&editableOnly, "editable", false, "Filter out read-only computed properties")
+
+	return cmd
+}
+
+// filterEditableProperties removes read-only computed property types from properties map.
+func filterEditableProperties(properties map[string]interface{}) map[string]interface{} {
+	filtered := make(map[string]interface{})
+	for name, val := range properties {
+		prop, ok := val.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		propType, _ := prop["type"].(string)
+		if propType == "" || readOnlyPropertyTypes[propType] {
+			continue
+		}
+		filtered[name] = val
+	}
+	return filtered
 }
 
 func newPageCreateCmd() *cobra.Command {
