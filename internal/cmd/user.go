@@ -134,16 +134,8 @@ Example:
 				return fmt.Errorf("failed to list users: %w", err)
 			}
 
-			// Print result based on output format
+			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-
-			// For table/text format, just show the users list
-			// For JSON format, show the full response with pagination info
-			if GetOutputFormat() == output.FormatJSON {
-				return printer.Print(ctx, userList)
-			}
-
-			// For table/text, just show the users array
 			return printer.Print(ctx, userList.Results)
 		},
 	}
