@@ -96,6 +96,21 @@ func buildErrorEnvelope(err error) map[string]interface{} {
 		}
 	}
 
+	var apiErrLegacy *ctxerrors.APIError
+	if errors.As(err, &apiErrLegacy) {
+		errMap := payload["error"].(map[string]interface{})
+		errMap["type"] = "notion_api"
+		if apiErrLegacy.Status > 0 {
+			errMap["status"] = apiErrLegacy.Status
+		}
+		if apiErrLegacy.Code != "" {
+			errMap["code"] = apiErrLegacy.Code
+		}
+		if apiErrLegacy.Message != "" {
+			errMap["message"] = apiErrLegacy.Message
+		}
+	}
+
 	var rlErr *ctxerrors.RateLimitError
 	if errors.As(err, &rlErr) {
 		errMap := payload["error"].(map[string]interface{})

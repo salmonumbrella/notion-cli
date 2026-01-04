@@ -23,6 +23,8 @@ const (
 	FormatText Format = "text"
 	// FormatJSON is pretty-printed JSON format.
 	FormatJSON Format = "json"
+	// FormatNDJSON is newline-delimited JSON format.
+	FormatNDJSON Format = "ndjson"
 	// FormatTable is tabular format for lists.
 	FormatTable Format = "table"
 	// FormatYAML is YAML format.
@@ -38,12 +40,14 @@ func ParseFormat(s string) (Format, error) {
 		return FormatText, nil
 	case FormatJSON:
 		return FormatJSON, nil
+	case FormatNDJSON:
+		return FormatNDJSON, nil
 	case FormatTable:
 		return FormatTable, nil
 	case FormatYAML:
 		return FormatYAML, nil
 	default:
-		return "", errors.New("invalid --output format (expected text|json|table|yaml)")
+		return "", errors.New("invalid --output format (expected text|json|ndjson|table|yaml)")
 	}
 }
 
@@ -69,9 +73,13 @@ func (p *Printer) Print(ctx context.Context, data interface{}) error {
 		return nil
 	}
 
+	data = ApplyAgentOptions(ctx, data)
+
 	switch p.format {
 	case FormatJSON:
 		return p.printJSON(ctx, data)
+	case FormatNDJSON:
+		return p.printNDJSON(ctx, data)
 	case FormatYAML:
 		return p.printYAML(data)
 	case FormatTable:
@@ -124,6 +132,60 @@ func (p *Printer) printJSON(ctx context.Context, data interface{}) error {
 	}
 
 	return nil
+}
+
+// printNDJSON outputs data as newline-delimited JSON.
+// If a jq query is present in the context, it filters the output.
+func (p *Printer) printNDJSON(ctx context.Context, data interface{}) error {
+	query := QueryFromContext(ctx)
+	enc := json.NewEncoder(p.w)
+	enc.SetEscapeHTML(false)
+
+	if query != "" {
+		parsed, err := gojq.Parse(query)
+		if err != nil {
+			return fmt.Errorf("invalid --query: %w", err)
+		}
+
+		code, err := gojq.Compile(parsed)
+		if err != nil {
+			return fmt.Errorf("invalid --query: %w", err)
+		}
+
+		iter := code.Run(data)
+		for {
+			v, ok := iter.Next()
+			if !ok {
+				break
+			}
+			if err, isErr := v.(error); isErr {
+				return fmt.Errorf("query error: %w", err)
+			}
+			if err := enc.Encode(v); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	v := reflect.ValueOf(data)
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
+	}
+
+	if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
+		for i := 0; i < v.Len(); i++ {
+			if err := enc.Encode(v.Index(i).Interface()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	return enc.Encode(data)
 }
 
 // printYAML outputs data as YAML.

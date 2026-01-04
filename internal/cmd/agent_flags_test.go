@@ -61,3 +61,22 @@ func TestAgentFlags_SortFromContext_Default(t *testing.T) {
 		t.Error("expected default descending to be false")
 	}
 }
+
+func TestAgentFlags_QuietFromContext(t *testing.T) {
+	ctx := output.WithQuiet(context.Background(), true)
+	if !output.QuietFromContext(ctx) {
+		t.Error("expected Quiet to be true")
+	}
+
+	ctx2 := output.WithQuiet(context.Background(), false)
+	if output.QuietFromContext(ctx2) {
+		t.Error("expected Quiet to be false")
+	}
+}
+
+func TestAgentFlags_QuietFromContext_Default(t *testing.T) {
+	ctx := context.Background()
+	if output.QuietFromContext(ctx) {
+		t.Error("expected default Quiet to be false")
+	}
+}

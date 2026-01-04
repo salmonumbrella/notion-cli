@@ -324,10 +324,22 @@ Example - Fetch all comments:
   notion comment list abc123def456 --all`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID := args[0]
+			blockID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+			if limit > 0 && (pageSize == 0 || pageSize > limit) {
+				pageSize = limit
+			}
+
+			if pageSize > 100 {
+				return fmt.Errorf("page-size must be between 1 and 100")
+			}
+
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
@@ -353,6 +365,10 @@ Example - Fetch all comments:
 					}
 
 					allComments = append(allComments, result.Results...)
+					if limit > 0 && len(allComments) >= limit {
+						allComments = allComments[:limit]
+						break
+					}
 
 					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
 						break
@@ -374,6 +390,11 @@ Example - Fetch all comments:
 			result, err := client.ListComments(ctx, blockID, opts)
 			if err != nil {
 				return fmt.Errorf("failed to list comments: %w", err)
+			}
+
+			if limit > 0 && len(result.Results) > limit {
+				result.Results = result.Results[:limit]
+				result.HasMore = true
 			}
 
 			// Print result
@@ -444,6 +465,13 @@ Example - Add to an existing discussion:
 			}
 			if parentID != "" && discussionID != "" {
 				return fmt.Errorf("cannot specify both --parent and --discussion-id")
+			}
+			if parentID != "" {
+				normalized, err := normalizeNotionID(parentID)
+				if err != nil {
+					return err
+				}
+				parentID = normalized
 			}
 
 			// Get token from context (respects workspace selection)

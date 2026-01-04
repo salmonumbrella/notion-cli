@@ -34,7 +34,10 @@ Example:
   notion user get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			userID := args[0]
+			userID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
@@ -79,13 +82,23 @@ Example:
   notion user list --all`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+
+			if limit > 0 && (pageSize == 0 || pageSize > limit) {
+				if limit > 100 {
+					pageSize = 100
+				} else {
+					pageSize = limit
+				}
+			}
+
 			// Validate page size
 			if pageSize > 100 {
 				return fmt.Errorf("page-size must be between 1 and 100")
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
@@ -111,6 +124,10 @@ Example:
 					}
 
 					allUsers = append(allUsers, userList.Results...)
+					if limit > 0 && len(allUsers) >= limit {
+						allUsers = allUsers[:limit]
+						break
+					}
 
 					if !userList.HasMore || userList.NextCursor == nil || *userList.NextCursor == "" {
 						break
@@ -132,6 +149,10 @@ Example:
 			userList, err := client.ListUsers(ctx, opts)
 			if err != nil {
 				return fmt.Errorf("failed to list users: %w", err)
+			}
+
+			if limit > 0 && len(userList.Results) > limit {
+				userList.Results = userList.Results[:limit]
 			}
 
 			// Print result

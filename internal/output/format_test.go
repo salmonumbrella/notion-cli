@@ -48,6 +48,16 @@ func TestParseFormat(t *testing.T) {
 			want:  FormatJSON,
 		},
 		{
+			name:  "ndjson lowercase",
+			input: "ndjson",
+			want:  FormatNDJSON,
+		},
+		{
+			name:  "ndjson uppercase",
+			input: "NDJSON",
+			want:  FormatNDJSON,
+		},
+		{
 			name:  "table lowercase",
 			input: "table",
 			want:  FormatTable,
@@ -183,6 +193,33 @@ func TestPrinter_PrintJSON(t *testing.T) {
 		if buf.Len() == 0 {
 			// nil is acceptable output for nil data
 			return
+		}
+	})
+}
+
+func TestPrinter_PrintNDJSON(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("slice outputs lines", func(t *testing.T) {
+		var buf bytes.Buffer
+		p := NewPrinter(&buf, FormatNDJSON)
+
+		data := []map[string]interface{}{
+			{"id": 1},
+			{"id": 2},
+		}
+
+		if err := p.Print(ctx, data); err != nil {
+			t.Fatalf("Print() error = %v", err)
+		}
+
+		lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+		if len(lines) != 2 {
+			t.Fatalf("expected 2 lines, got %d", len(lines))
+		}
+		var first map[string]interface{}
+		if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+			t.Fatalf("invalid JSON on line 1: %v", err)
 		}
 	})
 }

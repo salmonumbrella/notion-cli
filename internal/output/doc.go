@@ -1,8 +1,9 @@
 // Package output provides output formatting functionality for the notion CLI.
 //
-// It supports three output formats:
+// It supports output formats:
 //   - text: Human-readable key-value pairs (default)
 //   - json: Pretty-printed JSON
+//   - ndjson: Newline-delimited JSON
 //   - table: Tabular format for lists with aligned columns
 //
 // # Context-Based Dependency Injection

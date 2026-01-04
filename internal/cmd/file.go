@@ -73,6 +73,13 @@ Example - Upload and attach to page property:
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
+			if pageID != "" {
+				normalized, err := normalizeNotionID(pageID)
+				if err != nil {
+					return err
+				}
+				pageID = normalized
+			}
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
@@ -191,6 +198,14 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+			if limit > 0 && (pageSize == 0 || pageSize > limit) {
+				if limit > 100 {
+					pageSize = 100
+				} else {
+					pageSize = limit
+				}
+			}
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
@@ -206,6 +221,11 @@ Example:
 			list, err := client.ListFileUploads(ctx, opts)
 			if err != nil {
 				return fmt.Errorf("failed to list file uploads: %w", err)
+			}
+
+			if limit > 0 && len(list.Results) > limit {
+				list.Results = list.Results[:limit]
+				list.HasMore = true
 			}
 
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())

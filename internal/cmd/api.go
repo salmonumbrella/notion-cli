@@ -17,6 +17,7 @@ func newAPICmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newAPIStatusCmd())
+	cmd.AddCommand(newAPIRequestCmd())
 	return cmd
 }
 
@@ -105,7 +106,7 @@ Use --refresh to make a fresh API call and get updated rate limit info.`,
 			// Warn if low
 			if info.Limit > 0 {
 				pct := float64(info.Remaining) / float64(info.Limit) * 100
-				if pct < 10 {
+				if pct < 10 && !output.QuietFromContext(ctx) {
 					fmt.Printf("\nWarning: Rate limit is low (%.1f%% remaining)\n", pct)
 				}
 			}

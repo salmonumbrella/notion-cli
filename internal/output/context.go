@@ -43,6 +43,7 @@ type yesKey struct{}
 type limitKey struct{}
 type sortFieldKey struct{}
 type sortDescKey struct{}
+type quietKey struct{}
 
 // WithYes sets the --yes flag in context.
 func WithYes(ctx context.Context, yes bool) context.Context {
@@ -86,4 +87,17 @@ func SortFromContext(ctx context.Context) (field string, desc bool) {
 		desc = d
 	}
 	return
+}
+
+// WithQuiet sets the --quiet flag in context.
+func WithQuiet(ctx context.Context, quiet bool) context.Context {
+	return context.WithValue(ctx, quietKey{}, quiet)
+}
+
+// QuietFromContext returns true if --quiet flag is set.
+func QuietFromContext(ctx context.Context) bool {
+	if q, ok := ctx.Value(quietKey{}).(bool); ok {
+		return q
+	}
+	return false
 }
