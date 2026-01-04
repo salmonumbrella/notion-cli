@@ -42,19 +42,34 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			format := output.FormatFromContext(ctx)
+			limit := output.LimitFromContext(ctx)
+
+			if limit > 0 && (pageSize == 0 || pageSize > limit) {
+				pageSize = limit
+			}
 
 			result, err := config.Fetch(ctx, pageSize)
 			if err != nil {
 				return err
 			}
 
+			if limit > 0 && len(result.Items) > limit {
+				result.Items = result.Items[:limit]
+			}
+
 			if len(result.Items) == 0 {
-				msg := config.EmptyMessage
-				if msg == "" {
-					msg = "No items found"
+				if !output.QuietFromContext(ctx) {
+					msg := config.EmptyMessage
+					if msg == "" {
+						msg = "No items found"
+					}
+					fmt.Fprintln(os.Stderr, msg)
 				}
-				fmt.Fprintln(os.Stderr, msg)
 				return nil
+			}
+
+			if updated, ok := output.ApplyAgentOptions(ctx, result.Items).([]T); ok {
+				result.Items = updated
 			}
 
 			// Use Printer for JSON, YAML, and text formats
@@ -91,7 +106,7 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 				return fmt.Errorf("failed to flush output: %w", err)
 			}
 
-			if result.HasMore {
+			if result.HasMore && (limit == 0 || len(result.Items) < limit) && !output.QuietFromContext(ctx) {
 				fmt.Fprintln(os.Stderr, "\n(more results available, use --page-size to fetch more)")
 			}
 

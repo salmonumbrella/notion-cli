@@ -48,12 +48,34 @@ Example:
 				return fmt.Errorf("use only one of --pages or --file")
 			}
 
+			if parentID != "" {
+				normalized, err := normalizeNotionID(parentID)
+				if err != nil {
+					return err
+				}
+				parentID = normalized
+			}
+			if dataSourceID != "" {
+				normalized, err := normalizeNotionID(dataSourceID)
+				if err != nil {
+					return err
+				}
+				dataSourceID = normalized
+			}
+
 			if pagesFile != "" {
 				data, err := os.ReadFile(pagesFile)
 				if err != nil {
 					return fmt.Errorf("failed to read pages file: %w", err)
 				}
 				pagesJSON = string(data)
+			}
+			if pagesJSON != "" {
+				resolved, err := readJSONInput(pagesJSON)
+				if err != nil {
+					return err
+				}
+				pagesJSON = resolved
 			}
 
 			var specs []batchPageSpec

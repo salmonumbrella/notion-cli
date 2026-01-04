@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/config"
@@ -26,11 +27,15 @@ var (
 	limitFlag int
 	sortBy    string
 	descFlag  bool
+	quietFlag bool
 
 	// Version information
 	version   = "dev"
 	commit    = "unknown"
 	buildTime = "unknown"
+
+	// Error output format
+	errorFormat string
 )
 
 var rootCmd = &cobra.Command{
@@ -68,6 +73,11 @@ var rootCmd = &cobra.Command{
 		} else if !cmd.Flags().Changed("output") && cfg.GetOutput() != "" {
 			// Fall back to config file default
 			formatStr = cfg.GetOutput()
+		} else if !cmd.Flags().Changed("output") {
+			// Default to JSON when stdout is not a TTY (agent-friendly)
+			if !term.IsTerminal(int(os.Stdout.Fd())) {
+				formatStr = string(output.FormatJSON)
+			}
 		}
 
 		// Parse and validate output format
@@ -93,13 +103,18 @@ var rootCmd = &cobra.Command{
 		ctx = output.WithYes(ctx, yesFlag)
 		ctx = output.WithLimit(ctx, limitFlag)
 		ctx = output.WithSort(ctx, sortBy, descFlag)
+		ctx = output.WithQuiet(ctx, quietFlag)
 
 		cmd.SetContext(ctx)
 
 		// Check token age and warn if old (skip for auth and config commands)
 		skipCommands := map[string]bool{"auth": true, "config": true}
 		if !skipCommands[cmd.Name()] && (cmd.Parent() == nil || !skipCommands[cmd.Parent().Name()]) {
-			checkTokenAgeAndWarn()
+			checkTokenAgeAndWarn(quietFlag)
+		}
+
+		if err := validateErrorFormat(errorFormat); err != nil {
+			return err
 		}
 
 		return nil
@@ -112,16 +127,19 @@ func init() {
 	rootCmd.SetVersionTemplate(fmt.Sprintf("notion-cli %s (commit: %s, built: %s)\n", version, commit, buildTime))
 
 	// Global flags
-	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format (text|json|table|yaml)")
+	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format (text|json|ndjson|table|yaml)")
 	// Alias --format to --output for agent discoverability
 	rootCmd.PersistentFlags().String("format", "text", "Alias for --output")
-	_ = rootCmd.PersistentFlags().MarkHidden("format") // ignore error, flag always exists
+	_ = rootCmd.PersistentFlags().MarkHidden("format")
 	rootCmd.PersistentFlags().String("query", "", "jq expression to filter JSON output")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output (shows HTTP requests/responses)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceName, "workspace", "w", "", "Workspace to use (overrides NOTION_WORKSPACE env var)")
+	rootCmd.PersistentFlags().StringVar(&errorFormat, "error-format", "auto", "Error output format (auto|text|json)")
+	rootCmd.PersistentFlags().BoolVar(&quietFlag, "quiet", false, "Suppress non-essential output")
 
 	// Agent-friendly flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts (for automation)")
+	rootCmd.PersistentFlags().BoolVar(&yesFlag, "no-input", false, "Alias for --yes (non-interactive)")
 	rootCmd.PersistentFlags().IntVar(&limitFlag, "limit", 0, "Limit number of results (0 = unlimited)")
 	rootCmd.PersistentFlags().StringVar(&sortBy, "sort-by", "", "Sort results by field")
 	rootCmd.PersistentFlags().BoolVar(&descFlag, "desc", false, "Sort in descending order")
@@ -146,7 +164,10 @@ func init() {
 
 // checkTokenAgeAndWarn checks if the token is older than the rotation threshold
 // and prints a warning to stderr if it is. This is non-blocking.
-func checkTokenAgeAndWarn() {
+func checkTokenAgeAndWarn(quiet bool) {
+	if quiet {
+		return
+	}
 	// Only check for keyring tokens (not env var tokens)
 	if os.Getenv(auth.EnvVarName) != "" {
 		return
@@ -169,7 +190,7 @@ func checkTokenAgeAndWarn() {
 func Execute(ctx context.Context, args []string) error {
 	rootCmd.SetArgs(args)
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		printCommandError(err)
 		return err
 	}
 	return nil

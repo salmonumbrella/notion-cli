@@ -42,7 +42,10 @@ Example:
   notion block get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID := args[0]
+			blockID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
@@ -87,15 +90,23 @@ Example:
   notion block children 12345678-1234-1234-1234-123456789012 --all`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID := args[0]
+			blockID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
+
+			// Get token from context (respects workspace selection)
+			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+			if limit > 0 && (pageSize == 0 || pageSize > limit) {
+				pageSize = limit
+			}
 
 			// Validate page size
 			if pageSize > 100 {
 				return fmt.Errorf("page-size must be between 1 and 100")
 			}
 
-			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
@@ -121,6 +132,10 @@ Example:
 					}
 
 					allBlocks = append(allBlocks, blockList.Results...)
+					if limit > 0 && len(allBlocks) >= limit {
+						allBlocks = allBlocks[:limit]
+						break
+					}
 
 					if !blockList.HasMore || blockList.NextCursor == nil || *blockList.NextCursor == "" {
 						break
@@ -142,6 +157,11 @@ Example:
 			blockList, err := client.GetBlockChildren(ctx, blockID, opts)
 			if err != nil {
 				return fmt.Errorf("failed to get block children: %w", err)
+			}
+
+			if limit > 0 && len(blockList.Results) > limit {
+				blockList.Results = blockList.Results[:limit]
+				blockList.HasMore = true
 			}
 
 			// Print result
@@ -172,15 +192,23 @@ Example of a simple paragraph block:
     --children '[{"object":"block","type":"paragraph","paragraph":{"rich_text":[{"type":"text","text":{"content":"Hello world"}}]}}]'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID := args[0]
+			blockID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Validate required flag
 			if childrenJSON == "" {
 				return fmt.Errorf("--children flag is required")
 			}
 
-			// Parse children JSON
+			// Resolve and parse children JSON
 			var children []map[string]interface{}
+			resolved, err := readJSONInput(childrenJSON)
+			if err != nil {
+				return err
+			}
+			childrenJSON = resolved
 			if err := json.Unmarshal([]byte(childrenJSON), &children); err != nil {
 				return fmt.Errorf("failed to parse children JSON: %w", err)
 			}
@@ -235,11 +263,19 @@ Example of updating a paragraph block:
     --content '{"paragraph":{"rich_text":[{"type":"text","text":{"content":"Updated text"}}]}}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID := args[0]
+			blockID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
-			// Parse content JSON if provided
+			// Resolve and parse content JSON if provided
 			var content map[string]interface{}
 			if contentJSON != "" {
+				resolved, err := readJSONInput(contentJSON)
+				if err != nil {
+					return err
+				}
+				contentJSON = resolved
 				if err := json.Unmarshal([]byte(contentJSON), &content); err != nil {
 					return fmt.Errorf("failed to parse content JSON: %w", err)
 				}
@@ -332,7 +368,10 @@ Example:
   notion block delete 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID := args[0]
+			blockID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
@@ -422,7 +461,10 @@ Example:
   notion block add-toc abc123 --color blue`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID := args[0]
+			parentID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Validate color
 			if !validBlockColors[color] {
@@ -470,7 +512,10 @@ Example:
   notion block add-breadcrumb abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID := args[0]
+			parentID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
@@ -508,7 +553,10 @@ Example:
   notion block add-divider abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID := args[0]
+			parentID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
@@ -551,7 +599,10 @@ Example:
   notion block add-columns abc123 --columns 3`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID := args[0]
+			parentID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			if columnCount < 2 || columnCount > 5 {
 				return fmt.Errorf("column count must be between 2 and 5, got %d", columnCount)

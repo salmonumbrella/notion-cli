@@ -17,6 +17,7 @@ func newSearchCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
+	var resultsOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "search [query]",
@@ -55,11 +56,33 @@ Example - Fetch all results:
 				query = args[0]
 			}
 
-			// Parse sort if provided
+			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+			sortField, sortDesc := output.SortFromContext(ctx)
+
+			// Resolve and parse sort if provided
 			var sort map[string]interface{}
 			if sortJSON != "" {
+				resolved, err := readJSONInput(sortJSON)
+				if err != nil {
+					return err
+				}
+				sortJSON = resolved
 				if err := json.Unmarshal([]byte(sortJSON), &sort); err != nil {
 					return fmt.Errorf("failed to parse sort JSON: %w", err)
+				}
+			}
+			if sortJSON == "" && sortField != "" {
+				if sortField != "created_time" && sortField != "last_edited_time" {
+					return fmt.Errorf("--sort-by must be created_time or last_edited_time for search")
+				}
+				direction := "ascending"
+				if sortDesc {
+					direction = "descending"
+				}
+				sort = map[string]interface{}{
+					"direction": direction,
+					"timestamp": sortField,
 				}
 			}
 
@@ -84,9 +107,15 @@ Example - Fetch all results:
 			if pageSize > 100 {
 				return fmt.Errorf("page-size must be between 1 and 100")
 			}
+			if limit > 0 && (pageSize == 0 || pageSize > limit) {
+				if limit > 100 {
+					pageSize = 100
+				} else {
+					pageSize = limit
+				}
+			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
@@ -96,9 +125,13 @@ Example - Fetch all results:
 			client := NewNotionClient(token)
 
 			// If --all flag is set, fetch all pages
+			format := output.FormatFromContext(ctx)
+
 			if all {
 				var allResults []map[string]interface{}
 				cursor := startCursor
+				hasMore := false
+				var nextCursor *string
 
 				for {
 					req := &notion.SearchRequest{
@@ -115,6 +148,13 @@ Example - Fetch all results:
 					}
 
 					allResults = append(allResults, result.Results...)
+					hasMore = result.HasMore
+					nextCursor = result.NextCursor
+
+					if limit > 0 && len(allResults) >= limit {
+						allResults = allResults[:limit]
+						break
+					}
 
 					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
 						break
@@ -122,9 +162,16 @@ Example - Fetch all results:
 					cursor = *result.NextCursor
 				}
 
-				// Print all results
 				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-				return printer.Print(ctx, allResults)
+				if resultsOnly || format == output.FormatTable {
+					return printer.Print(ctx, allResults)
+				}
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     allResults,
+					"has_more":    hasMore,
+					"next_cursor": nextCursor,
+				})
 			}
 
 			// Single page request
@@ -143,6 +190,9 @@ Example - Fetch all results:
 
 			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			if resultsOnly || format == output.FormatTable {
+				return printer.Print(ctx, result.Results)
+			}
 			return printer.Print(ctx, result)
 		},
 	}
@@ -152,6 +202,7 @@ Example - Fetch all results:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
+	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 
 	return cmd
 }

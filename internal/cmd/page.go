@@ -47,7 +47,10 @@ Example:
   notion page get 12345678-1234-1234-1234-123456789012 --editable -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID := args[0]
+			pageID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
@@ -135,8 +138,28 @@ Examples:
 				return fmt.Errorf("--properties flag is required")
 			}
 
-			// Parse properties JSON
+			if parentID != "" {
+				normalized, err := normalizeNotionID(parentID)
+				if err != nil {
+					return err
+				}
+				parentID = normalized
+			}
+			if dataSourceID != "" {
+				normalized, err := normalizeNotionID(dataSourceID)
+				if err != nil {
+					return err
+				}
+				dataSourceID = normalized
+			}
+
+			// Resolve and parse properties JSON
 			var properties map[string]interface{}
+			resolved, err := readJSONInput(propertiesJSON)
+			if err != nil {
+				return err
+			}
+			propertiesJSON = resolved
 			if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
 				return fmt.Errorf("failed to parse properties JSON: %w", err)
 			}
@@ -201,11 +224,19 @@ Example:
     --properties '{"title": [{"text": {"content": "Updated Title"}}]}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID := args[0]
+			pageID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
-			// Parse properties JSON if provided
+			// Resolve and parse properties JSON if provided
 			var properties map[string]interface{}
 			if propertiesJSON != "" {
+				resolved, err := readJSONInput(propertiesJSON)
+				if err != nil {
+					return err
+				}
+				propertiesJSON = resolved
 				if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
 					return fmt.Errorf("failed to parse properties JSON: %w", err)
 				}
@@ -318,7 +349,10 @@ Example:
   notion page property 12345678-1234-1234-1234-123456789012 title`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID := args[0]
+			pageID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 			propertyID := args[1]
 
 			// Get token from context (respects workspace selection)
@@ -361,10 +395,27 @@ Example - Move page to database:
   notion page move abc123 --parent db789 --parent-type database`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID := args[0]
+			pageID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			if parentID == "" {
 				return fmt.Errorf("--parent is required")
+			}
+
+			normalizedParent, err := normalizeNotionID(parentID)
+			if err != nil {
+				return err
+			}
+			parentID = normalizedParent
+
+			if after != "" {
+				normalizedAfter, err := normalizeNotionID(after)
+				if err != nil {
+					return err
+				}
+				after = normalizedAfter
 			}
 
 			var parentKey string

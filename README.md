@@ -120,6 +120,7 @@ notion search                      # Search all pages and databases
 notion search "project notes"      # Search with query
 notion search --filter page        # Search only pages
 notion search --filter database    # Search only databases
+notion search "project" --all --results-only  # Fetch all results (array only)
 ```
 
 ### Users
@@ -163,6 +164,9 @@ notion db query <database-id> \
 # Query with sorts
 notion db query <database-id> \
   --sorts '[{"property":"Created","direction":"descending"}]'
+
+# Fetch all results as an array
+notion db query <database-id> --all --results-only
 ```
 
 ### Blocks
@@ -234,6 +238,17 @@ notion webhook verify --secret <secret> --payload payload.json           # Compu
 notion webhook parse --payload payload.json
 ```
 
+### API
+
+Raw API access (useful for new endpoints and debugging):
+
+```bash
+notion api request GET /users
+notion api request POST /search --body '{"query":"project"}'
+notion api request POST /databases/<id>/query --body @query.json
+notion api request GET /blocks/<id>/children --paginate
+```
+
 ## Output Formats
 
 ### Text
@@ -260,6 +275,16 @@ $ notion user me --output json
 ```
 
 Data goes to stdout, errors and progress to stderr for clean piping.
+
+### NDJSON
+
+Newline-delimited JSON (one JSON object per line):
+
+```bash
+$ notion search "project" --output ndjson
+{"object":"page", ...}
+{"object":"page", ...}
+```
 
 ## Examples
 
@@ -297,7 +322,7 @@ notion page export <page-id> --format markdown
 
 ### Automation
 
-Use `--yes` to skip confirmations, `--limit` to control result size, and `--sort-by` for ordering:
+Use `--yes` (or `--no-input`) to skip confirmations, `--limit` to control result size, and `--sort-by` for ordering:
 
 ```bash
 # Delete without confirmation
@@ -313,6 +338,18 @@ notion db query <database-id> --output json | jq '.results[] | .id'
 notion page get <page-id> --output json --query '.properties.Status'
 ```
 
+### JSON Input Shortcuts
+
+Flags that accept JSON also support reading from a file or stdin:
+
+```bash
+# From a file
+notion db query <database-id> --filter @filter.json
+
+# From stdin
+cat filter.json | notion db query <database-id> --filter -
+```
+
 ### Debug Mode
 
 ```bash
@@ -324,14 +361,17 @@ notion --debug user me
 
 All commands support these flags:
 
-- `--output <format>` - Output format: `text`, `json`, `table`, or `yaml` (default: text)
+- `--output <format>` - Output format: `text`, `json`, `ndjson`, `table`, or `yaml` (default: text)
 - `--workspace <name>`, `-w` - Workspace to use (overrides NOTION_WORKSPACE)
 - `--debug` - Enable debug output (shows API requests/responses)
 - `--query <expr>` - JQ filter expression for JSON output
 - `--yes`, `-y` - Skip confirmation prompts (useful for scripts and automation)
+- `--no-input` - Alias for `--yes` (non-interactive mode)
 - `--limit <N>` - Limit number of results
 - `--sort-by <field>` - Sort results by field (e.g., `created_time`, `last_edited_time`)
 - `--desc` - Sort in descending order (use with `--sort-by`)
+- `--error-format <mode>` - Error output format: `auto`, `text`, or `json`
+- `--quiet` - Suppress non-essential output
 - `--help` - Show help for any command
 - `--version` - Show version information
 

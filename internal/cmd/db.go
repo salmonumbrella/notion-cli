@@ -36,7 +36,10 @@ Example:
   notion db get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID := args[0]
+			databaseID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
@@ -85,6 +88,7 @@ func newDBQueryCmd() *cobra.Command {
 	var pageSize int
 	var all bool
 	var dataSourceID string
+	var resultsOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "query <database-id>",
@@ -123,7 +127,21 @@ trailing spaces after the backslash. Otherwise the shell may split the command
 incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID := args[0]
+			databaseID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
+			if dataSourceID != "" {
+				normalized, err := normalizeNotionID(dataSourceID)
+				if err != nil {
+					return err
+				}
+				dataSourceID = normalized
+			}
+			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+			sortField, sortDesc := output.SortFromContext(ctx)
+			format := output.FormatFromContext(ctx)
 
 			// Read filter from file if specified
 			if filterFile != "" {
@@ -134,9 +152,14 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				filterJSON = string(data)
 			}
 
-			// Parse filter if provided
+			// Resolve and parse filter if provided
 			var filter map[string]interface{}
 			if filterJSON != "" {
+				resolved, err := readJSONInput(filterJSON)
+				if err != nil {
+					return err
+				}
+				filterJSON = resolved
 				if err := json.Unmarshal([]byte(filterJSON), &filter); err != nil {
 					return fmt.Errorf("failed to parse filter JSON: %w", err)
 				}
@@ -151,11 +174,37 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				sortsJSON = string(data)
 			}
 
-			// Parse sorts if provided
+			// Resolve and parse sorts if provided
 			var sorts []map[string]interface{}
 			if sortsJSON != "" {
+				resolved, err := readJSONInput(sortsJSON)
+				if err != nil {
+					return err
+				}
+				sortsJSON = resolved
 				if err := json.Unmarshal([]byte(sortsJSON), &sorts); err != nil {
 					return fmt.Errorf("failed to parse sorts JSON: %w", err)
+				}
+			}
+			if sortsJSON == "" && sortField != "" {
+				direction := "ascending"
+				if sortDesc {
+					direction = "descending"
+				}
+				if sortField == "created_time" || sortField == "last_edited_time" {
+					sorts = []map[string]interface{}{
+						{
+							"timestamp": sortField,
+							"direction": direction,
+						},
+					}
+				} else {
+					sorts = []map[string]interface{}{
+						{
+							"property":  sortField,
+							"direction": direction,
+						},
+					}
 				}
 			}
 
@@ -163,9 +212,15 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			if pageSize > 100 {
 				return fmt.Errorf("page-size must be between 1 and 100")
 			}
+			if limit > 0 && (pageSize == 0 || pageSize > limit) {
+				if limit > 100 {
+					pageSize = 100
+				} else {
+					pageSize = limit
+				}
+			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
@@ -183,6 +238,8 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			if all {
 				var allPages []notion.Page
 				cursor := startCursor
+				hasMore := false
+				var nextCursor *string
 
 				for {
 					req := &notion.QueryDataSourceRequest{
@@ -198,6 +255,13 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 					}
 
 					allPages = append(allPages, result.Results...)
+					hasMore = result.HasMore
+					nextCursor = result.NextCursor
+
+					if limit > 0 && len(allPages) >= limit {
+						allPages = allPages[:limit]
+						break
+					}
 
 					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
 						break
@@ -205,9 +269,16 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 					cursor = *result.NextCursor
 				}
 
-				// Print all results
 				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-				return printer.Print(ctx, allPages)
+				if resultsOnly || format == output.FormatTable {
+					return printer.Print(ctx, allPages)
+				}
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     allPages,
+					"has_more":    hasMore,
+					"next_cursor": nextCursor,
+				})
 			}
 
 			// Single page request
@@ -225,6 +296,9 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 
 			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			if resultsOnly || format == output.FormatTable {
+				return printer.Print(ctx, result.Results)
+			}
 			return printer.Print(ctx, result)
 		},
 	}
@@ -237,6 +311,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID to query (optional)")
+	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 
 	return cmd
 }
@@ -282,8 +357,19 @@ Example - Create with description:
 				return fmt.Errorf("--properties flag is required")
 			}
 
-			// Parse properties JSON
+			normalizedParent, err := normalizeNotionID(parentID)
+			if err != nil {
+				return err
+			}
+			parentID = normalizedParent
+
+			// Resolve and parse properties JSON
 			var properties map[string]map[string]interface{}
+			resolved, err := readJSONInput(propertiesJSON)
+			if err != nil {
+				return err
+			}
+			propertiesJSON = resolved
 			if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
 				return fmt.Errorf("failed to parse properties JSON: %w", err)
 			}
@@ -318,9 +404,14 @@ Example - Create with description:
 				}
 			}
 
-			// Parse optional fields
+			// Resolve and parse optional fields
 			var description []map[string]interface{}
 			if descriptionJSON != "" {
+				resolved, err := readJSONInput(descriptionJSON)
+				if err != nil {
+					return err
+				}
+				descriptionJSON = resolved
 				if err := json.Unmarshal([]byte(descriptionJSON), &description); err != nil {
 					return fmt.Errorf("failed to parse description JSON: %w", err)
 				}
@@ -328,6 +419,11 @@ Example - Create with description:
 
 			var icon map[string]interface{}
 			if iconJSON != "" {
+				resolved, err := readJSONInput(iconJSON)
+				if err != nil {
+					return err
+				}
+				iconJSON = resolved
 				if err := json.Unmarshal([]byte(iconJSON), &icon); err != nil {
 					return fmt.Errorf("failed to parse icon JSON: %w", err)
 				}
@@ -335,6 +431,11 @@ Example - Create with description:
 
 			var cover map[string]interface{}
 			if coverJSON != "" {
+				resolved, err := readJSONInput(coverJSON)
+				if err != nil {
+					return err
+				}
+				coverJSON = resolved
 				if err := json.Unmarshal([]byte(coverJSON), &cover); err != nil {
 					return fmt.Errorf("failed to parse cover JSON: %w", err)
 				}
@@ -421,7 +522,17 @@ Example - Archive database:
   notion db update 12345678-1234-1234-1234-123456789012 --archived true`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID := args[0]
+			databaseID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
+			if dataSourceID != "" {
+				normalized, err := normalizeNotionID(dataSourceID)
+				if err != nil {
+					return err
+				}
+				dataSourceID = normalized
+			}
 
 			// Build title if provided
 			var title []map[string]interface{}
@@ -436,17 +547,27 @@ Example - Archive database:
 				}
 			}
 
-			// Parse properties if provided
+			// Resolve and parse properties if provided
 			var properties map[string]map[string]interface{}
 			if propertiesJSON != "" {
+				resolved, err := readJSONInput(propertiesJSON)
+				if err != nil {
+					return err
+				}
+				propertiesJSON = resolved
 				if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
 					return fmt.Errorf("failed to parse properties JSON: %w", err)
 				}
 			}
 
-			// Parse optional fields
+			// Resolve and parse optional fields
 			var description []map[string]interface{}
 			if descriptionJSON != "" {
+				resolved, err := readJSONInput(descriptionJSON)
+				if err != nil {
+					return err
+				}
+				descriptionJSON = resolved
 				if err := json.Unmarshal([]byte(descriptionJSON), &description); err != nil {
 					return fmt.Errorf("failed to parse description JSON: %w", err)
 				}
@@ -454,6 +575,11 @@ Example - Archive database:
 
 			var icon map[string]interface{}
 			if iconJSON != "" {
+				resolved, err := readJSONInput(iconJSON)
+				if err != nil {
+					return err
+				}
+				iconJSON = resolved
 				if err := json.Unmarshal([]byte(iconJSON), &icon); err != nil {
 					return fmt.Errorf("failed to parse icon JSON: %w", err)
 				}
@@ -461,6 +587,11 @@ Example - Archive database:
 
 			var cover map[string]interface{}
 			if coverJSON != "" {
+				resolved, err := readJSONInput(coverJSON)
+				if err != nil {
+					return err
+				}
+				coverJSON = resolved
 				if err := json.Unmarshal([]byte(coverJSON), &cover); err != nil {
 					return fmt.Errorf("failed to parse cover JSON: %w", err)
 				}

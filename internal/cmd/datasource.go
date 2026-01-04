@@ -39,7 +39,10 @@ Example:
   notion ds get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID := args[0]
+			dataSourceID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
@@ -86,7 +89,18 @@ Example:
 				return fmt.Errorf("--properties is required")
 			}
 
+			normalizedParent, err := normalizeNotionID(parentID)
+			if err != nil {
+				return err
+			}
+			parentID = normalizedParent
+
 			var properties map[string]interface{}
+			resolved, err := readJSONInput(propertiesJSON)
+			if err != nil {
+				return err
+			}
+			propertiesJSON = resolved
 			if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
 				return fmt.Errorf("invalid properties JSON: %w", err)
 			}
@@ -136,10 +150,18 @@ Example:
     --properties '{"Priority":{"select":{}}}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID := args[0]
+			dataSourceID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
 
 			var properties map[string]interface{}
 			if propertiesJSON != "" {
+				resolved, err := readJSONInput(propertiesJSON)
+				if err != nil {
+					return err
+				}
+				propertiesJSON = resolved
 				if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
 					return fmt.Errorf("invalid properties JSON: %w", err)
 				}
@@ -176,6 +198,7 @@ Example:
 func newDataSourceQueryCmd() *cobra.Command {
 	var filterJSON string
 	var pageSize int
+	var resultsOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "query <datasource-id>",
@@ -194,17 +217,37 @@ Example - Query with filter:
     --page-size 10`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID := args[0]
+			dataSourceID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+			format := output.FormatFromContext(ctx)
 
 			var filter map[string]interface{}
 			if filterJSON != "" {
+				resolved, err := readJSONInput(filterJSON)
+				if err != nil {
+					return err
+				}
+				filterJSON = resolved
 				if err := json.Unmarshal([]byte(filterJSON), &filter); err != nil {
 					return fmt.Errorf("invalid filter JSON: %w", err)
 				}
 			}
+			if pageSize > 100 {
+				return fmt.Errorf("page-size must be between 1 and 100")
+			}
+			if limit > 0 && (pageSize == 0 || pageSize > limit) {
+				if limit > 100 {
+					pageSize = 100
+				} else {
+					pageSize = limit
+				}
+			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
@@ -223,12 +266,16 @@ Example - Query with filter:
 			}
 
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			if resultsOnly || format == output.FormatTable {
+				return printer.Print(ctx, result.Results)
+			}
 			return printer.Print(ctx, result)
 		},
 	}
 
 	cmd.Flags().StringVar(&filterJSON, "filter", "", "Filter JSON")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Results per page")
+	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 
 	return cmd
 }
