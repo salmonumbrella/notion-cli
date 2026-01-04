@@ -45,7 +45,11 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 			limit := output.LimitFromContext(ctx)
 
 			if limit > 0 && (pageSize == 0 || pageSize > limit) {
-				pageSize = limit
+				if limit > 100 {
+					pageSize = 100
+				} else {
+					pageSize = limit
+				}
 			}
 
 			result, err := config.Fetch(ctx, pageSize)

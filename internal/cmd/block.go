@@ -99,7 +99,11 @@ Example:
 			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
 			if limit > 0 && (pageSize == 0 || pageSize > limit) {
-				pageSize = limit
+				if limit > 100 {
+					pageSize = 100
+				} else {
+					pageSize = limit
+				}
 			}
 
 			// Validate page size
