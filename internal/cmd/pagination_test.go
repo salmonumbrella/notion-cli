@@ -1,6 +1,11 @@
 package cmd
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/salmonumbrella/notion-cli/internal/output"
+)
 
 func TestCapPageSize(t *testing.T) {
 	tests := []struct {
@@ -91,5 +96,75 @@ func TestCapPageSize(t *testing.T) {
 func TestNotionMaxPageSize(t *testing.T) {
 	if NotionMaxPageSize != 100 {
 		t.Errorf("NotionMaxPageSize = %d, want 100", NotionMaxPageSize)
+	}
+}
+
+func TestCapPageSize_WithContextLimit(t *testing.T) {
+	// Integration test: simulates the command flow where limit comes from context
+	// and capPageSize is used to determine effective page size.
+	tests := []struct {
+		name         string
+		contextLimit int
+		pageSize     int
+		wantPageSize int
+	}{
+		{
+			name:         "limit 500 from context caps page size to 100",
+			contextLimit: 500,
+			pageSize:     0, // unset, should use capped limit
+			wantPageSize: NotionMaxPageSize,
+		},
+		{
+			name:         "limit 200 from context caps page size to 100",
+			contextLimit: 200,
+			pageSize:     0,
+			wantPageSize: NotionMaxPageSize,
+		},
+		{
+			name:         "limit 101 from context caps page size to 100",
+			contextLimit: 101,
+			pageSize:     0,
+			wantPageSize: NotionMaxPageSize,
+		},
+		{
+			name:         "limit 100 from context uses full limit",
+			contextLimit: 100,
+			pageSize:     0,
+			wantPageSize: 100,
+		},
+		{
+			name:         "limit 50 from context uses limit as page size",
+			contextLimit: 50,
+			pageSize:     0,
+			wantPageSize: 50,
+		},
+		{
+			name:         "limit 500 with explicit page size 50 uses page size",
+			contextLimit: 500,
+			pageSize:     50,
+			wantPageSize: 50,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate context with limit (as done in commands)
+			ctx := output.WithLimit(context.Background(), tt.contextLimit)
+			limit := output.LimitFromContext(ctx)
+
+			// This is the integration: limit from context + capPageSize
+			effectivePageSize := capPageSize(tt.pageSize, limit)
+
+			if effectivePageSize != tt.wantPageSize {
+				t.Errorf("capPageSize(%d, %d) = %d, want %d (contextLimit=%d)",
+					tt.pageSize, limit, effectivePageSize, tt.wantPageSize, tt.contextLimit)
+			}
+
+			// Verify page size never exceeds NotionMaxPageSize
+			if effectivePageSize > NotionMaxPageSize {
+				t.Errorf("effectivePageSize %d exceeds NotionMaxPageSize %d",
+					effectivePageSize, NotionMaxPageSize)
+			}
+		})
 	}
 }
