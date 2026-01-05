@@ -23,6 +23,56 @@ type markdownToken struct {
 	code    bool
 }
 
+// markdownSummary holds counts of detected markdown patterns
+type markdownSummary struct {
+	bold       int
+	italic     int
+	code       int
+	boldItalic int
+	plain      int
+}
+
+// summarizeMarkdownTokens counts markdown patterns in parsed tokens
+func summarizeMarkdownTokens(tokens []markdownToken) markdownSummary {
+	var summary markdownSummary
+	for _, token := range tokens {
+		switch {
+		case token.bold && token.italic:
+			summary.boldItalic++
+		case token.bold:
+			summary.bold++
+		case token.italic:
+			summary.italic++
+		case token.code:
+			summary.code++
+		default:
+			summary.plain++
+		}
+	}
+	return summary
+}
+
+// formatMarkdownSummary returns a human-readable summary of parsed markdown
+func formatMarkdownSummary(summary markdownSummary) string {
+	var parts []string
+	if summary.bold > 0 {
+		parts = append(parts, fmt.Sprintf("%d bold", summary.bold))
+	}
+	if summary.italic > 0 {
+		parts = append(parts, fmt.Sprintf("%d italic", summary.italic))
+	}
+	if summary.code > 0 {
+		parts = append(parts, fmt.Sprintf("%d code", summary.code))
+	}
+	if summary.boldItalic > 0 {
+		parts = append(parts, fmt.Sprintf("%d bold+italic", summary.boldItalic))
+	}
+	if len(parts) == 0 {
+		return "Parsed markdown: no formatting detected"
+	}
+	return fmt.Sprintf("Parsed markdown: %s", strings.Join(parts, ", "))
+}
+
 // parseMarkdown parses text for markdown patterns and returns tokens.
 //
 // Supported patterns:
@@ -422,6 +472,7 @@ func newCommentAddCmd() *cobra.Command {
 	var discussionID string
 	var text string
 	var mentions []string
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -491,6 +542,13 @@ Example - Add to an existing discussion:
 			// Create client
 			client := NewNotionClient(token)
 
+			// Parse markdown first (for verbose output if enabled)
+			tokens := parseMarkdown(text)
+			if verbose {
+				summary := summarizeMarkdownTokens(tokens)
+				fmt.Fprintln(os.Stderr, formatMarkdownSummary(summary))
+			}
+
 			// Build rich text with inline mentions
 			// @Name patterns in text are replaced with mention objects using provided user IDs
 			richText := buildRichTextWithMentions(text, mentions)
@@ -524,6 +582,7 @@ Example - Add to an existing discussion:
 	cmd.Flags().StringVar(&discussionID, "discussion-id", "", "Discussion thread ID to add comment to (mutually exclusive with --parent)")
 	cmd.Flags().StringVar(&text, "text", "", "Comment text (required)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention (repeatable)")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show how markdown was parsed before creating comment")
 
 	return cmd
 }

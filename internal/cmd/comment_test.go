@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
@@ -393,6 +394,200 @@ func TestBuildRichTextWithMentions(t *testing.T) {
 					}
 				} else if result[i].Annotations != nil {
 					t.Errorf("element %d: expected no annotations, got %+v", i, result[i].Annotations)
+				}
+			}
+		})
+	}
+}
+
+func TestSummarizeMarkdownTokens(t *testing.T) {
+	tests := []struct {
+		name     string
+		tokens   []markdownToken
+		expected markdownSummary
+	}{
+		{
+			name:     "empty tokens",
+			tokens:   nil,
+			expected: markdownSummary{},
+		},
+		{
+			name: "plain text only",
+			tokens: []markdownToken{
+				{content: "Hello world"},
+			},
+			expected: markdownSummary{plain: 1},
+		},
+		{
+			name: "single bold",
+			tokens: []markdownToken{
+				{content: "bold", bold: true},
+			},
+			expected: markdownSummary{bold: 1},
+		},
+		{
+			name: "single italic",
+			tokens: []markdownToken{
+				{content: "italic", italic: true},
+			},
+			expected: markdownSummary{italic: 1},
+		},
+		{
+			name: "single code",
+			tokens: []markdownToken{
+				{content: "code", code: true},
+			},
+			expected: markdownSummary{code: 1},
+		},
+		{
+			name: "bold and italic combined",
+			tokens: []markdownToken{
+				{content: "bold italic", bold: true, italic: true},
+			},
+			expected: markdownSummary{boldItalic: 1},
+		},
+		{
+			name: "mixed formatting",
+			tokens: []markdownToken{
+				{content: "Hello "},
+				{content: "bold", bold: true},
+				{content: " and "},
+				{content: "italic", italic: true},
+				{content: " and "},
+				{content: "code", code: true},
+			},
+			expected: markdownSummary{plain: 3, bold: 1, italic: 1, code: 1},
+		},
+		{
+			name: "multiple of same type",
+			tokens: []markdownToken{
+				{content: "bold1", bold: true},
+				{content: " "},
+				{content: "bold2", bold: true},
+			},
+			expected: markdownSummary{plain: 1, bold: 2},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := summarizeMarkdownTokens(tt.tokens)
+			if result != tt.expected {
+				t.Errorf("expected %+v, got %+v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestFormatMarkdownSummary(t *testing.T) {
+	tests := []struct {
+		name     string
+		summary  markdownSummary
+		expected string
+	}{
+		{
+			name:     "no formatting",
+			summary:  markdownSummary{plain: 1},
+			expected: "Parsed markdown: no formatting detected",
+		},
+		{
+			name:     "empty summary",
+			summary:  markdownSummary{},
+			expected: "Parsed markdown: no formatting detected",
+		},
+		{
+			name:     "bold only",
+			summary:  markdownSummary{bold: 2},
+			expected: "Parsed markdown: 2 bold",
+		},
+		{
+			name:     "italic only",
+			summary:  markdownSummary{italic: 1},
+			expected: "Parsed markdown: 1 italic",
+		},
+		{
+			name:     "code only",
+			summary:  markdownSummary{code: 3},
+			expected: "Parsed markdown: 3 code",
+		},
+		{
+			name:     "bold+italic only",
+			summary:  markdownSummary{boldItalic: 1},
+			expected: "Parsed markdown: 1 bold+italic",
+		},
+		{
+			name:     "multiple types",
+			summary:  markdownSummary{bold: 2, italic: 1, code: 1},
+			expected: "Parsed markdown: 2 bold, 1 italic, 1 code",
+		},
+		{
+			name:     "all types",
+			summary:  markdownSummary{bold: 1, italic: 2, code: 1, boldItalic: 1, plain: 3},
+			expected: "Parsed markdown: 1 bold, 2 italic, 1 code, 1 bold+italic",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatMarkdownSummary(tt.summary)
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestVerboseOutputIntegration(t *testing.T) {
+	// Test that parseMarkdown -> summarizeMarkdownTokens -> formatMarkdownSummary
+	// produces the expected verbose output for realistic inputs
+	tests := []struct {
+		name          string
+		text          string
+		expectedParts []string // substrings that should appear in output
+		notExpected   []string // substrings that should NOT appear
+	}{
+		{
+			name:          "plain text produces no formatting message",
+			text:          "Hello world",
+			expectedParts: []string{"no formatting detected"},
+		},
+		{
+			name:          "bold and italic",
+			text:          "This is **bold** and *italic*",
+			expectedParts: []string{"1 bold", "1 italic"},
+			notExpected:   []string{"no formatting"},
+		},
+		{
+			name:          "multiple bold segments",
+			text:          "**one** and **two** and **three**",
+			expectedParts: []string{"3 bold"},
+		},
+		{
+			name:          "code segment",
+			text:          "Use `fmt.Println` here",
+			expectedParts: []string{"1 code"},
+		},
+		{
+			name:          "bold+italic combined",
+			text:          "This is ***very important***",
+			expectedParts: []string{"1 bold+italic"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tokens := parseMarkdown(tt.text)
+			summary := summarizeMarkdownTokens(tokens)
+			output := formatMarkdownSummary(summary)
+
+			for _, part := range tt.expectedParts {
+				if !strings.Contains(output, part) {
+					t.Errorf("expected output to contain %q, got %q", part, output)
+				}
+			}
+			for _, part := range tt.notExpected {
+				if strings.Contains(output, part) {
+					t.Errorf("expected output to NOT contain %q, got %q", part, output)
 				}
 			}
 		})
