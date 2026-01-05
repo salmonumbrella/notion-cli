@@ -24,8 +24,17 @@ type markdownToken struct {
 }
 
 // parseMarkdown parses text for markdown patterns and returns tokens.
-// Supports: **bold**, *italic*, _italic_, `code`, and combinations.
-// Unmatched markers are treated as literal text.
+//
+// Supported patterns:
+//   - **bold** or __bold__
+//   - *italic* or _italic_
+//   - `code`
+//   - ***bold italic*** or ___bold italic___
+//
+// Limitations:
+//   - Nested or overlapping formatting (e.g., "**bold *italic** text*") may not
+//     parse as intended. The parser matches patterns left-to-right without nesting.
+//   - Unmatched markers are treated as literal text (graceful degradation).
 func parseMarkdown(text string) []markdownToken {
 	if text == "" {
 		return nil
