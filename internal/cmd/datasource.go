@@ -236,16 +236,10 @@ Example - Query with filter:
 					return fmt.Errorf("invalid filter JSON: %w", err)
 				}
 			}
-			if pageSize > 100 {
-				return fmt.Errorf("page-size must be between 1 and 100")
+			if pageSize > NotionMaxPageSize {
+				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
 			}
-			if limit > 0 && (pageSize == 0 || pageSize > limit) {
-				if limit > 100 {
-					pageSize = 100
-				} else {
-					pageSize = limit
-				}
-			}
+			pageSize = capPageSize(pageSize, limit)
 
 			// Get token from context (respects workspace selection)
 			token, err := GetTokenFromContext(ctx)

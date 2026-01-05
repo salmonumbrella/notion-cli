@@ -199,13 +199,7 @@ Example:
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
-			if limit > 0 && (pageSize == 0 || pageSize > limit) {
-				if limit > 100 {
-					pageSize = 100
-				} else {
-					pageSize = limit
-				}
-			}
+			pageSize = capPageSize(pageSize, limit)
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w", err)
