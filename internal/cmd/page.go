@@ -322,6 +322,7 @@ func newPageUpdateCmd() *cobra.Command {
 	var setArchived bool
 	var dryRun bool
 	var mentions []string
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   "update <page-id>",
@@ -364,7 +365,12 @@ Example - Rich text with mention:
 Example - Multiple mentions:
   notion page update PAGE_ID \
     --properties '{"Notes": "@Alice and @Bob please review"}' \
-    --mention alice-user-id --mention bob-user-id`,
+    --mention alice-user-id --mention bob-user-id
+
+Use --verbose to see how markdown is parsed and mentions are matched:
+  notion page update PAGE_ID \
+    --properties '{"Summary": "@Georges should **review**"}' \
+    --mention user-id --verbose`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pageID, err := normalizeNotionID(args[0])
@@ -389,7 +395,7 @@ Example - Multiple mentions:
 			// Only applies when --mention flags are provided
 			if len(mentions) > 0 && properties != nil {
 				var usedCount int
-				properties, usedCount = transformPropertiesWithMentions(properties, mentions)
+				properties, usedCount = transformPropertiesWithMentionsVerbose(properties, mentions, verbose)
 				if usedCount == 0 {
 					fmt.Fprintf(os.Stderr, "warning: %d --mention flag(s) provided but no @Name patterns found in property values\n", len(mentions))
 				} else if usedCount < len(mentions) {
@@ -483,6 +489,7 @@ Example - Multiple mentions:
 	cmd.Flags().BoolVar(&archived, "archived", false, "Archive the page")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention in rich_text properties (repeatable)")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show parsed markdown details for property transformations")
 	// Track if archived flag was explicitly set
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		setArchived = cmd.Flags().Changed("archived")
@@ -499,6 +506,12 @@ Example - Multiple mentions:
 // user ID assignment when multiple properties contain @Name patterns.
 // Returns the transformed properties and the number of user IDs that were actually used.
 func transformPropertiesWithMentions(properties map[string]interface{}, userIDs []string) (map[string]interface{}, int) {
+	return transformPropertiesWithMentionsVerbose(properties, userIDs, false)
+}
+
+// transformPropertiesWithMentionsVerbose is like transformPropertiesWithMentions but
+// optionally prints verbose output about markdown parsing and mention matching.
+func transformPropertiesWithMentionsVerbose(properties map[string]interface{}, userIDs []string, verbose bool) (map[string]interface{}, int) {
 	result := make(map[string]interface{}, len(properties))
 	userIDIndex := 0
 
@@ -513,6 +526,15 @@ func transformPropertiesWithMentions(properties map[string]interface{}, userIDs 
 		value := properties[name]
 		// Only transform string values (shorthand for rich_text)
 		if strVal, ok := value.(string); ok {
+			// Parse markdown first (for verbose output)
+			tokens := richtext.ParseMarkdown(strVal)
+
+			if verbose {
+				fmt.Fprintf(os.Stderr, "Property %q:\n", name)
+				summary := richtext.SummarizeTokens(tokens)
+				fmt.Fprintf(os.Stderr, "  %s\n", richtext.FormatSummary(summary))
+			}
+
 			// Count @Name patterns in this string to consume the right number of user IDs
 			matches := richtext.MentionPattern.FindAllStringIndex(strVal, -1)
 			mentionsNeeded := len(matches)
@@ -526,6 +548,10 @@ func transformPropertiesWithMentions(properties map[string]interface{}, userIDs 
 				}
 				propertyUserIDs = userIDs[userIDIndex:end]
 				userIDIndex = end
+			}
+
+			if verbose && mentionsNeeded > 0 {
+				fmt.Fprintf(os.Stderr, "  Mentions: %d @Name pattern(s), %d matched to user ID(s)\n", mentionsNeeded, len(propertyUserIDs))
 			}
 
 			// Build rich text array with mentions

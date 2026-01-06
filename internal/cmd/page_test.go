@@ -396,6 +396,30 @@ func TestTransformPropertiesWithMentions_UsedCount(t *testing.T) {
 	}
 }
 
+func TestTransformPropertiesWithMentionsVerbose(t *testing.T) {
+	// Test that verbose=true produces the same results as verbose=false
+	properties := map[string]interface{}{
+		"Summary": "@Georges should **review** this",
+		"Notes":   "Plain text",
+	}
+	userIDs := []string{"georges-user-id"}
+
+	resultVerbose, usedVerbose := transformPropertiesWithMentionsVerbose(properties, userIDs, true)
+	resultNonVerbose, usedNonVerbose := transformPropertiesWithMentionsVerbose(properties, userIDs, false)
+
+	// Used counts should be the same
+	if usedVerbose != usedNonVerbose {
+		t.Errorf("verbose and non-verbose should have same used count, got %d vs %d", usedVerbose, usedNonVerbose)
+	}
+
+	// Results should serialize to the same JSON
+	verboseJSON, _ := json.Marshal(resultVerbose)
+	nonVerboseJSON, _ := json.Marshal(resultNonVerbose)
+	if string(verboseJSON) != string(nonVerboseJSON) {
+		t.Errorf("verbose and non-verbose should produce same result")
+	}
+}
+
 func TestTransformPropertiesWithMentions_JSONOutput(t *testing.T) {
 	// Test that the output can be serialized to valid JSON
 	properties := map[string]interface{}{
