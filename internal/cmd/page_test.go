@@ -509,3 +509,128 @@ func TestTransformPropertiesWithMentions_JSONOutput(t *testing.T) {
 		t.Errorf("expected 2 rich_text elements after JSON roundtrip, got %d", len(richText))
 	}
 }
+
+func TestTransformPropertiesWithMentions_RichTextFlagBehavior(t *testing.T) {
+	// This test documents the behavior when --rich-text flag is used without --mention.
+	// The transformation function is called with empty userIDs, and markdown should
+	// still be parsed while @Name patterns remain as literal text.
+
+	tests := []struct {
+		name       string
+		properties map[string]interface{}
+		userIDs    []string // empty to simulate --rich-text without --mention
+		checkFunc  func(t *testing.T, result map[string]interface{})
+	}{
+		{
+			name: "markdown parsed with empty userIDs (--rich-text flag behavior)",
+			properties: map[string]interface{}{
+				"Notes": "This is **bold** and *italic* text",
+			},
+			userIDs: nil, // No --mention flags, just --rich-text
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				notes := result["Notes"].(map[string]interface{})
+				richText := notes["rich_text"].([]interface{})
+				// Expected: "This is ", "bold" (bold), " and ", "italic" (italic), " text"
+				if len(richText) != 5 {
+					t.Fatalf("expected 5 rich_text elements, got %d", len(richText))
+				}
+
+				// Check bold element (index 1)
+				boldElem := richText[1].(map[string]interface{})
+				boldText := boldElem["text"].(map[string]interface{})
+				if boldText["content"] != "bold" {
+					t.Errorf("expected 'bold', got %v", boldText["content"])
+				}
+				boldAnnotations := boldElem["annotations"].(map[string]interface{})
+				if boldAnnotations["bold"] != true {
+					t.Errorf("expected bold annotation to be true")
+				}
+
+				// Check italic element (index 3)
+				italicElem := richText[3].(map[string]interface{})
+				italicText := italicElem["text"].(map[string]interface{})
+				if italicText["content"] != "italic" {
+					t.Errorf("expected 'italic', got %v", italicText["content"])
+				}
+				italicAnnotations := italicElem["annotations"].(map[string]interface{})
+				if italicAnnotations["italic"] != true {
+					t.Errorf("expected italic annotation to be true")
+				}
+			},
+		},
+		{
+			name: "@Name patterns kept as text when no userIDs provided",
+			properties: map[string]interface{}{
+				"Summary": "@Alice should **review** this",
+			},
+			userIDs: nil, // No --mention flags
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				summary := result["Summary"].(map[string]interface{})
+				richText := summary["rich_text"].([]interface{})
+
+				// @Alice should remain as text (not a mention) since no userIDs provided
+				// Check that there are no mention types
+				for _, rt := range richText {
+					rtMap := rt.(map[string]interface{})
+					if rtMap["type"] == "mention" {
+						t.Errorf("expected no mentions when userIDs is empty, but found one")
+					}
+				}
+
+				// Check that **review** is still parsed as bold
+				foundBold := false
+				for _, rt := range richText {
+					rtMap := rt.(map[string]interface{})
+					if annotations, ok := rtMap["annotations"].(map[string]interface{}); ok {
+						if annotations["bold"] == true {
+							foundBold = true
+							text := rtMap["text"].(map[string]interface{})
+							if text["content"] != "review" {
+								t.Errorf("expected bold text to be 'review', got %v", text["content"])
+							}
+						}
+					}
+				}
+				if !foundBold {
+					t.Errorf("expected to find bold 'review' text")
+				}
+			},
+		},
+		{
+			name: "code formatting with --rich-text",
+			properties: map[string]interface{}{
+				"Code": "Use `fmt.Println` for output",
+			},
+			userIDs: nil,
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				code := result["Code"].(map[string]interface{})
+				richText := code["rich_text"].([]interface{})
+
+				// Find the code element
+				foundCode := false
+				for _, rt := range richText {
+					rtMap := rt.(map[string]interface{})
+					if annotations, ok := rtMap["annotations"].(map[string]interface{}); ok {
+						if annotations["code"] == true {
+							foundCode = true
+							text := rtMap["text"].(map[string]interface{})
+							if text["content"] != "fmt.Println" {
+								t.Errorf("expected code text to be 'fmt.Println', got %v", text["content"])
+							}
+						}
+					}
+				}
+				if !foundCode {
+					t.Errorf("expected to find code-formatted 'fmt.Println'")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, _ := transformPropertiesWithMentions(tt.properties, tt.userIDs)
+			tt.checkFunc(t, result)
+		})
+	}
+}

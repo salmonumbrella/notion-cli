@@ -324,6 +324,7 @@ func newPageUpdateCmd() *cobra.Command {
 	var dryRun bool
 	var mentions []string
 	var verbose bool
+	var richText bool
 
 	cmd := &cobra.Command{
 		Use:   "update <page-id>",
@@ -333,30 +334,34 @@ func newPageUpdateCmd() *cobra.Command {
 The --properties flag accepts a JSON string with the properties to update.
 Only the properties specified will be updated; others remain unchanged.
 
+RICH TEXT WITH MARKDOWN:
+For rich_text properties, you can use a string shorthand with markdown formatting:
+  **bold**, *italic*, ` + "`code`" + `, ***bold italic***
+
+Use --rich-text to enable markdown parsing for string values:
+  notion page update PAGE_ID \
+    --properties '{"Notes": "This is **bold** text"}' \
+    --rich-text
+
 RICH TEXT WITH MENTIONS:
-For rich_text properties, you can use a string shorthand with @Name patterns:
+For rich_text properties, you can also use @Name patterns for mentions:
   {"Summary": "@Georges should film this"}
 
 When combined with --mention flags, @Name patterns are replaced with proper
 mention objects that notify users. Mentions are matched to user IDs in order,
 with properties processed alphabetically by name.
 
-Markdown formatting is also supported in string shorthand values:
-  **bold**, *italic*, ` + "`code`" + `, ***bold italic***
-
-IMPORTANT: String shorthand transformation (including markdown formatting) ONLY
-applies when at least one --mention flag is provided. Without --mention flags,
-property values are sent to the Notion API exactly as specified in the JSON.
-
-If you want markdown formatting without actual mentions, provide any --mention
-flag (even an unused one) to enable the transformation:
-  notion page update PAGE_ID \
-    --properties '{"Notes": "This is **bold** text"}' \
-    --mention unused-placeholder-id
+Note: Using --mention automatically enables markdown parsing (--rich-text is
+implied when --mention is provided).
 
 Example - Simple update (no transformation):
   notion page update 12345678-1234-1234-1234-123456789012 \
     --properties '{"title": [{"text": {"content": "Updated Title"}}]}'
+
+Example - Rich text with markdown only:
+  notion page update PAGE_ID \
+    --properties '{"Notes": "This is **bold** and *italic*"}' \
+    --rich-text
 
 Example - Rich text with mention:
   notion page update PAGE_ID \
@@ -393,11 +398,11 @@ Use --verbose to see how markdown is parsed and mentions are matched:
 			}
 
 			// Transform string shorthand values to rich_text arrays with mentions
-			// Only applies when --mention flags are provided
-			if len(mentions) > 0 && properties != nil {
+			// Applies when --mention flags are provided OR --rich-text flag is set
+			if (len(mentions) > 0 || richText) && properties != nil {
 				var usedCount int
 				properties, usedCount = transformPropertiesWithMentionsVerbose(os.Stderr, properties, mentions, verbose)
-				if usedCount == 0 {
+				if len(mentions) > 0 && usedCount == 0 {
 					fmt.Fprintf(os.Stderr, "warning: %d --mention flag(s) provided but no @Name patterns found in property values\n", len(mentions))
 				} else if usedCount < len(mentions) {
 					fmt.Fprintf(os.Stderr, "warning: %d of %d --mention flag(s) unused (not enough @Name patterns)\n", len(mentions)-usedCount, len(mentions))
@@ -491,6 +496,7 @@ Use --verbose to see how markdown is parsed and mentions are matched:
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention in rich_text properties (repeatable)")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show parsed markdown details for property transformations")
+	cmd.Flags().BoolVar(&richText, "rich-text", false, "Enable markdown parsing for string values without requiring --mention")
 	// Track if archived flag was explicitly set
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		setArchived = cmd.Flags().Changed("archived")
