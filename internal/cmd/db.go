@@ -148,7 +148,7 @@ Example - Fetch all results:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
-	cmd.Flags().StringVar(&titleMatch, "title-match", "", "Regex to match database title (Go syntax, use (?i) for case-insensitive)")
+	cmd.Flags().StringVar(&titleMatch, "title-match", "", "Regex to match database title (Go syntax, use (?i) for case-insensitive). Note: filtering is applied after fetching, so fewer results may be returned when combined with --limit")
 
 	return cmd
 }

@@ -288,7 +288,7 @@ Example - Query with filter:
 	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select or multi_select)")
 	cmd.Flags().StringVar(&selectEquals, "select-equals", "", "Match select name exactly")
-	cmd.Flags().StringVar(&selectMatch, "select-match", "", "Match select name with regex (Go syntax, use (?i) for case-insensitive)")
+	cmd.Flags().StringVar(&selectMatch, "select-match", "", "Match select name with regex (Go syntax, use (?i) for case-insensitive). Note: filtering is applied after fetching, so fewer results may be returned when combined with --limit")
 
 	return cmd
 }
