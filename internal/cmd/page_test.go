@@ -248,6 +248,45 @@ func TestTransformPropertiesWithMentions(t *testing.T) {
 			},
 		},
 		{
+			name: "array property values pass through unchanged",
+			properties: map[string]interface{}{
+				"Related Pages": map[string]interface{}{
+					"relation": []interface{}{
+						map[string]interface{}{"id": "page-1"},
+						map[string]interface{}{"id": "page-2"},
+					},
+				},
+				"Summary": "@Alice check these",
+			},
+			userIDs: []string{"alice-id"},
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				// Relation array should be passed through as-is
+				relatedPages := result["Related Pages"].(map[string]interface{})
+				relation := relatedPages["relation"].([]interface{})
+				if len(relation) != 2 {
+					t.Fatalf("expected 2 relation items, got %d", len(relation))
+				}
+				first := relation[0].(map[string]interface{})
+				if first["id"] != "page-1" {
+					t.Errorf("first relation id should be page-1, got %v", first["id"])
+				}
+				second := relation[1].(map[string]interface{})
+				if second["id"] != "page-2" {
+					t.Errorf("second relation id should be page-2, got %v", second["id"])
+				}
+				// Summary should still be transformed with mention
+				summary := result["Summary"].(map[string]interface{})
+				richText := summary["rich_text"].([]interface{})
+				if len(richText) != 2 {
+					t.Fatalf("expected 2 rich_text elements, got %d", len(richText))
+				}
+				firstRT := richText[0].(map[string]interface{})
+				if firstRT["type"] != "mention" {
+					t.Errorf("first element should be mention, got %v", firstRT["type"])
+				}
+			},
+		},
+		{
 			name: "string without mention still transforms to rich_text",
 			properties: map[string]interface{}{
 				"Description": "Plain text here",
