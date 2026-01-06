@@ -207,13 +207,19 @@ func BuildWithMentions(text string, userIDs []string) []notion.RichText {
 		return []notion.RichText{}
 	}
 
-	// First, parse markdown to get formatted tokens
 	tokens := ParseMarkdown(text)
+	return BuildWithMentionsFromTokens(tokens, userIDs)
+}
+
+// BuildWithMentionsFromTokens builds rich text from pre-parsed markdown tokens.
+// Use this when you've already parsed markdown (e.g., for verbose output) to avoid
+// parsing twice. The tokens should come from ParseMarkdown.
+func BuildWithMentionsFromTokens(tokens []MarkdownToken, userIDs []string) []notion.RichText {
 	if len(tokens) == 0 && len(userIDs) == 0 {
 		return []notion.RichText{}
 	}
 
-	// Now process each token, looking for @mentions within them
+	// Process each token, looking for @mentions within them
 	var richText []notion.RichText
 	userIDIndex := 0
 

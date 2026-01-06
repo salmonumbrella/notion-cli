@@ -528,7 +528,7 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 		value := properties[name]
 		// Only transform string values (shorthand for rich_text)
 		if strVal, ok := value.(string); ok {
-			// Parse markdown first (for verbose output)
+			// Parse markdown once - used for both verbose output and building rich text
 			tokens := richtext.ParseMarkdown(strVal)
 
 			if verbose {
@@ -556,8 +556,8 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 				_, _ = fmt.Fprintf(w, "  Mentions: %d @Name pattern(s), %d matched to user ID(s)\n", mentionsNeeded, len(propertyUserIDs))
 			}
 
-			// Build rich text array with mentions
-			richTextContent := richtext.BuildWithMentions(strVal, propertyUserIDs)
+			// Build rich text array from pre-parsed tokens (avoids redundant parsing)
+			richTextContent := richtext.BuildWithMentionsFromTokens(tokens, propertyUserIDs)
 
 			// Convert to the format expected by Notion API
 			richTextArray := make([]interface{}, len(richTextContent))
