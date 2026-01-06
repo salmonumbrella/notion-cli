@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -395,7 +396,7 @@ Use --verbose to see how markdown is parsed and mentions are matched:
 			// Only applies when --mention flags are provided
 			if len(mentions) > 0 && properties != nil {
 				var usedCount int
-				properties, usedCount = transformPropertiesWithMentionsVerbose(properties, mentions, verbose)
+				properties, usedCount = transformPropertiesWithMentionsVerbose(os.Stderr, properties, mentions, verbose)
 				if usedCount == 0 {
 					fmt.Fprintf(os.Stderr, "warning: %d --mention flag(s) provided but no @Name patterns found in property values\n", len(mentions))
 				} else if usedCount < len(mentions) {
@@ -506,12 +507,13 @@ Use --verbose to see how markdown is parsed and mentions are matched:
 // user ID assignment when multiple properties contain @Name patterns.
 // Returns the transformed properties and the number of user IDs that were actually used.
 func transformPropertiesWithMentions(properties map[string]interface{}, userIDs []string) (map[string]interface{}, int) {
-	return transformPropertiesWithMentionsVerbose(properties, userIDs, false)
+	return transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, false)
 }
 
 // transformPropertiesWithMentionsVerbose is like transformPropertiesWithMentions but
 // optionally prints verbose output about markdown parsing and mention matching.
-func transformPropertiesWithMentionsVerbose(properties map[string]interface{}, userIDs []string, verbose bool) (map[string]interface{}, int) {
+// The w parameter specifies where verbose output is written (typically os.Stderr in production).
+func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]interface{}, userIDs []string, verbose bool) (map[string]interface{}, int) {
 	result := make(map[string]interface{}, len(properties))
 	userIDIndex := 0
 
@@ -530,9 +532,9 @@ func transformPropertiesWithMentionsVerbose(properties map[string]interface{}, u
 			tokens := richtext.ParseMarkdown(strVal)
 
 			if verbose {
-				fmt.Fprintf(os.Stderr, "Property %q:\n", name)
+				_, _ = fmt.Fprintf(w, "Property %q:\n", name)
 				summary := richtext.SummarizeTokens(tokens)
-				fmt.Fprintf(os.Stderr, "  %s\n", richtext.FormatSummary(summary))
+				_, _ = fmt.Fprintf(w, "  %s\n", richtext.FormatSummary(summary))
 			}
 
 			// Count @Name patterns in this string to consume the right number of user IDs
@@ -551,7 +553,7 @@ func transformPropertiesWithMentionsVerbose(properties map[string]interface{}, u
 			}
 
 			if verbose && mentionsNeeded > 0 {
-				fmt.Fprintf(os.Stderr, "  Mentions: %d @Name pattern(s), %d matched to user ID(s)\n", mentionsNeeded, len(propertyUserIDs))
+				_, _ = fmt.Fprintf(w, "  Mentions: %d @Name pattern(s), %d matched to user ID(s)\n", mentionsNeeded, len(propertyUserIDs))
 			}
 
 			// Build rich text array with mentions

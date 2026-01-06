@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"strings"
 	"testing"
 )
 
@@ -443,8 +446,8 @@ func TestTransformPropertiesWithMentionsVerbose(t *testing.T) {
 	}
 	userIDs := []string{"georges-user-id"}
 
-	resultVerbose, usedVerbose := transformPropertiesWithMentionsVerbose(properties, userIDs, true)
-	resultNonVerbose, usedNonVerbose := transformPropertiesWithMentionsVerbose(properties, userIDs, false)
+	resultVerbose, usedVerbose := transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, true)
+	resultNonVerbose, usedNonVerbose := transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, false)
 
 	// Used counts should be the same
 	if usedVerbose != usedNonVerbose {
@@ -456,6 +459,25 @@ func TestTransformPropertiesWithMentionsVerbose(t *testing.T) {
 	nonVerboseJSON, _ := json.Marshal(resultNonVerbose)
 	if string(verboseJSON) != string(nonVerboseJSON) {
 		t.Errorf("verbose and non-verbose should produce same result")
+	}
+}
+
+func TestTransformPropertiesWithMentionsVerbose_Output(t *testing.T) {
+	// Test that verbose output contains expected content
+	properties := map[string]interface{}{
+		"Summary": "@Georges should **review** this",
+	}
+	userIDs := []string{"georges-user-id"}
+
+	var buf bytes.Buffer
+	_, _ = transformPropertiesWithMentionsVerbose(&buf, properties, userIDs, true)
+
+	output := buf.String()
+	if !strings.Contains(output, `Property "Summary"`) {
+		t.Errorf("verbose output should contain property name, got: %s", output)
+	}
+	if !strings.Contains(output, "Mentions: 1 @Name pattern(s)") {
+		t.Errorf("verbose output should contain mention count, got: %s", output)
 	}
 }
 
