@@ -317,12 +317,81 @@ func TestTransformPropertiesWithMentions(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "empty string with mentions - transforms to empty rich_text, user IDs unused",
+			properties: map[string]interface{}{
+				"Summary": "",
+			},
+			userIDs: []string{"unused-user-id"},
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				summary := result["Summary"].(map[string]interface{})
+				richText, ok := summary["rich_text"].([]interface{})
+				if !ok {
+					t.Fatalf("Summary should have rich_text array, got %T", summary["rich_text"])
+				}
+				// Empty string should produce empty rich_text array
+				if len(richText) != 0 {
+					t.Errorf("expected empty rich_text array, got %d elements", len(richText))
+				}
+				// User ID is unused (silently) - this documents the current behavior
+				// Note: user IDs are only consumed when @Name patterns are found
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := transformPropertiesWithMentions(tt.properties, tt.userIDs)
+			result, _ := transformPropertiesWithMentions(tt.properties, tt.userIDs)
 			tt.checkFunc(t, result)
+		})
+	}
+}
+
+func TestTransformPropertiesWithMentions_UsedCount(t *testing.T) {
+	tests := []struct {
+		name         string
+		properties   map[string]interface{}
+		userIDs      []string
+		expectedUsed int
+	}{
+		{
+			name:         "all user IDs used",
+			properties:   map[string]interface{}{"Summary": "@Alice and @Bob"},
+			userIDs:      []string{"alice-id", "bob-id"},
+			expectedUsed: 2,
+		},
+		{
+			name:         "some user IDs unused",
+			properties:   map[string]interface{}{"Summary": "@Alice only"},
+			userIDs:      []string{"alice-id", "bob-id", "charlie-id"},
+			expectedUsed: 1,
+		},
+		{
+			name:         "no @Name patterns - zero used",
+			properties:   map[string]interface{}{"Summary": "plain text"},
+			userIDs:      []string{"unused-id"},
+			expectedUsed: 0,
+		},
+		{
+			name:         "empty string - zero used",
+			properties:   map[string]interface{}{"Summary": ""},
+			userIDs:      []string{"unused-id"},
+			expectedUsed: 0,
+		},
+		{
+			name:         "non-string values - zero used",
+			properties:   map[string]interface{}{"Count": float64(42)},
+			userIDs:      []string{"unused-id"},
+			expectedUsed: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, usedCount := transformPropertiesWithMentions(tt.properties, tt.userIDs)
+			if usedCount != tt.expectedUsed {
+				t.Errorf("expected %d user IDs used, got %d", tt.expectedUsed, usedCount)
+			}
 		})
 	}
 }
@@ -334,7 +403,7 @@ func TestTransformPropertiesWithMentions_JSONOutput(t *testing.T) {
 	}
 	userIDs := []string{"georges-user-id"}
 
-	result := transformPropertiesWithMentions(properties, userIDs)
+	result, _ := transformPropertiesWithMentions(properties, userIDs)
 
 	// Should be serializable to JSON
 	jsonBytes, err := json.Marshal(result)

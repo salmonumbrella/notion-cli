@@ -388,7 +388,13 @@ Example - Multiple mentions:
 			// Transform string shorthand values to rich_text arrays with mentions
 			// Only applies when --mention flags are provided
 			if len(mentions) > 0 && properties != nil {
-				properties = transformPropertiesWithMentions(properties, mentions)
+				var usedCount int
+				properties, usedCount = transformPropertiesWithMentions(properties, mentions)
+				if usedCount == 0 {
+					fmt.Fprintf(os.Stderr, "warning: %d --mention flag(s) provided but no @Name patterns found in property values\n", len(mentions))
+				} else if usedCount < len(mentions) {
+					fmt.Fprintf(os.Stderr, "warning: %d of %d --mention flag(s) unused (not enough @Name patterns)\n", len(mentions)-usedCount, len(mentions))
+				}
 			}
 
 			// Get token from context (respects workspace selection)
@@ -491,7 +497,8 @@ Example - Multiple mentions:
 // property types (arrays, objects) are passed through unchanged.
 // Properties are processed in alphabetical order by name for deterministic
 // user ID assignment when multiple properties contain @Name patterns.
-func transformPropertiesWithMentions(properties map[string]interface{}, userIDs []string) map[string]interface{} {
+// Returns the transformed properties and the number of user IDs that were actually used.
+func transformPropertiesWithMentions(properties map[string]interface{}, userIDs []string) (map[string]interface{}, int) {
 	result := make(map[string]interface{}, len(properties))
 	userIDIndex := 0
 
@@ -569,7 +576,7 @@ func transformPropertiesWithMentions(properties map[string]interface{}, userIDs 
 		}
 	}
 
-	return result
+	return result, userIDIndex
 }
 
 func newPagePropertyCmd() *cobra.Command {
