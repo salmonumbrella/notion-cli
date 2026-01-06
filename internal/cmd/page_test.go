@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -134,5 +135,211 @@ func TestPropertyHasValue(t *testing.T) {
 				t.Errorf("propertyHasValue(%v) = %v, want %v", tt.value, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestTransformPropertiesWithMentions(t *testing.T) {
+	tests := []struct {
+		name       string
+		properties map[string]interface{}
+		userIDs    []string
+		// We check specific aspects of the result rather than exact match
+		checkFunc func(t *testing.T, result map[string]interface{})
+	}{
+		{
+			name: "string value with mention is transformed to rich_text",
+			properties: map[string]interface{}{
+				"Summary": "@Georges should film this",
+			},
+			userIDs: []string{"georges-user-id"},
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				summary, ok := result["Summary"].(map[string]interface{})
+				if !ok {
+					t.Fatalf("Summary should be a map, got %T", result["Summary"])
+				}
+				richText, ok := summary["rich_text"].([]interface{})
+				if !ok {
+					t.Fatalf("Summary should have rich_text array, got %T", summary["rich_text"])
+				}
+				if len(richText) != 2 {
+					t.Fatalf("expected 2 rich_text elements, got %d", len(richText))
+				}
+				// First element should be a mention
+				first := richText[0].(map[string]interface{})
+				if first["type"] != "mention" {
+					t.Errorf("first element should be mention, got %v", first["type"])
+				}
+				mention := first["mention"].(map[string]interface{})
+				user := mention["user"].(map[string]interface{})
+				if user["id"] != "georges-user-id" {
+					t.Errorf("expected user id georges-user-id, got %v", user["id"])
+				}
+				// Second element should be text
+				second := richText[1].(map[string]interface{})
+				if second["type"] != "text" {
+					t.Errorf("second element should be text, got %v", second["type"])
+				}
+				text := second["text"].(map[string]interface{})
+				if text["content"] != " should film this" {
+					t.Errorf("expected ' should film this', got %v", text["content"])
+				}
+			},
+		},
+		{
+			name: "multiple mentions across multiple properties",
+			properties: map[string]interface{}{
+				"Summary": "@Alice review",
+				"Notes":   "@Bob check",
+			},
+			userIDs: []string{"alice-id", "bob-id"},
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				// Note: map iteration order is not guaranteed, but user IDs should
+				// still be consumed in order of @Name patterns found
+				totalMentions := 0
+				for _, val := range result {
+					prop := val.(map[string]interface{})
+					richText := prop["rich_text"].([]interface{})
+					for _, rt := range richText {
+						rtMap := rt.(map[string]interface{})
+						if rtMap["type"] == "mention" {
+							totalMentions++
+						}
+					}
+				}
+				if totalMentions != 2 {
+					t.Errorf("expected 2 mentions total, got %d", totalMentions)
+				}
+			},
+		},
+		{
+			name: "non-string values pass through unchanged",
+			properties: map[string]interface{}{
+				"Status": map[string]interface{}{
+					"select": map[string]interface{}{
+						"name": "In Progress",
+					},
+				},
+				"Count": float64(42),
+			},
+			userIDs: []string{"unused-id"},
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				// Status should be passed through as-is
+				status := result["Status"].(map[string]interface{})
+				sel := status["select"].(map[string]interface{})
+				if sel["name"] != "In Progress" {
+					t.Errorf("Status select should be unchanged")
+				}
+				// Count should be passed through as-is
+				if result["Count"] != float64(42) {
+					t.Errorf("Count should be 42, got %v", result["Count"])
+				}
+			},
+		},
+		{
+			name: "string without mention still transforms to rich_text",
+			properties: map[string]interface{}{
+				"Description": "Plain text here",
+			},
+			userIDs: []string{"unused-id"},
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				desc := result["Description"].(map[string]interface{})
+				richText := desc["rich_text"].([]interface{})
+				if len(richText) != 1 {
+					t.Fatalf("expected 1 rich_text element, got %d", len(richText))
+				}
+				first := richText[0].(map[string]interface{})
+				if first["type"] != "text" {
+					t.Errorf("expected text type, got %v", first["type"])
+				}
+				text := first["text"].(map[string]interface{})
+				if text["content"] != "Plain text here" {
+					t.Errorf("expected 'Plain text here', got %v", text["content"])
+				}
+			},
+		},
+		{
+			name: "markdown formatting is preserved",
+			properties: map[string]interface{}{
+				"Notes": "This is **bold** text",
+			},
+			userIDs: nil,
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				notes := result["Notes"].(map[string]interface{})
+				richText := notes["rich_text"].([]interface{})
+				if len(richText) != 3 {
+					t.Fatalf("expected 3 rich_text elements, got %d", len(richText))
+				}
+				// Middle element should be bold
+				middle := richText[1].(map[string]interface{})
+				annotations := middle["annotations"].(map[string]interface{})
+				if annotations["bold"] != true {
+					t.Errorf("expected bold annotation to be true")
+				}
+			},
+		},
+		{
+			name: "more @Names than user IDs - extras kept as text",
+			properties: map[string]interface{}{
+				"Summary": "@Alice and @Bob and @Charlie",
+			},
+			userIDs: []string{"alice-id"},
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				summary := result["Summary"].(map[string]interface{})
+				richText := summary["rich_text"].([]interface{})
+				// Should have: mention, text(" and "), text(@Bob), text(" and "), text(@Charlie)
+				mentionCount := 0
+				textCount := 0
+				for _, rt := range richText {
+					rtMap := rt.(map[string]interface{})
+					if rtMap["type"] == "mention" {
+						mentionCount++
+					} else {
+						textCount++
+					}
+				}
+				if mentionCount != 1 {
+					t.Errorf("expected 1 mention, got %d", mentionCount)
+				}
+				if textCount != 4 {
+					t.Errorf("expected 4 text elements, got %d", textCount)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := transformPropertiesWithMentions(tt.properties, tt.userIDs)
+			tt.checkFunc(t, result)
+		})
+	}
+}
+
+func TestTransformPropertiesWithMentions_JSONOutput(t *testing.T) {
+	// Test that the output can be serialized to valid JSON
+	properties := map[string]interface{}{
+		"Summary": "@Georges should review",
+	}
+	userIDs := []string{"georges-user-id"}
+
+	result := transformPropertiesWithMentions(properties, userIDs)
+
+	// Should be serializable to JSON
+	jsonBytes, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("failed to marshal result to JSON: %v", err)
+	}
+
+	// Should be parseable back
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	// Verify structure
+	summary := parsed["Summary"].(map[string]interface{})
+	richText := summary["rich_text"].([]interface{})
+	if len(richText) != 2 {
+		t.Errorf("expected 2 rich_text elements after JSON roundtrip, got %d", len(richText))
 	}
 }

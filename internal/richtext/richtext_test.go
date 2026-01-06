@@ -1,4 +1,4 @@
-package cmd
+package richtext
 
 import (
 	"strings"
@@ -28,12 +28,12 @@ func TestParseMarkdown(t *testing.T) {
 	tests := []struct {
 		name     string
 		text     string
-		expected []markdownToken
+		expected []MarkdownToken
 	}{
 		{
 			name:     "plain text",
 			text:     "Hello world",
-			expected: []markdownToken{{content: "Hello world"}},
+			expected: []MarkdownToken{{Content: "Hello world"}},
 		},
 		{
 			name:     "empty text",
@@ -43,95 +43,95 @@ func TestParseMarkdown(t *testing.T) {
 		{
 			name: "bold text with **",
 			text: "This is **bold** text",
-			expected: []markdownToken{
-				{content: "This is "},
-				{content: "bold", bold: true},
-				{content: " text"},
+			expected: []MarkdownToken{
+				{Content: "This is "},
+				{Content: "bold", Bold: true},
+				{Content: " text"},
 			},
 		},
 		{
 			name: "italic text with *",
 			text: "This is *italic* text",
-			expected: []markdownToken{
-				{content: "This is "},
-				{content: "italic", italic: true},
-				{content: " text"},
+			expected: []MarkdownToken{
+				{Content: "This is "},
+				{Content: "italic", Italic: true},
+				{Content: " text"},
 			},
 		},
 		{
 			name: "italic text with _",
 			text: "This is _italic_ text",
-			expected: []markdownToken{
-				{content: "This is "},
-				{content: "italic", italic: true},
-				{content: " text"},
+			expected: []MarkdownToken{
+				{Content: "This is "},
+				{Content: "italic", Italic: true},
+				{Content: " text"},
 			},
 		},
 		{
 			name: "code text",
 			text: "This is `code` text",
-			expected: []markdownToken{
-				{content: "This is "},
-				{content: "code", code: true},
-				{content: " text"},
+			expected: []MarkdownToken{
+				{Content: "This is "},
+				{Content: "code", Code: true},
+				{Content: " text"},
 			},
 		},
 		{
 			name: "bold and italic with ***",
 			text: "This is ***bold italic*** text",
-			expected: []markdownToken{
-				{content: "This is "},
-				{content: "bold italic", bold: true, italic: true},
-				{content: " text"},
+			expected: []MarkdownToken{
+				{Content: "This is "},
+				{Content: "bold italic", Bold: true, Italic: true},
+				{Content: " text"},
 			},
 		},
 		{
 			name: "multiple formats",
 			text: "**bold** and *italic* and `code`",
-			expected: []markdownToken{
-				{content: "bold", bold: true},
-				{content: " and "},
-				{content: "italic", italic: true},
-				{content: " and "},
-				{content: "code", code: true},
+			expected: []MarkdownToken{
+				{Content: "bold", Bold: true},
+				{Content: " and "},
+				{Content: "italic", Italic: true},
+				{Content: " and "},
+				{Content: "code", Code: true},
 			},
 		},
 		{
 			name:     "unmatched bold marker treated as literal",
 			text:     "This has **unmatched bold",
-			expected: []markdownToken{{content: "This has **unmatched bold"}},
+			expected: []MarkdownToken{{Content: "This has **unmatched bold"}},
 		},
 		{
 			name:     "unmatched italic marker treated as literal",
 			text:     "This has *unmatched italic",
-			expected: []markdownToken{{content: "This has *unmatched italic"}},
+			expected: []MarkdownToken{{Content: "This has *unmatched italic"}},
 		},
 		{
 			name:     "unmatched code marker treated as literal",
 			text:     "This has `unmatched code",
-			expected: []markdownToken{{content: "This has `unmatched code"}},
+			expected: []MarkdownToken{{Content: "This has `unmatched code"}},
 		},
 		{
 			name: "bold at start",
 			text: "**bold** at start",
-			expected: []markdownToken{
-				{content: "bold", bold: true},
-				{content: " at start"},
+			expected: []MarkdownToken{
+				{Content: "bold", Bold: true},
+				{Content: " at start"},
 			},
 		},
 		{
 			name: "bold at end",
 			text: "at end **bold**",
-			expected: []markdownToken{
-				{content: "at end "},
-				{content: "bold", bold: true},
+			expected: []MarkdownToken{
+				{Content: "at end "},
+				{Content: "bold", Bold: true},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parseMarkdown(tt.text)
+			result := ParseMarkdown(tt.text)
 
 			if len(result) != len(tt.expected) {
 				t.Fatalf("expected %d tokens, got %d\nexpected: %+v\ngot: %+v",
@@ -139,24 +139,24 @@ func TestParseMarkdown(t *testing.T) {
 			}
 
 			for i := range result {
-				if result[i].content != tt.expected[i].content {
-					t.Errorf("token %d: expected content %q, got %q", i, tt.expected[i].content, result[i].content)
+				if result[i].Content != tt.expected[i].Content {
+					t.Errorf("token %d: expected content %q, got %q", i, tt.expected[i].Content, result[i].Content)
 				}
-				if result[i].bold != tt.expected[i].bold {
-					t.Errorf("token %d: expected bold=%v, got %v", i, tt.expected[i].bold, result[i].bold)
+				if result[i].Bold != tt.expected[i].Bold {
+					t.Errorf("token %d: expected bold=%v, got %v", i, tt.expected[i].Bold, result[i].Bold)
 				}
-				if result[i].italic != tt.expected[i].italic {
-					t.Errorf("token %d: expected italic=%v, got %v", i, tt.expected[i].italic, result[i].italic)
+				if result[i].Italic != tt.expected[i].Italic {
+					t.Errorf("token %d: expected italic=%v, got %v", i, tt.expected[i].Italic, result[i].Italic)
 				}
-				if result[i].code != tt.expected[i].code {
-					t.Errorf("token %d: expected code=%v, got %v", i, tt.expected[i].code, result[i].code)
+				if result[i].Code != tt.expected[i].Code {
+					t.Errorf("token %d: expected code=%v, got %v", i, tt.expected[i].Code, result[i].Code)
 				}
 			}
 		})
 	}
 }
 
-func TestBuildRichTextWithMentions(t *testing.T) {
+func TestBuildWithMentions(t *testing.T) {
 	tests := []struct {
 		name     string
 		text     string
@@ -342,7 +342,7 @@ func TestBuildRichTextWithMentions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildRichTextWithMentions(tt.text, tt.userIDs)
+			result := BuildWithMentions(tt.text, tt.userIDs)
 
 			if len(result) != len(tt.expected) {
 				t.Fatalf("expected %d rich text elements, got %d\nexpected: %+v\ngot: %+v",
@@ -400,78 +400,78 @@ func TestBuildRichTextWithMentions(t *testing.T) {
 	}
 }
 
-func TestSummarizeMarkdownTokens(t *testing.T) {
+func TestSummarizeTokens(t *testing.T) {
 	tests := []struct {
 		name     string
-		tokens   []markdownToken
-		expected markdownSummary
+		tokens   []MarkdownToken
+		expected MarkdownSummary
 	}{
 		{
 			name:     "empty tokens",
 			tokens:   nil,
-			expected: markdownSummary{},
+			expected: MarkdownSummary{},
 		},
 		{
 			name: "plain text only",
-			tokens: []markdownToken{
-				{content: "Hello world"},
+			tokens: []MarkdownToken{
+				{Content: "Hello world"},
 			},
-			expected: markdownSummary{plain: 1},
+			expected: MarkdownSummary{Plain: 1},
 		},
 		{
 			name: "single bold",
-			tokens: []markdownToken{
-				{content: "bold", bold: true},
+			tokens: []MarkdownToken{
+				{Content: "bold", Bold: true},
 			},
-			expected: markdownSummary{bold: 1},
+			expected: MarkdownSummary{Bold: 1},
 		},
 		{
 			name: "single italic",
-			tokens: []markdownToken{
-				{content: "italic", italic: true},
+			tokens: []MarkdownToken{
+				{Content: "italic", Italic: true},
 			},
-			expected: markdownSummary{italic: 1},
+			expected: MarkdownSummary{Italic: 1},
 		},
 		{
 			name: "single code",
-			tokens: []markdownToken{
-				{content: "code", code: true},
+			tokens: []MarkdownToken{
+				{Content: "code", Code: true},
 			},
-			expected: markdownSummary{code: 1},
+			expected: MarkdownSummary{Code: 1},
 		},
 		{
 			name: "bold and italic combined",
-			tokens: []markdownToken{
-				{content: "bold italic", bold: true, italic: true},
+			tokens: []MarkdownToken{
+				{Content: "bold italic", Bold: true, Italic: true},
 			},
-			expected: markdownSummary{boldItalic: 1},
+			expected: MarkdownSummary{BoldItalic: 1},
 		},
 		{
 			name: "mixed formatting",
-			tokens: []markdownToken{
-				{content: "Hello "},
-				{content: "bold", bold: true},
-				{content: " and "},
-				{content: "italic", italic: true},
-				{content: " and "},
-				{content: "code", code: true},
+			tokens: []MarkdownToken{
+				{Content: "Hello "},
+				{Content: "bold", Bold: true},
+				{Content: " and "},
+				{Content: "italic", Italic: true},
+				{Content: " and "},
+				{Content: "code", Code: true},
 			},
-			expected: markdownSummary{plain: 3, bold: 1, italic: 1, code: 1},
+			expected: MarkdownSummary{Plain: 3, Bold: 1, Italic: 1, Code: 1},
 		},
 		{
 			name: "multiple of same type",
-			tokens: []markdownToken{
-				{content: "bold1", bold: true},
-				{content: " "},
-				{content: "bold2", bold: true},
+			tokens: []MarkdownToken{
+				{Content: "bold1", Bold: true},
+				{Content: " "},
+				{Content: "bold2", Bold: true},
 			},
-			expected: markdownSummary{plain: 1, bold: 2},
+			expected: MarkdownSummary{Plain: 1, Bold: 2},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := summarizeMarkdownTokens(tt.tokens)
+			result := SummarizeTokens(tt.tokens)
 			if result != tt.expected {
 				t.Errorf("expected %+v, got %+v", tt.expected, result)
 			}
@@ -479,57 +479,57 @@ func TestSummarizeMarkdownTokens(t *testing.T) {
 	}
 }
 
-func TestFormatMarkdownSummary(t *testing.T) {
+func TestFormatSummary(t *testing.T) {
 	tests := []struct {
 		name     string
-		summary  markdownSummary
+		summary  MarkdownSummary
 		expected string
 	}{
 		{
 			name:     "no formatting",
-			summary:  markdownSummary{plain: 1},
+			summary:  MarkdownSummary{Plain: 1},
 			expected: "Parsed markdown: no formatting detected",
 		},
 		{
 			name:     "empty summary",
-			summary:  markdownSummary{},
+			summary:  MarkdownSummary{},
 			expected: "Parsed markdown: no formatting detected",
 		},
 		{
 			name:     "bold only",
-			summary:  markdownSummary{bold: 2},
+			summary:  MarkdownSummary{Bold: 2},
 			expected: "Parsed markdown: 2 bold",
 		},
 		{
 			name:     "italic only",
-			summary:  markdownSummary{italic: 1},
+			summary:  MarkdownSummary{Italic: 1},
 			expected: "Parsed markdown: 1 italic",
 		},
 		{
 			name:     "code only",
-			summary:  markdownSummary{code: 3},
+			summary:  MarkdownSummary{Code: 3},
 			expected: "Parsed markdown: 3 code",
 		},
 		{
 			name:     "bold+italic only",
-			summary:  markdownSummary{boldItalic: 1},
+			summary:  MarkdownSummary{BoldItalic: 1},
 			expected: "Parsed markdown: 1 bold+italic",
 		},
 		{
 			name:     "multiple types",
-			summary:  markdownSummary{bold: 2, italic: 1, code: 1},
+			summary:  MarkdownSummary{Bold: 2, Italic: 1, Code: 1},
 			expected: "Parsed markdown: 2 bold, 1 italic, 1 code",
 		},
 		{
 			name:     "all types",
-			summary:  markdownSummary{bold: 1, italic: 2, code: 1, boldItalic: 1, plain: 3},
+			summary:  MarkdownSummary{Bold: 1, Italic: 2, Code: 1, BoldItalic: 1, Plain: 3},
 			expected: "Parsed markdown: 1 bold, 2 italic, 1 code, 1 bold+italic",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatMarkdownSummary(tt.summary)
+			result := FormatSummary(tt.summary)
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
@@ -538,7 +538,7 @@ func TestFormatMarkdownSummary(t *testing.T) {
 }
 
 func TestVerboseOutputIntegration(t *testing.T) {
-	// Test that parseMarkdown -> summarizeMarkdownTokens -> formatMarkdownSummary
+	// Test that ParseMarkdown -> SummarizeTokens -> FormatSummary
 	// produces the expected verbose output for realistic inputs
 	tests := []struct {
 		name          string
@@ -576,9 +576,9 @@ func TestVerboseOutputIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tokens := parseMarkdown(tt.text)
-			summary := summarizeMarkdownTokens(tokens)
-			output := formatMarkdownSummary(summary)
+			tokens := ParseMarkdown(tt.text)
+			summary := SummarizeTokens(tokens)
+			output := FormatSummary(summary)
 
 			for _, part := range tt.expectedParts {
 				if !strings.Contains(output, part) {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
+	"github.com/salmonumbrella/notion-cli/internal/richtext"
 )
 
 func newPageCmd() *cobra.Command {
@@ -320,6 +321,7 @@ func newPageUpdateCmd() *cobra.Command {
 	var archived bool
 	var setArchived bool
 	var dryRun bool
+	var mentions []string
 
 	cmd := &cobra.Command{
 		Use:   "update <page-id>",
@@ -329,9 +331,29 @@ func newPageUpdateCmd() *cobra.Command {
 The --properties flag accepts a JSON string with the properties to update.
 Only the properties specified will be updated; others remain unchanged.
 
-Example:
+RICH TEXT WITH MENTIONS:
+For rich_text properties, you can use a string shorthand with @Name patterns:
+  {"Summary": "@Georges should film this"}
+
+When combined with --mention flags, @Name patterns are replaced with proper
+mention objects that notify users. Mentions are matched to user IDs in order.
+
+Markdown formatting is also supported in string shorthand values:
+  **bold**, *italic*, ` + "`code`" + `, ***bold italic***
+
+Example - Simple update:
   notion page update 12345678-1234-1234-1234-123456789012 \
-    --properties '{"title": [{"text": {"content": "Updated Title"}}]}'`,
+    --properties '{"title": [{"text": {"content": "Updated Title"}}]}'
+
+Example - Rich text with mention:
+  notion page update PAGE_ID \
+    --properties '{"Summary": "@Georges should film this"}' \
+    --mention 1a907419-f65d-46cd-8c74-7e597605b832
+
+Example - Multiple mentions:
+  notion page update PAGE_ID \
+    --properties '{"Notes": "@Alice and @Bob please review"}' \
+    --mention alice-user-id --mention bob-user-id`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pageID, err := normalizeNotionID(args[0])
@@ -350,6 +372,12 @@ Example:
 				if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
 					return fmt.Errorf("failed to parse properties JSON: %w", err)
 				}
+			}
+
+			// Transform string shorthand values to rich_text arrays with mentions
+			// Only applies when --mention flags are provided
+			if len(mentions) > 0 && properties != nil {
+				properties = transformPropertiesWithMentions(properties, mentions)
 			}
 
 			// Get token from context (respects workspace selection)
@@ -437,6 +465,7 @@ Example:
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON")
 	cmd.Flags().BoolVar(&archived, "archived", false, "Archive the page")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
+	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention in rich_text properties (repeatable)")
 	// Track if archived flag was explicitly set
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		setArchived = cmd.Flags().Changed("archived")
@@ -444,6 +473,82 @@ Example:
 	}
 
 	return cmd
+}
+
+// transformPropertiesWithMentions transforms string shorthand values in properties
+// to rich_text arrays with mentions. Only string values are transformed; other
+// property types (arrays, objects) are passed through unchanged.
+func transformPropertiesWithMentions(properties map[string]interface{}, userIDs []string) map[string]interface{} {
+	result := make(map[string]interface{}, len(properties))
+	userIDIndex := 0
+
+	for name, value := range properties {
+		// Only transform string values (shorthand for rich_text)
+		if strVal, ok := value.(string); ok {
+			// Count @Name patterns in this string to consume the right number of user IDs
+			matches := richtext.MentionPattern.FindAllStringIndex(strVal, -1)
+			mentionsNeeded := len(matches)
+
+			// Allocate user IDs for this property
+			var propertyUserIDs []string
+			if userIDIndex < len(userIDs) {
+				end := userIDIndex + mentionsNeeded
+				if end > len(userIDs) {
+					end = len(userIDs)
+				}
+				propertyUserIDs = userIDs[userIDIndex:end]
+				userIDIndex = end
+			}
+
+			// Build rich text array with mentions
+			richTextContent := richtext.BuildWithMentions(strVal, propertyUserIDs)
+
+			// Convert to the format expected by Notion API
+			richTextArray := make([]interface{}, len(richTextContent))
+			for i, rt := range richTextContent {
+				rtMap := map[string]interface{}{
+					"type": rt.Type,
+				}
+				if rt.Text != nil {
+					rtMap["text"] = map[string]interface{}{
+						"content": rt.Text.Content,
+					}
+				}
+				if rt.Mention != nil {
+					mentionMap := map[string]interface{}{
+						"type": rt.Mention.Type,
+					}
+					if rt.Mention.User != nil {
+						mentionMap["user"] = map[string]interface{}{
+							"id": rt.Mention.User.ID,
+						}
+					}
+					rtMap["mention"] = mentionMap
+				}
+				if rt.Annotations != nil {
+					rtMap["annotations"] = map[string]interface{}{
+						"bold":          rt.Annotations.Bold,
+						"italic":        rt.Annotations.Italic,
+						"strikethrough": rt.Annotations.Strikethrough,
+						"underline":     rt.Annotations.Underline,
+						"code":          rt.Annotations.Code,
+						"color":         rt.Annotations.Color,
+					}
+				}
+				richTextArray[i] = rtMap
+			}
+
+			// Wrap in rich_text property structure
+			result[name] = map[string]interface{}{
+				"rich_text": richTextArray,
+			}
+		} else {
+			// Pass through non-string values unchanged
+			result[name] = value
+		}
+	}
+
+	return result
 }
 
 func newPagePropertyCmd() *cobra.Command {
