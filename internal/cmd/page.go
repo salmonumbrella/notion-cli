@@ -175,6 +175,9 @@ Examples:
 	return cmd
 }
 
+// propertyHasValue checks if a property has any value set. Note that false and 0
+// intentionally return true because a checkbox set to unchecked or a number set
+// to zero is still explicitly set (as opposed to being empty/unset).
 func propertyHasValue(value interface{}) bool {
 	if value == nil {
 		return false
