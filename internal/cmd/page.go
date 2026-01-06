@@ -342,7 +342,17 @@ with properties processed alphabetically by name.
 Markdown formatting is also supported in string shorthand values:
   **bold**, *italic*, ` + "`code`" + `, ***bold italic***
 
-Example - Simple update:
+IMPORTANT: String shorthand transformation (including markdown formatting) ONLY
+applies when at least one --mention flag is provided. Without --mention flags,
+property values are sent to the Notion API exactly as specified in the JSON.
+
+If you want markdown formatting without actual mentions, provide any --mention
+flag (even an unused one) to enable the transformation:
+  notion page update PAGE_ID \
+    --properties '{"Notes": "This is **bold** text"}' \
+    --mention unused-placeholder-id
+
+Example - Simple update (no transformation):
   notion page update 12345678-1234-1234-1234-123456789012 \
     --properties '{"title": [{"text": {"content": "Updated Title"}}]}'
 
