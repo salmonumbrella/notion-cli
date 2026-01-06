@@ -43,6 +43,9 @@ var rootCmd = &cobra.Command{
 	Short: "CLI for Notion API",
 	Long:  `A command-line interface for interacting with the Notion API`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Ensure Cobra doesn't emit its own error text; we handle error output centrally.
+		cmd.SilenceErrors = true
+
 		// Configure slog based on debug flag
 		logging.Setup(debugMode, os.Stderr)
 
@@ -90,6 +93,14 @@ var rootCmd = &cobra.Command{
 		// and context (new pattern for dependency injection)
 		outputFormat = format
 
+		// In non-interactive JSON/YAML output, suppress non-essential warnings by default.
+		if !cmd.Flags().Changed("quiet") && !term.IsTerminal(int(os.Stdout.Fd())) {
+			switch format {
+			case output.FormatJSON, output.FormatNDJSON, output.FormatYAML:
+				quietFlag = true
+			}
+		}
+
 		// Get jq query from flag
 		query, _ := cmd.Flags().GetString("query")
 
@@ -115,6 +126,12 @@ var rootCmd = &cobra.Command{
 
 		if err := validateErrorFormat(errorFormat); err != nil {
 			return err
+		}
+
+		// Suppress Cobra's default usage output when emitting structured errors.
+		// We handle error printing ourselves to keep machine-readable output clean.
+		if effectiveErrorFormat() != "text" {
+			cmd.SilenceUsage = true
 		}
 
 		return nil

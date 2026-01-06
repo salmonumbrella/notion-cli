@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -19,6 +21,7 @@ func newPageCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newPageGetCmd())
+	cmd.AddCommand(newPagePropertiesCmd())
 	cmd.AddCommand(newPageCreateCmd())
 	cmd.AddCommand(newPageUpdateCmd())
 	cmd.AddCommand(newPageCreateBatchCmd())
@@ -82,6 +85,110 @@ Example:
 	cmd.Flags().BoolVar(&editableOnly, "editable", false, "Filter out read-only computed properties")
 
 	return cmd
+}
+
+func newPagePropertiesCmd() *cobra.Command {
+	var typesCSV string
+	var onlySet bool
+	var includeValues bool
+
+	cmd := &cobra.Command{
+		Use:   "properties <page-id>",
+		Short: "List page properties",
+		Long: `List page properties with optional filtering.
+
+Examples:
+  notion page properties 12345678-1234-1234-1234-123456789012
+  notion page properties 12345678-1234-1234-1234-123456789012 --types title,select --only-set`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pageID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
+			}
+
+			client := NewNotionClient(token)
+
+			page, err := client.GetPage(ctx, pageID)
+			if err != nil {
+				return fmt.Errorf("failed to get page: %w", err)
+			}
+
+			typeFilter := make(map[string]bool)
+			if strings.TrimSpace(typesCSV) != "" {
+				for _, part := range strings.Split(typesCSV, ",") {
+					part = strings.TrimSpace(part)
+					if part != "" {
+						typeFilter[part] = true
+					}
+				}
+			}
+
+			rows := make([]map[string]interface{}, 0, len(page.Properties))
+			for name, raw := range page.Properties {
+				prop, ok := raw.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				propType, _ := prop["type"].(string)
+				if propType == "" {
+					continue
+				}
+				if len(typeFilter) > 0 && !typeFilter[propType] {
+					continue
+				}
+
+				value := prop[propType]
+				if onlySet && !propertyHasValue(value) {
+					continue
+				}
+
+				entry := map[string]interface{}{
+					"name": name,
+					"type": propType,
+				}
+				if includeValues {
+					entry["value"] = value
+				}
+				rows = append(rows, entry)
+			}
+
+			sort.Slice(rows, func(i, j int) bool {
+				return rows[i]["name"].(string) < rows[j]["name"].(string)
+			})
+
+			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			return printer.Print(ctx, rows)
+		},
+	}
+
+	cmd.Flags().StringVar(&typesCSV, "types", "", "Comma-separated property types to include (e.g., title,select)")
+	cmd.Flags().BoolVar(&onlySet, "only-set", false, "Include only properties with a value")
+	cmd.Flags().BoolVar(&includeValues, "with-values", false, "Include property values in output")
+
+	return cmd
+}
+
+func propertyHasValue(value interface{}) bool {
+	if value == nil {
+		return false
+	}
+	switch v := value.(type) {
+	case string:
+		return v != ""
+	case []interface{}:
+		return len(v) > 0
+	case map[string]interface{}:
+		return len(v) > 0
+	default:
+		return true
+	}
 }
 
 // filterEditableProperties removes read-only computed property types from properties map.

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -19,11 +21,175 @@ func newDBCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newDBGetCmd())
+	cmd.AddCommand(newDBListCmd())
 	cmd.AddCommand(newDBQueryCmd())
 	cmd.AddCommand(newDBCreateCmd())
 	cmd.AddCommand(newDBUpdateCmd())
 
 	return cmd
+}
+
+func newDBListCmd() *cobra.Command {
+	var startCursor string
+	var pageSize int
+	var all bool
+	var titleMatch string
+
+	cmd := &cobra.Command{
+		Use:   "list [query]",
+		Short: "List databases",
+		Long: `List Notion databases (data sources) with optional title search.
+
+Example - List databases:
+  notion db list
+
+Example - Search by title:
+  notion db list "Vendor"
+
+Example - Fetch all results:
+  notion db list --all`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var query string
+			if len(args) > 0 {
+				query = args[0]
+			}
+
+			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+
+			var titleRE *regexp.Regexp
+			if titleMatch != "" {
+				compiled, err := regexp.Compile(titleMatch)
+				if err != nil {
+					return fmt.Errorf("invalid --title-match regex: %w", err)
+				}
+				titleRE = compiled
+			}
+
+			if pageSize > NotionMaxPageSize {
+				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
+			}
+			pageSize = capPageSize(pageSize, limit)
+
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return fmt.Errorf("authentication required: %w", err)
+			}
+
+			client := NewNotionClient(token)
+			filter := map[string]interface{}{
+				"property": "object",
+				"value":    "data_source",
+			}
+
+			if all {
+				var allResults []map[string]interface{}
+				cursor := startCursor
+
+				for {
+					req := &notion.SearchRequest{
+						Query:       query,
+						Filter:      filter,
+						StartCursor: cursor,
+						PageSize:    pageSize,
+					}
+
+					result, err := client.Search(ctx, req)
+					if err != nil {
+						return fmt.Errorf("failed to list databases: %w", err)
+					}
+
+					allResults = append(allResults, result.Results...)
+
+					if limit > 0 && len(allResults) >= limit {
+						allResults = allResults[:limit]
+						break
+					}
+
+					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
+						break
+					}
+					cursor = *result.NextCursor
+				}
+
+				if titleRE != nil {
+					allResults = filterDataSourcesByTitle(allResults, titleRE)
+				}
+
+				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				return printer.Print(ctx, allResults)
+			}
+
+			req := &notion.SearchRequest{
+				Query:       query,
+				Filter:      filter,
+				StartCursor: startCursor,
+				PageSize:    pageSize,
+			}
+
+			result, err := client.Search(ctx, req)
+			if err != nil {
+				return fmt.Errorf("failed to list databases: %w", err)
+			}
+
+			if titleRE != nil {
+				result.Results = filterDataSourcesByTitle(result.Results, titleRE)
+			}
+			if limit > 0 && len(result.Results) > limit {
+				result.Results = result.Results[:limit]
+			}
+
+			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			return printer.Print(ctx, result.Results)
+		},
+	}
+
+	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
+	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
+	cmd.Flags().StringVar(&titleMatch, "title-match", "", "Regex to match database title (Go syntax, use (?i) for case-insensitive)")
+
+	return cmd
+}
+
+func filterDataSourcesByTitle(results []map[string]interface{}, re *regexp.Regexp) []map[string]interface{} {
+	filtered := make([]map[string]interface{}, 0, len(results))
+	for _, item := range results {
+		title := extractTitlePlainText(item["title"])
+		if title == "" {
+			continue
+		}
+		if re.MatchString(title) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func extractTitlePlainText(value interface{}) string {
+	items, ok := value.([]interface{})
+	if !ok {
+		return ""
+	}
+
+	var parts []string
+	for _, item := range items {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if plain, ok := entry["plain_text"].(string); ok && plain != "" {
+			parts = append(parts, plain)
+			continue
+		}
+		if text, ok := entry["text"].(map[string]interface{}); ok {
+			if content, ok := text["content"].(string); ok && content != "" {
+				parts = append(parts, content)
+			}
+		}
+	}
+	return strings.Join(parts, "")
 }
 
 func newDBGetCmd() *cobra.Command {
