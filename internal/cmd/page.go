@@ -336,7 +336,8 @@ For rich_text properties, you can use a string shorthand with @Name patterns:
   {"Summary": "@Georges should film this"}
 
 When combined with --mention flags, @Name patterns are replaced with proper
-mention objects that notify users. Mentions are matched to user IDs in order.
+mention objects that notify users. Mentions are matched to user IDs in order,
+with properties processed alphabetically by name.
 
 Markdown formatting is also supported in string shorthand values:
   **bold**, *italic*, ` + "`code`" + `, ***bold italic***
@@ -478,11 +479,21 @@ Example - Multiple mentions:
 // transformPropertiesWithMentions transforms string shorthand values in properties
 // to rich_text arrays with mentions. Only string values are transformed; other
 // property types (arrays, objects) are passed through unchanged.
+// Properties are processed in alphabetical order by name for deterministic
+// user ID assignment when multiple properties contain @Name patterns.
 func transformPropertiesWithMentions(properties map[string]interface{}, userIDs []string) map[string]interface{} {
 	result := make(map[string]interface{}, len(properties))
 	userIDIndex := 0
 
-	for name, value := range properties {
+	// Sort property names for deterministic iteration order
+	names := make([]string, 0, len(properties))
+	for name := range properties {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		value := properties[name]
 		// Only transform string values (shorthand for rich_text)
 		if strVal, ok := value.(string); ok {
 			// Count @Name patterns in this string to consume the right number of user IDs

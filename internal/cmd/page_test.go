@@ -186,28 +186,40 @@ func TestTransformPropertiesWithMentions(t *testing.T) {
 			},
 		},
 		{
-			name: "multiple mentions across multiple properties",
+			name: "multiple mentions across multiple properties - alphabetical order",
 			properties: map[string]interface{}{
-				"Summary": "@Alice review",
-				"Notes":   "@Bob check",
+				"Summary": "@Second review",
+				"Notes":   "@First check",
 			},
-			userIDs: []string{"alice-id", "bob-id"},
+			userIDs: []string{"first-id", "second-id"},
 			checkFunc: func(t *testing.T, result map[string]interface{}) {
-				// Note: map iteration order is not guaranteed, but user IDs should
-				// still be consumed in order of @Name patterns found
-				totalMentions := 0
-				for _, val := range result {
-					prop := val.(map[string]interface{})
-					richText := prop["rich_text"].([]interface{})
-					for _, rt := range richText {
-						rtMap := rt.(map[string]interface{})
-						if rtMap["type"] == "mention" {
-							totalMentions++
-						}
-					}
+				// Properties are processed alphabetically, so Notes comes before Summary.
+				// first-id should be assigned to Notes, second-id to Summary.
+
+				// Check Notes got first-id
+				notes := result["Notes"].(map[string]interface{})
+				notesRT := notes["rich_text"].([]interface{})
+				notesMention := notesRT[0].(map[string]interface{})
+				if notesMention["type"] != "mention" {
+					t.Fatalf("Notes first element should be mention")
 				}
-				if totalMentions != 2 {
-					t.Errorf("expected 2 mentions total, got %d", totalMentions)
+				notesMentionData := notesMention["mention"].(map[string]interface{})
+				notesUser := notesMentionData["user"].(map[string]interface{})
+				if notesUser["id"] != "first-id" {
+					t.Errorf("Notes should get first-id (alphabetically first), got %v", notesUser["id"])
+				}
+
+				// Check Summary got second-id
+				summary := result["Summary"].(map[string]interface{})
+				summaryRT := summary["rich_text"].([]interface{})
+				summaryMention := summaryRT[0].(map[string]interface{})
+				if summaryMention["type"] != "mention" {
+					t.Fatalf("Summary first element should be mention")
+				}
+				summaryMentionData := summaryMention["mention"].(map[string]interface{})
+				summaryUser := summaryMentionData["user"].(map[string]interface{})
+				if summaryUser["id"] != "second-id" {
+					t.Errorf("Summary should get second-id (alphabetically second), got %v", summaryUser["id"])
 				}
 			},
 		},
