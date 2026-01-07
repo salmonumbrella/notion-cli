@@ -18,6 +18,15 @@ type batchPageSpec struct {
 	Cover      map[string]interface{} `json:"cover,omitempty"`
 }
 
+type batchPageUpdateSpec struct {
+	ID         string                 `json:"id"`
+	Properties map[string]interface{} `json:"properties,omitempty"`
+	Archived   *bool                  `json:"archived,omitempty"`
+	InTrash    *bool                  `json:"in_trash,omitempty"`
+	Icon       map[string]interface{} `json:"icon,omitempty"`
+	Cover      map[string]interface{} `json:"cover,omitempty"`
+}
+
 func newPageCreateBatchCmd() *cobra.Command {
 	var parentID string
 	var parentType string
@@ -148,6 +157,132 @@ Example:
 	cmd.Flags().StringVar(&pagesJSON, "pages", "", "Pages as JSON array")
 	cmd.Flags().StringVar(&pagesFile, "file", "", "Read pages JSON array from file")
 	cmd.Flags().BoolVar(&continueOnError, "continue-on-error", false, "Continue creating pages even if one fails")
+
+	return cmd
+}
+
+func newPageUpdateBatchCmd() *cobra.Command {
+	var pagesJSON string
+	var pagesFile string
+	var continueOnError bool
+
+	cmd := &cobra.Command{
+		Use:   "update-batch",
+		Short: "Update multiple pages in a single batch",
+		Long: `Update multiple Notion pages from a JSON array.
+
+The --pages flag accepts a JSON array of page update objects. Each object must include
+"id" and may include "properties", "archived", "in_trash", "icon", or "cover".
+Use --file to read the JSON array from a file instead of passing it inline.
+
+Example:
+  notion page update-batch --pages '[{"id":"<page-id>","properties":{"Status":{"status":{"name":"Done"}}}}]'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if pagesJSON == "" && pagesFile == "" {
+				return fmt.Errorf("--pages or --file is required")
+			}
+			if pagesJSON != "" && pagesFile != "" {
+				return fmt.Errorf("use only one of --pages or --file")
+			}
+
+			if pagesFile != "" {
+				data, err := os.ReadFile(pagesFile)
+				if err != nil {
+					return fmt.Errorf("failed to read pages file: %w", err)
+				}
+				pagesJSON = string(data)
+			}
+			if pagesJSON != "" {
+				resolved, err := readJSONInput(pagesJSON)
+				if err != nil {
+					return err
+				}
+				pagesJSON = resolved
+			}
+
+			var specs []batchPageUpdateSpec
+			if err := json.Unmarshal([]byte(pagesJSON), &specs); err != nil {
+				return fmt.Errorf("failed to parse pages JSON: %w", err)
+			}
+			if len(specs) == 0 {
+				return fmt.Errorf("no pages provided")
+			}
+
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
+			}
+
+			client := NewNotionClient(token)
+
+			var updated []*notion.Page
+			var errors []map[string]interface{}
+
+			for i, spec := range specs {
+				if spec.ID == "" {
+					err := fmt.Errorf("page %d: id is required", i)
+					if continueOnError {
+						errors = append(errors, map[string]interface{}{"index": i, "error": err.Error()})
+						continue
+					}
+					return err
+				}
+
+				normalizedID, err := normalizeNotionID(spec.ID)
+				if err != nil {
+					if continueOnError {
+						errors = append(errors, map[string]interface{}{"index": i, "error": err.Error()})
+						continue
+					}
+					return err
+				}
+
+				if spec.Properties == nil && spec.Archived == nil && spec.InTrash == nil && spec.Icon == nil && spec.Cover == nil {
+					err := fmt.Errorf("page %d: no update fields provided", i)
+					if continueOnError {
+						errors = append(errors, map[string]interface{}{"index": i, "error": err.Error()})
+						continue
+					}
+					return err
+				}
+
+				req := &notion.UpdatePageRequest{
+					Properties: spec.Properties,
+					Archived:   spec.Archived,
+					InTrash:    spec.InTrash,
+					Icon:       spec.Icon,
+					Cover:      spec.Cover,
+				}
+
+				page, err := client.UpdatePage(ctx, normalizedID, req)
+				if err != nil {
+					enhanced := notion.EnhanceStatusError(ctx, client, normalizedID, err)
+					err = fmt.Errorf("failed to update page %d (%s): %w", i, normalizedID, enhanced)
+					if continueOnError {
+						errors = append(errors, map[string]interface{}{"index": i, "error": err.Error()})
+						continue
+					}
+					return err
+				}
+
+				updated = append(updated, page)
+			}
+
+			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			if continueOnError && len(errors) > 0 {
+				return printer.Print(ctx, map[string]interface{}{
+					"pages":  updated,
+					"errors": errors,
+				})
+			}
+			return printer.Print(ctx, updated)
+		},
+	}
+
+	cmd.Flags().StringVar(&pagesJSON, "pages", "", "Pages as JSON array")
+	cmd.Flags().StringVar(&pagesFile, "file", "", "Read pages JSON array from file")
+	cmd.Flags().BoolVar(&continueOnError, "continue-on-error", false, "Continue updating pages even if one fails")
 
 	return cmd
 }

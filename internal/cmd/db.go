@@ -480,6 +480,7 @@ func newDBCreateCmd() *cobra.Command {
 	var parentID string
 	var titleText string
 	var propertiesJSON string
+	var propertiesFile string
 	var dataSourceTitle string
 	var descriptionJSON string
 	var iconJSON string
@@ -513,8 +514,8 @@ Example - Create with description:
 			if parentID == "" {
 				return fmt.Errorf("--parent flag is required")
 			}
-			if propertiesJSON == "" {
-				return fmt.Errorf("--properties flag is required")
+			if propertiesJSON == "" && propertiesFile == "" {
+				return fmt.Errorf("--properties or --properties-file is required")
 			}
 
 			normalizedParent, err := normalizeNotionID(parentID)
@@ -525,7 +526,7 @@ Example - Create with description:
 
 			// Resolve and parse properties JSON
 			var properties map[string]map[string]interface{}
-			resolved, err := readJSONInput(propertiesJSON)
+			resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
 			if err != nil {
 				return err
 			}
@@ -639,7 +640,8 @@ Example - Create with description:
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page ID (required)")
 	cmd.Flags().StringVar(&titleText, "title", "", "Database title as plain text")
-	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database properties as JSON object (required)")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database properties as JSON object (required, @file or - for stdin)")
+	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 	cmd.Flags().StringVar(&dataSourceTitle, "data-source-title", "", "Initial data source title (optional)")
 	cmd.Flags().StringVar(&descriptionJSON, "description", "", "Database description as JSON array")
 	cmd.Flags().StringVar(&iconJSON, "icon", "", "Database icon as JSON object")
@@ -652,6 +654,7 @@ Example - Create with description:
 func newDBUpdateCmd() *cobra.Command {
 	var titleText string
 	var propertiesJSON string
+	var propertiesFile string
 	var descriptionJSON string
 	var iconJSON string
 	var coverJSON string
@@ -709,8 +712,8 @@ Example - Archive database:
 
 			// Resolve and parse properties if provided
 			var properties map[string]map[string]interface{}
-			if propertiesJSON != "" {
-				resolved, err := readJSONInput(propertiesJSON)
+			if propertiesJSON != "" || propertiesFile != "" {
+				resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
 				if err != nil {
 					return err
 				}
@@ -893,7 +896,8 @@ Example - Archive database:
 	}
 
 	cmd.Flags().StringVar(&titleText, "title", "", "Database title as plain text")
-	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database properties as JSON object")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database properties as JSON object (@file or - for stdin)")
+	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 	cmd.Flags().StringVar(&descriptionJSON, "description", "", "Database description as JSON array")
 	cmd.Flags().StringVar(&iconJSON, "icon", "", "Database icon as JSON object")
 	cmd.Flags().StringVar(&coverJSON, "cover", "", "Database cover as JSON object")

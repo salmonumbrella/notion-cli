@@ -27,6 +27,7 @@ func newPageCmd() *cobra.Command {
 	cmd.AddCommand(newPageCreateCmd())
 	cmd.AddCommand(newPageUpdateCmd())
 	cmd.AddCommand(newPageCreateBatchCmd())
+	cmd.AddCommand(newPageUpdateBatchCmd())
 	cmd.AddCommand(newPageDuplicateCmd())
 	cmd.AddCommand(newPageExportCmd())
 	cmd.AddCommand(newPagePropertyCmd())
@@ -217,6 +218,7 @@ func newPageCreateCmd() *cobra.Command {
 	var parentID string
 	var parentType string
 	var propertiesJSON string
+	var propertiesFile string
 	var dataSourceID string
 
 	cmd := &cobra.Command{
@@ -225,6 +227,7 @@ func newPageCreateCmd() *cobra.Command {
 		Long: `Create a new Notion page with the specified parent and properties.
 
 The --properties flag accepts a JSON string with the page properties.
+You can also pass @file or - (stdin) to avoid shell-escaping JSON.
 The simplest format for a basic page is:
   {"title": [{"text": {"content": "Page Title"}}]}
 
@@ -246,8 +249,8 @@ Examples:
 			if parentID == "" && dataSourceID == "" {
 				return fmt.Errorf("--parent flag is required (or use --data-source)")
 			}
-			if propertiesJSON == "" {
-				return fmt.Errorf("--properties flag is required")
+			if propertiesJSON == "" && propertiesFile == "" {
+				return fmt.Errorf("--properties or --properties-file is required")
 			}
 
 			if parentID != "" {
@@ -267,7 +270,7 @@ Examples:
 
 			// Resolve and parse properties JSON
 			var properties map[string]interface{}
-			resolved, err := readJSONInput(propertiesJSON)
+			resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
 			if err != nil {
 				return err
 			}
@@ -311,7 +314,8 @@ Examples:
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page or database ID (required)")
 	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'data-source'")
-	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON (required)")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON (required, @file or - for stdin)")
+	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID (optional, overrides --parent-type database)")
 
 	return cmd
@@ -319,6 +323,7 @@ Examples:
 
 func newPageUpdateCmd() *cobra.Command {
 	var propertiesJSON string
+	var propertiesFile string
 	var archived bool
 	var setArchived bool
 	var dryRun bool
@@ -333,6 +338,7 @@ func newPageUpdateCmd() *cobra.Command {
 
 The --properties flag accepts a JSON string with the properties to update.
 Only the properties specified will be updated; others remain unchanged.
+You can also pass @file or - (stdin) to avoid shell-escaping JSON.
 
 RICH TEXT WITH MARKDOWN:
 For rich_text properties, you can use a string shorthand with markdown formatting:
@@ -393,8 +399,8 @@ Combined example (all flags together):
 
 			// Resolve and parse properties JSON if provided
 			var properties map[string]interface{}
-			if propertiesJSON != "" {
-				resolved, err := readJSONInput(propertiesJSON)
+			if propertiesJSON != "" || propertiesFile != "" {
+				resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
 				if err != nil {
 					return err
 				}
@@ -492,7 +498,8 @@ Combined example (all flags together):
 		},
 	}
 
-	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON (@file or - for stdin)")
+	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 	cmd.Flags().BoolVar(&archived, "archived", false, "Archive the page")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention in rich_text properties (repeatable)")

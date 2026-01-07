@@ -21,6 +21,7 @@ var (
 	outputFormat  output.Format
 	debugMode     bool
 	workspaceName string
+	queryFile     string
 
 	// Agent-friendly flags
 	yesFlag   bool
@@ -101,8 +102,19 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		// Get jq query from flag
+		// Get jq query from flags
 		query, _ := cmd.Flags().GetString("query")
+		queryFileFlag, _ := cmd.Flags().GetString("query-file")
+		if query != "" && queryFileFlag != "" {
+			return fmt.Errorf("use only one of --query or --query-file")
+		}
+		if queryFileFlag != "" {
+			loaded, err := readInputSource(queryFileFlag)
+			if err != nil {
+				return err
+			}
+			query = loaded
+		}
 
 		// Inject format, debug mode, query, and workspace into context so subcommands can access them
 		ctx := output.WithFormat(cmd.Context(), format)
@@ -149,6 +161,7 @@ func init() {
 	rootCmd.PersistentFlags().String("format", "text", "Alias for --output")
 	_ = rootCmd.PersistentFlags().MarkHidden("format")
 	rootCmd.PersistentFlags().String("query", "", "jq expression to filter JSON output")
+	rootCmd.PersistentFlags().StringVar(&queryFile, "query-file", "", "Read jq expression from file (use - for stdin)")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output (shows HTTP requests/responses)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceName, "workspace", "w", "", "Workspace to use (overrides NOTION_WORKSPACE env var)")
 	rootCmd.PersistentFlags().StringVar(&errorFormat, "error-format", "auto", "Error output format (auto|text|json)")

@@ -68,6 +68,7 @@ Example:
 func newDataSourceCreateCmd() *cobra.Command {
 	var parentID string
 	var propertiesJSON string
+	var propertiesFile string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -86,8 +87,8 @@ Example:
 			if parentID == "" {
 				return fmt.Errorf("--parent is required")
 			}
-			if propertiesJSON == "" {
-				return fmt.Errorf("--properties is required")
+			if propertiesJSON == "" && propertiesFile == "" {
+				return fmt.Errorf("--properties or --properties-file is required")
 			}
 
 			normalizedParent, err := normalizeNotionID(parentID)
@@ -97,7 +98,7 @@ Example:
 			parentID = normalizedParent
 
 			var properties map[string]interface{}
-			resolved, err := readJSONInput(propertiesJSON)
+			resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
 			if err != nil {
 				return err
 			}
@@ -131,13 +132,15 @@ Example:
 	}
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent database ID (required)")
-	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Properties JSON (required)")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Properties JSON (required, @file or - for stdin)")
+	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 
 	return cmd
 }
 
 func newDataSourceUpdateCmd() *cobra.Command {
 	var propertiesJSON string
+	var propertiesFile string
 
 	cmd := &cobra.Command{
 		Use:   "update <datasource-id>",
@@ -157,8 +160,8 @@ Example:
 			}
 
 			var properties map[string]interface{}
-			if propertiesJSON != "" {
-				resolved, err := readJSONInput(propertiesJSON)
+			if propertiesJSON != "" || propertiesFile != "" {
+				resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
 				if err != nil {
 					return err
 				}
@@ -191,7 +194,8 @@ Example:
 		},
 	}
 
-	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Properties JSON")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Properties JSON (@file or - for stdin)")
+	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 
 	return cmd
 }

@@ -137,6 +137,7 @@ notion user get <user-id>          # Get user by ID
 notion page get <page-id>                              # Get page
 notion page create --parent <id> --properties <json>   # Create page
 notion page create-batch --parent <id> --pages <json>  # Create multiple pages
+notion page update-batch --pages <json>                # Update multiple pages
 notion page duplicate <page-id>                        # Duplicate page
 notion page export <page-id> --format markdown         # Export page content
 notion page update <page-id> --properties <json>       # Update page
@@ -320,6 +321,13 @@ notion page duplicate <page-id>
 notion page export <page-id> --format markdown
 ```
 
+### Batch Updates
+
+```bash
+# Update multiple pages in one command
+notion page update-batch --pages '[{"id":"<page-id>","properties":{"Status":{"status":{"name":"Done"}}}}]'
+```
+
 ### Automation
 
 Use `--yes` (or `--no-input`) to skip confirmations, `--limit` to control result size, and `--sort-by` for ordering:
@@ -336,6 +344,9 @@ notion db query <database-id> --output json | jq '.results[] | .id'
 
 # Filter JSON output with jq expression
 notion page get <page-id> --output json --query '.properties.Status'
+
+# Use a file for longer jq expressions
+notion page get <page-id> --output json --query-file ./query.jq
 ```
 
 ### JSON Input Shortcuts
@@ -346,8 +357,19 @@ Flags that accept JSON also support reading from a file or stdin:
 # From a file
 notion db query <database-id> --filter @filter.json
 
+# From a file (properties)
+notion page update <page-id> --properties @props.json
+
+# From a file (properties flag)
+notion page update <page-id> --properties-file props.json
+
 # From stdin
 cat filter.json | notion db query <database-id> --filter -
+
+# From stdin (heredoc)
+cat <<'JSON' | notion page update <page-id> --properties -
+{"Status":{"status":{"name":"Done"}}}
+JSON
 ```
 
 ### Debug Mode
@@ -365,6 +387,7 @@ All commands support these flags:
 - `--workspace <name>`, `-w` - Workspace to use (overrides NOTION_WORKSPACE)
 - `--debug` - Enable debug output (shows API requests/responses)
 - `--query <expr>` - JQ filter expression for JSON output
+- `--query-file <path>` - Read JQ filter expression from file (use `-` for stdin)
 - `--yes`, `-y` - Skip confirmation prompts (useful for scripts and automation)
 - `--no-input` - Alias for `--yes` (non-interactive mode)
 - `--limit <N>` - Limit number of results
