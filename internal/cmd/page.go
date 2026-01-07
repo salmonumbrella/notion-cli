@@ -376,7 +376,14 @@ Example - Multiple mentions:
 Use --verbose to see how markdown is parsed and mentions are matched:
   notion page update PAGE_ID \
     --properties '{"Summary": "@Georges should **review**"}' \
-    --mention user-id --verbose`,
+    --mention user-id --verbose
+
+Combined example (all flags together):
+  notion page update PAGE_ID \
+    --properties '{"Summary": "@Alice please **review** this ` + "`" + `code` + "`" + ` change", "Notes": "Additional context here"}' \
+    --mention alice-user-id \
+    --rich-text \
+    --verbose`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pageID, err := normalizeNotionID(args[0])

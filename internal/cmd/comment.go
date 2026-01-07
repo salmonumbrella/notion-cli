@@ -176,7 +176,13 @@ Example - Create comment with multiple mentions:
   notion comment add --parent abc123def456 --text "@Alice and @Bob please review" --mention alice-id --mention bob-id
 
 Example - Add to an existing discussion:
-  notion comment add --discussion-id thread123 --text "Reply to discussion"`,
+  notion comment add --discussion-id thread123 --text "Reply to discussion"
+
+Combined example (all flags together):
+  notion comment add --parent abc123def456 \
+    --text "@Alice please **review** this ` + "`" + `code` + "`" + ` change" \
+    --mention alice-user-id \
+    --verbose`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate that text is provided
