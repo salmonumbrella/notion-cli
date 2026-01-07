@@ -563,11 +563,11 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 				// Extract the actual @Name patterns for detailed output
 				mentionMatches := richtext.FindMentions(strVal)
 				_, _ = fmt.Fprintf(w, "  Mentions:\n")
-				for i, name := range mentionMatches {
+				for i, mentionName := range mentionMatches {
 					if i < len(propertyUserIDs) {
-						_, _ = fmt.Fprintf(w, "    %s → %s\n", name, propertyUserIDs[i])
+						_, _ = fmt.Fprintf(w, "    %s → %s\n", mentionName, propertyUserIDs[i])
 					} else {
-						_, _ = fmt.Fprintf(w, "    %s → (no user ID available)\n", name)
+						_, _ = fmt.Fprintf(w, "    %s → (no user ID available)\n", mentionName)
 					}
 				}
 			}
