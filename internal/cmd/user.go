@@ -84,6 +84,7 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
+			format := output.FormatFromContext(ctx)
 
 			pageSize = capPageSize(pageSize, limit)
 
@@ -105,6 +106,8 @@ Example:
 			if all {
 				var allUsers []*notion.User
 				cursor := startCursor
+				hasMore := false
+				var nextCursor *string
 
 				for {
 					opts := &notion.ListUsersOptions{
@@ -118,6 +121,9 @@ Example:
 					}
 
 					allUsers = append(allUsers, userList.Results...)
+					hasMore = userList.HasMore
+					nextCursor = userList.NextCursor
+
 					if limit > 0 && len(allUsers) >= limit {
 						allUsers = allUsers[:limit]
 						break
@@ -131,7 +137,15 @@ Example:
 
 				// Print all results
 				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-				return printer.Print(ctx, allUsers)
+				if format == output.FormatTable {
+					return printer.Print(ctx, allUsers)
+				}
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     allUsers,
+					"has_more":    hasMore,
+					"next_cursor": nextCursor,
+				})
 			}
 
 			// Single page request
@@ -151,7 +165,10 @@ Example:
 
 			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-			return printer.Print(ctx, userList.Results)
+			if format == output.FormatTable {
+				return printer.Print(ctx, userList.Results)
+			}
+			return printer.Print(ctx, userList)
 		},
 	}
 
