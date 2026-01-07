@@ -9,8 +9,8 @@ import (
 // Output format:
 //
 //	Mentions:
-//	  @Name -> user-id
-//	  @Other -> (no user ID provided)
+//	  @Name → user-id
+//	  @Other → (no user ID available)
 //
 // If there are no mentions in the text, nothing is written.
 func FormatMentionMappings(w io.Writer, text string, userIDs []string) {
@@ -22,9 +22,9 @@ func FormatMentionMappings(w io.Writer, text string, userIDs []string) {
 	_, _ = fmt.Fprintln(w, "Mentions:")
 	for i, mention := range mentions {
 		if i < len(userIDs) {
-			_, _ = fmt.Fprintf(w, "  %s -> %s\n", mention, userIDs[i])
+			_, _ = fmt.Fprintf(w, "  %s → %s\n", mention, userIDs[i])
 		} else {
-			_, _ = fmt.Fprintf(w, "  %s -> (no user ID provided)\n", mention)
+			_, _ = fmt.Fprintf(w, "  %s → (no user ID available)\n", mention)
 		}
 	}
 }
@@ -39,9 +39,9 @@ func FormatMentionMappingsIndented(w io.Writer, text string, userIDs []string, i
 	_, _ = fmt.Fprintf(w, "%sMentions:\n", indent)
 	for i, mention := range mentions {
 		if i < len(userIDs) {
-			_, _ = fmt.Fprintf(w, "%s  %s -> %s\n", indent, mention, userIDs[i])
+			_, _ = fmt.Fprintf(w, "%s  %s → %s\n", indent, mention, userIDs[i])
 		} else {
-			_, _ = fmt.Fprintf(w, "%s  %s -> (no user ID provided)\n", indent, mention)
+			_, _ = fmt.Fprintf(w, "%s  %s → (no user ID available)\n", indent, mention)
 		}
 	}
 }

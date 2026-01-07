@@ -19,7 +19,7 @@ func TestFormatMentionMappings(t *testing.T) {
 			userIDs: []string{"alice-id"},
 			expectContains: []string{
 				"Mentions:",
-				"@Alice -> alice-id",
+				"@Alice → alice-id",
 			},
 		},
 		{
@@ -27,8 +27,8 @@ func TestFormatMentionMappings(t *testing.T) {
 			text:    "@Alice and @Bob",
 			userIDs: []string{"alice-id", "bob-id"},
 			expectContains: []string{
-				"@Alice -> alice-id",
-				"@Bob -> bob-id",
+				"@Alice → alice-id",
+				"@Bob → bob-id",
 			},
 		},
 		{
@@ -36,8 +36,8 @@ func TestFormatMentionMappings(t *testing.T) {
 			text:    "@Alice and @Bob",
 			userIDs: []string{"alice-id"},
 			expectContains: []string{
-				"@Alice -> alice-id",
-				"@Bob -> (no user ID provided)",
+				"@Alice → alice-id",
+				"@Bob → (no user ID available)",
 			},
 		},
 		{
@@ -75,7 +75,7 @@ func TestFormatMentionMappingsIndented(t *testing.T) {
 	if !strings.Contains(output, "  Mentions:") {
 		t.Errorf("expected indented 'Mentions:', got: %q", output)
 	}
-	if !strings.Contains(output, "    @Alice -> alice-id") {
+	if !strings.Contains(output, "    @Alice → alice-id") {
 		t.Errorf("expected double-indented mapping, got: %q", output)
 	}
 }
