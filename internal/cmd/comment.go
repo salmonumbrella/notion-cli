@@ -217,7 +217,7 @@ Combined example (all flags together):
 
 			// Build rich text with inline mentions
 			// @Name patterns in text are replaced with mention objects using provided user IDs
-			richTextContent := buildCommentRichTextVerbose(os.Stderr, text, mentions, verbose)
+			richTextContent := buildCommentRichTextVerbose(os.Stderr, text, mentions, verbose, true)
 
 			// Build request
 			req := &notion.CreateCommentRequest{
@@ -255,8 +255,9 @@ Combined example (all flags together):
 
 // buildCommentRichTextVerbose builds rich text from text with mentions, optionally printing
 // verbose output about markdown parsing and mention matching. The w parameter specifies where
-// verbose output is written (typically os.Stderr in production).
-func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, verbose bool) []notion.RichText {
+// verbose output is written (typically os.Stderr in production). If emitWarnings is true,
+// warnings are printed when --mention flags are provided but not used.
+func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, verbose bool, emitWarnings bool) []notion.RichText {
 	// Parse markdown first (for verbose output if enabled)
 	tokens := richtext.ParseMarkdown(text)
 	if verbose {
@@ -267,15 +268,16 @@ func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, ver
 	// Count @Name patterns to match with user IDs
 	mentionsNeeded := richtext.CountMentions(text)
 
-	if verbose && mentionsNeeded > 0 {
-		mentionMatches := richtext.FindMentions(text)
-		_, _ = fmt.Fprintf(w, "Mentions:\n")
-		for i, name := range mentionMatches {
-			if i < len(userIDs) {
-				_, _ = fmt.Fprintf(w, "  %s → %s\n", name, userIDs[i])
-			} else {
-				_, _ = fmt.Fprintf(w, "  %s → (no user ID available)\n", name)
-			}
+	if verbose {
+		richtext.FormatMentionMappings(w, text, userIDs)
+	}
+
+	// Emit warnings about unused --mention flags if requested
+	if emitWarnings && len(userIDs) > 0 {
+		if mentionsNeeded == 0 {
+			_, _ = fmt.Fprintf(w, "warning: %d --mention flag(s) provided but no @Name patterns found in text\n", len(userIDs))
+		} else if mentionsNeeded < len(userIDs) {
+			_, _ = fmt.Fprintf(w, "warning: %d of %d --mention flag(s) unused (not enough @Name patterns)\n", len(userIDs)-mentionsNeeded, len(userIDs))
 		}
 	}
 
