@@ -476,8 +476,31 @@ func TestTransformPropertiesWithMentionsVerbose_Output(t *testing.T) {
 	if !strings.Contains(output, `Property "Summary"`) {
 		t.Errorf("verbose output should contain property name, got: %s", output)
 	}
-	if !strings.Contains(output, "Mentions: 1 @Name pattern(s)") {
-		t.Errorf("verbose output should contain mention count, got: %s", output)
+	// Check that mention assignments are shown
+	if !strings.Contains(output, "Mentions:") {
+		t.Errorf("verbose output should contain 'Mentions:' header, got: %s", output)
+	}
+	if !strings.Contains(output, "@Georges → georges-user-id") {
+		t.Errorf("verbose output should show @Name → user ID mapping, got: %s", output)
+	}
+}
+
+func TestTransformPropertiesWithMentionsVerbose_NoUserID(t *testing.T) {
+	// Test that verbose output shows when no user ID is available
+	properties := map[string]interface{}{
+		"Summary": "@Alice and @Bob",
+	}
+	userIDs := []string{"alice-id"} // Only one user ID for two mentions
+
+	var buf bytes.Buffer
+	_, _ = transformPropertiesWithMentionsVerbose(&buf, properties, userIDs, true)
+
+	output := buf.String()
+	if !strings.Contains(output, "@Alice → alice-id") {
+		t.Errorf("verbose output should show @Alice mapped to alice-id, got: %s", output)
+	}
+	if !strings.Contains(output, "@Bob → (no user ID available)") {
+		t.Errorf("verbose output should show @Bob with no user ID, got: %s", output)
 	}
 }
 
