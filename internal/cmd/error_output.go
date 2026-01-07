@@ -19,7 +19,10 @@ func validateErrorFormat(format string) error {
 	case "", "auto", "text", "json", "yaml":
 		return nil
 	default:
-		return fmt.Errorf("invalid --error-format %q (expected auto|text|json|yaml)", format)
+		return ctxerrors.NewUserError(
+			fmt.Sprintf("invalid --error-format %q", format),
+			"Use one of: auto, text, json, yaml",
+		)
 	}
 }
 
@@ -58,6 +61,9 @@ func printCommandError(err error) {
 	}
 
 	fmt.Fprintln(os.Stderr, err)
+	if suggestion := ctxerrors.UserSuggestion(err); suggestion != "" {
+		fmt.Fprintf(os.Stderr, "Hint: %s\n", suggestion)
+	}
 }
 
 func buildErrorEnvelope(err error) map[string]interface{} {
@@ -67,9 +73,19 @@ func buildErrorEnvelope(err error) map[string]interface{} {
 		},
 	}
 
+	errMap := payload["error"].(map[string]interface{})
+	category := "system"
+	if ctxerrors.IsUserError(err) || ctxerrors.IsValidationError(err) || ctxerrors.IsAuthError(err) {
+		category = "user"
+	}
+	errMap["category"] = category
+
+	if suggestion := ctxerrors.UserSuggestion(err); suggestion != "" {
+		errMap["suggestion"] = suggestion
+	}
+
 	var contextual *ctxerrors.ContextualError
 	if errors.As(err, &contextual) {
-		errMap := payload["error"].(map[string]interface{})
 		errMap["method"] = contextual.Method
 		errMap["url"] = contextual.URL
 		if contextual.StatusCode > 0 {
@@ -79,7 +95,6 @@ func buildErrorEnvelope(err error) map[string]interface{} {
 
 	var apiErr *notion.APIError
 	if errors.As(err, &apiErr) {
-		errMap := payload["error"].(map[string]interface{})
 		errMap["type"] = "notion_api"
 		if apiErr.StatusCode > 0 {
 			errMap["status"] = apiErr.StatusCode
@@ -98,7 +113,6 @@ func buildErrorEnvelope(err error) map[string]interface{} {
 
 	var apiErrLegacy *ctxerrors.APIError
 	if errors.As(err, &apiErrLegacy) {
-		errMap := payload["error"].(map[string]interface{})
 		errMap["type"] = "notion_api"
 		if apiErrLegacy.Status > 0 {
 			errMap["status"] = apiErrLegacy.Status
@@ -113,26 +127,22 @@ func buildErrorEnvelope(err error) map[string]interface{} {
 
 	var rlErr *ctxerrors.RateLimitError
 	if errors.As(err, &rlErr) {
-		errMap := payload["error"].(map[string]interface{})
 		errMap["type"] = "rate_limit"
 		errMap["retry_after_seconds"] = int(rlErr.RetryAfter.Seconds())
 	}
 
 	var authErr *ctxerrors.AuthError
 	if errors.As(err, &authErr) {
-		errMap := payload["error"].(map[string]interface{})
 		errMap["type"] = "auth"
 	}
 
 	var validationErr *ctxerrors.ValidationError
 	if errors.As(err, &validationErr) {
-		errMap := payload["error"].(map[string]interface{})
 		errMap["type"] = "validation"
 		errMap["field"] = validationErr.Field
 	}
 
 	if ctxerrors.IsCircuitBreakerError(err) {
-		errMap := payload["error"].(map[string]interface{})
 		errMap["type"] = "circuit_breaker"
 	}
 

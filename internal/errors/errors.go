@@ -27,6 +27,35 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("validation error for %s: %s", e.Field, e.Message)
 }
 
+// UserError represents an error caused by user input or configuration.
+// Suggestion can provide a concrete fix for the user.
+type UserError struct {
+	Message    string
+	Suggestion string
+	Err        error
+}
+
+func (e *UserError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("%s: %v", e.Message, e.Err)
+	}
+	return e.Message
+}
+
+func (e *UserError) Unwrap() error {
+	return e.Err
+}
+
+// NewUserError creates a UserError with a message and optional suggestion.
+func NewUserError(message, suggestion string) *UserError {
+	return &UserError{Message: message, Suggestion: suggestion}
+}
+
+// WrapUserError wraps an underlying error with a user-facing message and suggestion.
+func WrapUserError(err error, message, suggestion string) *UserError {
+	return &UserError{Message: message, Suggestion: suggestion, Err: err}
+}
+
 // RateLimitError represents a 429 response
 type RateLimitError struct {
 	RetryAfter time.Duration
@@ -76,6 +105,20 @@ func IsCircuitBreakerError(err error) bool {
 func IsValidationError(err error) bool {
 	var e *ValidationError
 	return errors.As(err, &e)
+}
+
+func IsUserError(err error) bool {
+	var e *UserError
+	return errors.As(err, &e)
+}
+
+// UserSuggestion returns a suggestion string if err is a UserError.
+func UserSuggestion(err error) string {
+	var e *UserError
+	if errors.As(err, &e) {
+		return e.Suggestion
+	}
+	return ""
 }
 
 // ContextualError wraps an error with HTTP request context for debugging.

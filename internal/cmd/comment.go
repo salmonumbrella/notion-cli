@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -208,16 +209,9 @@ Example - Add to an existing discussion:
 			// Create client
 			client := NewNotionClient(token)
 
-			// Parse markdown first (for verbose output if enabled)
-			tokens := richtext.ParseMarkdown(text)
-			if verbose {
-				summary := richtext.SummarizeTokens(tokens)
-				fmt.Fprintln(os.Stderr, richtext.FormatSummary(summary))
-			}
-
 			// Build rich text with inline mentions
 			// @Name patterns in text are replaced with mention objects using provided user IDs
-			richTextContent := richtext.BuildWithMentions(text, mentions)
+			richTextContent := buildCommentRichTextVerbose(os.Stderr, text, mentions, verbose)
 
 			// Build request
 			req := &notion.CreateCommentRequest{
@@ -251,4 +245,34 @@ Example - Add to an existing discussion:
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show how markdown was parsed before creating comment")
 
 	return cmd
+}
+
+// buildCommentRichTextVerbose builds rich text from text with mentions, optionally printing
+// verbose output about markdown parsing and mention matching. The w parameter specifies where
+// verbose output is written (typically os.Stderr in production).
+func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, verbose bool) []notion.RichText {
+	// Parse markdown first (for verbose output if enabled)
+	tokens := richtext.ParseMarkdown(text)
+	if verbose {
+		summary := richtext.SummarizeTokens(tokens)
+		_, _ = fmt.Fprintln(w, richtext.FormatSummary(summary))
+	}
+
+	// Count @Name patterns to match with user IDs
+	matches := richtext.MentionPattern.FindAllStringIndex(text, -1)
+	mentionsNeeded := len(matches)
+
+	if verbose && mentionsNeeded > 0 {
+		mentionMatches := richtext.MentionPattern.FindAllString(text, -1)
+		_, _ = fmt.Fprintf(w, "Mentions:\n")
+		for i, name := range mentionMatches {
+			if i < len(userIDs) {
+				_, _ = fmt.Fprintf(w, "  %s → %s\n", name, userIDs[i])
+			} else {
+				_, _ = fmt.Fprintf(w, "  %s → (no user ID available)\n", name)
+			}
+		}
+	}
+
+	return richtext.BuildWithMentionsFromTokens(tokens, userIDs)
 }

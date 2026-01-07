@@ -204,3 +204,21 @@ func TestIsContextualError(t *testing.T) {
 		t.Error("expected IsContextualError to return false for non-contextual error")
 	}
 }
+
+func TestUserError(t *testing.T) {
+	base := errors.New("missing token")
+	err := WrapUserError(base, "authentication required", "Run 'notion auth login'")
+
+	if !IsUserError(err) {
+		t.Error("IsUserError should return true for UserError")
+	}
+
+	if got := UserSuggestion(err); got != "Run 'notion auth login'" {
+		t.Errorf("UserSuggestion() = %q, want %q", got, "Run 'notion auth login'")
+	}
+
+	expected := "authentication required: missing token"
+	if err.Error() != expected {
+		t.Errorf("Error() = %q, want %q", err.Error(), expected)
+	}
+}
