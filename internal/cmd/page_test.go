@@ -446,8 +446,8 @@ func TestTransformPropertiesWithMentionsVerbose(t *testing.T) {
 	}
 	userIDs := []string{"georges-user-id"}
 
-	resultVerbose, usedVerbose := transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, true)
-	resultNonVerbose, usedNonVerbose := transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, false)
+	resultVerbose, usedVerbose := transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, true, false)
+	resultNonVerbose, usedNonVerbose := transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, false, false)
 
 	// Used counts should be the same
 	if usedVerbose != usedNonVerbose {
@@ -470,7 +470,7 @@ func TestTransformPropertiesWithMentionsVerbose_Output(t *testing.T) {
 	userIDs := []string{"georges-user-id"}
 
 	var buf bytes.Buffer
-	_, _ = transformPropertiesWithMentionsVerbose(&buf, properties, userIDs, true)
+	_, _ = transformPropertiesWithMentionsVerbose(&buf, properties, userIDs, true, false)
 
 	output := buf.String()
 	if !strings.Contains(output, `Property "Summary"`) {
@@ -493,7 +493,7 @@ func TestTransformPropertiesWithMentionsVerbose_NoUserID(t *testing.T) {
 	userIDs := []string{"alice-id"} // Only one user ID for two mentions
 
 	var buf bytes.Buffer
-	_, _ = transformPropertiesWithMentionsVerbose(&buf, properties, userIDs, true)
+	_, _ = transformPropertiesWithMentionsVerbose(&buf, properties, userIDs, true, false)
 
 	output := buf.String()
 	if !strings.Contains(output, "@Alice → alice-id") {
@@ -501,6 +501,84 @@ func TestTransformPropertiesWithMentionsVerbose_NoUserID(t *testing.T) {
 	}
 	if !strings.Contains(output, "@Bob → (no user ID available)") {
 		t.Errorf("verbose output should show @Bob with no user ID, got: %s", output)
+	}
+}
+
+func TestTransformPropertiesWithMentionsVerbose_Warnings(t *testing.T) {
+	tests := []struct {
+		name           string
+		properties     map[string]interface{}
+		userIDs        []string
+		emitWarnings   bool
+		expectContains []string
+		expectMissing  []string
+	}{
+		{
+			name:         "no warning when emitWarnings is false",
+			properties:   map[string]interface{}{"Summary": "plain text"},
+			userIDs:      []string{"unused-id"},
+			emitWarnings: false,
+			expectMissing: []string{
+				"warning:",
+			},
+		},
+		{
+			name:         "warning when all mentions unused",
+			properties:   map[string]interface{}{"Summary": "plain text without any mentions"},
+			userIDs:      []string{"unused-id-1", "unused-id-2"},
+			emitWarnings: true,
+			expectContains: []string{
+				"warning: 2 --mention flag(s) provided but no @Name patterns found",
+			},
+		},
+		{
+			name:         "warning when some mentions unused",
+			properties:   map[string]interface{}{"Summary": "@Alice only"},
+			userIDs:      []string{"alice-id", "bob-id", "charlie-id"},
+			emitWarnings: true,
+			expectContains: []string{
+				"warning: 2 of 3 --mention flag(s) unused",
+			},
+		},
+		{
+			name:         "no warning when all mentions used",
+			properties:   map[string]interface{}{"Summary": "@Alice and @Bob"},
+			userIDs:      []string{"alice-id", "bob-id"},
+			emitWarnings: true,
+			expectMissing: []string{
+				"warning:",
+			},
+		},
+		{
+			name:         "no warning when no userIDs provided",
+			properties:   map[string]interface{}{"Summary": "plain text"},
+			userIDs:      nil,
+			emitWarnings: true,
+			expectMissing: []string{
+				"warning:",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			_, _ = transformPropertiesWithMentionsVerbose(&buf, tt.properties, tt.userIDs, false, tt.emitWarnings)
+
+			output := buf.String()
+
+			for _, expected := range tt.expectContains {
+				if !strings.Contains(output, expected) {
+					t.Errorf("expected output to contain %q, got: %s", expected, output)
+				}
+			}
+
+			for _, notExpected := range tt.expectMissing {
+				if strings.Contains(output, notExpected) {
+					t.Errorf("expected output to NOT contain %q, got: %s", notExpected, output)
+				}
+			}
+		})
 	}
 }
 

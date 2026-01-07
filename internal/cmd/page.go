@@ -400,13 +400,7 @@ Use --verbose to see how markdown is parsed and mentions are matched:
 			// Transform string shorthand values to rich_text arrays with mentions
 			// Applies when --mention flags are provided OR --rich-text flag is set
 			if (len(mentions) > 0 || richText) && properties != nil {
-				var usedCount int
-				properties, usedCount = transformPropertiesWithMentionsVerbose(os.Stderr, properties, mentions, verbose)
-				if len(mentions) > 0 && usedCount == 0 {
-					fmt.Fprintf(os.Stderr, "warning: %d --mention flag(s) provided but no @Name patterns found in property values\n", len(mentions))
-				} else if usedCount < len(mentions) {
-					fmt.Fprintf(os.Stderr, "warning: %d of %d --mention flag(s) unused (not enough @Name patterns)\n", len(mentions)-usedCount, len(mentions))
-				}
+				properties, _ = transformPropertiesWithMentionsVerbose(os.Stderr, properties, mentions, verbose, len(mentions) > 0)
 			}
 
 			// Get token from context (respects workspace selection)
@@ -513,13 +507,14 @@ Use --verbose to see how markdown is parsed and mentions are matched:
 // user ID assignment when multiple properties contain @Name patterns.
 // Returns the transformed properties and the number of user IDs that were actually used.
 func transformPropertiesWithMentions(properties map[string]interface{}, userIDs []string) (map[string]interface{}, int) {
-	return transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, false)
+	return transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, false, false)
 }
 
 // transformPropertiesWithMentionsVerbose is like transformPropertiesWithMentions but
 // optionally prints verbose output about markdown parsing and mention matching.
-// The w parameter specifies where verbose output is written (typically os.Stderr in production).
-func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]interface{}, userIDs []string, verbose bool) (map[string]interface{}, int) {
+// The w parameter specifies where verbose and warning output is written (typically os.Stderr in production).
+// When emitWarnings is true, warnings about unused --mention flags are also written to w.
+func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]interface{}, userIDs []string, verbose bool, emitWarnings bool) (map[string]interface{}, int) {
 	result := make(map[string]interface{}, len(properties))
 	userIDIndex := 0
 
@@ -616,6 +611,15 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 		} else {
 			// Pass through non-string values unchanged
 			result[name] = value
+		}
+	}
+
+	// Emit warnings about unused --mention flags if requested
+	if emitWarnings && len(userIDs) > 0 {
+		if userIDIndex == 0 {
+			_, _ = fmt.Fprintf(w, "warning: %d --mention flag(s) provided but no @Name patterns found in property values\n", len(userIDs))
+		} else if userIDIndex < len(userIDs) {
+			_, _ = fmt.Fprintf(w, "warning: %d of %d --mention flag(s) unused (not enough @Name patterns)\n", len(userIDs)-userIDIndex, len(userIDs))
 		}
 	}
 
