@@ -10,8 +10,18 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
-// MentionPattern matches @Name patterns in text (alphanumeric, hyphens, underscores)
-var MentionPattern = regexp.MustCompile(`@([A-Za-z0-9_-]+)`)
+// mentionPattern matches @Name patterns in text (alphanumeric, hyphens, underscores)
+var mentionPattern = regexp.MustCompile(`@([A-Za-z0-9_-]+)`)
+
+// CountMentions returns the number of @Name patterns found in the text.
+func CountMentions(text string) int {
+	return len(mentionPattern.FindAllStringIndex(text, -1))
+}
+
+// FindMentions returns all @Name patterns found in the text (e.g., "@John", "@Jane-Doe").
+func FindMentions(text string) []string {
+	return mentionPattern.FindAllString(text, -1)
+}
 
 // MarkdownToken represents a parsed markdown segment with its formatting
 type MarkdownToken struct {
@@ -225,7 +235,7 @@ func BuildWithMentionsFromTokens(tokens []MarkdownToken, userIDs []string) []not
 
 	for _, token := range tokens {
 		// Check for @mentions within this token's content
-		matches := MentionPattern.FindAllStringIndex(token.Content, -1)
+		matches := mentionPattern.FindAllStringIndex(token.Content, -1)
 
 		if len(matches) == 0 {
 			// No mentions in this token, add it directly with its formatting

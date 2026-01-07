@@ -539,8 +539,7 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 			}
 
 			// Count @Name patterns in this string to consume the right number of user IDs
-			matches := richtext.MentionPattern.FindAllStringIndex(strVal, -1)
-			mentionsNeeded := len(matches)
+			mentionsNeeded := richtext.CountMentions(strVal)
 
 			// Allocate user IDs for this property
 			var propertyUserIDs []string
@@ -555,7 +554,7 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 
 			if verbose && mentionsNeeded > 0 {
 				// Extract the actual @Name patterns for detailed output
-				mentionMatches := richtext.MentionPattern.FindAllString(strVal, -1)
+				mentionMatches := richtext.FindMentions(strVal)
 				_, _ = fmt.Fprintf(w, "  Mentions:\n")
 				for i, name := range mentionMatches {
 					if i < len(propertyUserIDs) {

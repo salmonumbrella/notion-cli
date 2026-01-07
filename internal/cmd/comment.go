@@ -259,11 +259,10 @@ func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, ver
 	}
 
 	// Count @Name patterns to match with user IDs
-	matches := richtext.MentionPattern.FindAllStringIndex(text, -1)
-	mentionsNeeded := len(matches)
+	mentionsNeeded := richtext.CountMentions(text)
 
 	if verbose && mentionsNeeded > 0 {
-		mentionMatches := richtext.MentionPattern.FindAllString(text, -1)
+		mentionMatches := richtext.FindMentions(text)
 		_, _ = fmt.Fprintf(w, "Mentions:\n")
 		for i, name := range mentionMatches {
 			if i < len(userIDs) {
