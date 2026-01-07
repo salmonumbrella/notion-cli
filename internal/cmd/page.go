@@ -560,16 +560,7 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 			}
 
 			if verbose && mentionsNeeded > 0 {
-				// Extract the actual @Name patterns for detailed output
-				mentionMatches := richtext.FindMentions(strVal)
-				_, _ = fmt.Fprintf(w, "  Mentions:\n")
-				for i, mentionName := range mentionMatches {
-					if i < len(propertyUserIDs) {
-						_, _ = fmt.Fprintf(w, "    %s → %s\n", mentionName, propertyUserIDs[i])
-					} else {
-						_, _ = fmt.Fprintf(w, "    %s → (no user ID available)\n", mentionName)
-					}
-				}
+				richtext.FormatMentionMappingsIndented(w, strVal, propertyUserIDs, "  ")
 			}
 
 			// Build rich text array from pre-parsed tokens (avoids redundant parsing)
