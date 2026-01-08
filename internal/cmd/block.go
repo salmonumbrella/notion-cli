@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -333,7 +334,27 @@ Example of updating a paragraph block:
 			// Update block
 			block, err := client.UpdateBlock(ctx, blockID, req)
 			if err != nil {
-				return fmt.Errorf("failed to update block: %w", err)
+				// Check if the error is due to the block being archived
+				// and we're trying to update content (not explicitly archiving)
+				if isArchivedBlockError(err) && contentJSON != "" && !setArchived {
+					// Auto-unarchive the block first
+					unarchiveReq := &notion.UpdateBlockRequest{
+						Archived: ptrBool(false),
+					}
+					_, unarchiveErr := client.UpdateBlock(ctx, blockID, unarchiveReq)
+					if unarchiveErr != nil {
+						return fmt.Errorf("failed to update block (block is archived and auto-unarchive failed): %w", unarchiveErr)
+					}
+					fmt.Fprintf(os.Stderr, "Block was archived, auto-unarchived to apply update\n")
+
+					// Retry the original update
+					block, err = client.UpdateBlock(ctx, blockID, req)
+					if err != nil {
+						return fmt.Errorf("failed to update block after unarchiving: %w", err)
+					}
+				} else {
+					return fmt.Errorf("failed to update block: %w", err)
+				}
 			}
 
 			// Print result
@@ -641,4 +662,19 @@ Example:
 
 	cmd.Flags().IntVar(&columnCount, "columns", 2, "Number of columns (2-5)")
 	return cmd
+}
+
+// isArchivedBlockError checks if an error is due to trying to edit an archived block
+func isArchivedBlockError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for the specific Notion API error message about archived blocks
+	errStr := err.Error()
+	return strings.Contains(errStr, "archived") && strings.Contains(errStr, "edit")
+}
+
+// ptrBool returns a pointer to a bool value
+func ptrBool(b bool) *bool {
+	return &b
 }
