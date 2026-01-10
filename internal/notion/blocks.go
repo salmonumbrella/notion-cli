@@ -2,6 +2,7 @@ package notion
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -24,6 +25,41 @@ type Block struct {
 	// Type-specific content (e.g., paragraph, heading_1, etc.)
 	// Using map to handle different block types flexibly
 	Content map[string]interface{} `json:"-"` // Will be unmarshaled from type field
+}
+
+// MarshalJSON implements custom JSON marshaling to include type-specific content.
+func (b Block) MarshalJSON() ([]byte, error) {
+	// Build a map with all the standard fields
+	m := map[string]interface{}{
+		"object":           b.Object,
+		"id":               b.ID,
+		"type":             b.Type,
+		"created_time":     b.CreatedTime,
+		"last_edited_time": b.LastEditedTime,
+		"has_children":     b.HasChildren,
+		"archived":         b.Archived,
+	}
+
+	// Add optional fields if present
+	if b.Parent != nil {
+		m["parent"] = b.Parent
+	}
+	if b.CreatedBy != nil {
+		m["created_by"] = b.CreatedBy
+	}
+	if b.LastEditedBy != nil {
+		m["last_edited_by"] = b.LastEditedBy
+	}
+	if b.InTrash {
+		m["in_trash"] = b.InTrash
+	}
+
+	// Add type-specific content under the type key
+	if b.Type != "" && b.Content != nil && len(b.Content) > 0 {
+		m[b.Type] = b.Content
+	}
+
+	return json.Marshal(m)
 }
 
 // BlockList represents a paginated list of blocks.
