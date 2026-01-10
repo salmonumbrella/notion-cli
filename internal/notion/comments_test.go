@@ -522,3 +522,67 @@ func TestRichText_WithMention_Serialization(t *testing.T) {
 		t.Errorf("expected mention type 'user', got %v", mention["type"])
 	}
 }
+
+func TestGetComment_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET method, got %s", r.Method)
+		}
+		if r.URL.Path != "/comments/comment123" {
+			t.Errorf("expected path /comments/comment123, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(Comment{
+			Object:       "comment",
+			ID:           "comment123",
+			DiscussionID: "discussion456",
+			RichText: []RichText{
+				{
+					Type: "text",
+					Text: &TextContent{
+						Content: "Test comment content",
+					},
+					PlainText: "Test comment content",
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient("test-token").WithBaseURL(server.URL)
+	ctx := context.Background()
+
+	comment, err := client.GetComment(ctx, "comment123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if comment.Object != "comment" {
+		t.Errorf("expected object 'comment', got %q", comment.Object)
+	}
+	if comment.ID != "comment123" {
+		t.Errorf("expected ID 'comment123', got %q", comment.ID)
+	}
+	if comment.DiscussionID != "discussion456" {
+		t.Errorf("expected discussion_id 'discussion456', got %q", comment.DiscussionID)
+	}
+	if len(comment.RichText) != 1 {
+		t.Errorf("expected 1 rich text item, got %d", len(comment.RichText))
+	}
+}
+
+func TestGetComment_EmptyCommentID(t *testing.T) {
+	client := NewClient("test-token")
+	ctx := context.Background()
+
+	_, err := client.GetComment(ctx, "")
+	if err == nil {
+		t.Fatal("expected error for empty comment ID")
+	}
+
+	expected := "comment ID is required"
+	if err.Error() != expected {
+		t.Errorf("expected error %q, got %q", expected, err.Error())
+	}
+}

@@ -21,6 +21,7 @@ func newCommentCmd() *cobra.Command {
 
 	cmd.AddCommand(newCommentListCmd())
 	cmd.AddCommand(newCommentAddCmd())
+	cmd.AddCommand(newCommentGetCmd())
 
 	return cmd
 }
@@ -132,6 +133,40 @@ Example - Fetch all comments:
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 
 	return cmd
+}
+
+func newCommentGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <comment-id>",
+		Short: "Get a comment by ID",
+		Long: `Retrieve a Notion comment by its ID.
+
+Example:
+  notion comment get 12345678-1234-1234-1234-123456789012`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			commentID, err := normalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
+			}
+
+			client := NewNotionClient(token)
+
+			comment, err := client.GetComment(ctx, commentID)
+			if err != nil {
+				return fmt.Errorf("failed to get comment: %w", err)
+			}
+
+			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			return printer.Print(ctx, comment)
+		},
+	}
 }
 
 func newCommentAddCmd() *cobra.Command {

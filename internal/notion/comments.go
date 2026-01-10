@@ -124,6 +124,23 @@ func (c *Client) ListComments(ctx context.Context, blockID string, opts *ListCom
 	return &commentList, nil
 }
 
+// GetComment retrieves a comment by ID.
+// See: https://developers.notion.com/reference/retrieve-a-comment
+func (c *Client) GetComment(ctx context.Context, commentID string) (*Comment, error) {
+	if commentID == "" {
+		return nil, fmt.Errorf("comment ID is required")
+	}
+
+	path := fmt.Sprintf("/comments/%s", commentID)
+	var comment Comment
+
+	if err := c.doGet(ctx, path, nil, &comment); err != nil {
+		return nil, err
+	}
+
+	return &comment, nil
+}
+
 // CreateComment creates a comment in a page or existing discussion thread.
 // See: https://developers.notion.com/reference/create-a-comment
 func (c *Client) CreateComment(ctx context.Context, req *CreateCommentRequest) (*Comment, error) {
