@@ -30,6 +30,7 @@ func newCommentListCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
+	var resultsOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "list <block-id>",
@@ -40,6 +41,7 @@ The block-id can be a page ID or block ID.
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
+Use --results-only to output just the results array (useful for piping to jq).
 
 Example - List all comments on a page:
   notion comment list abc123def456
@@ -48,7 +50,10 @@ Example - List comments with pagination:
   notion comment list abc123def456 --page-size 10 --start-cursor cursor123
 
 Example - Fetch all comments:
-  notion comment list abc123def456 --all`,
+  notion comment list abc123def456 --all
+
+Example - Output only results array:
+  notion comment list abc123def456 --all --results-only`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID, err := normalizeNotionID(args[0])
@@ -59,6 +64,7 @@ Example - Fetch all comments:
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
+			format := output.FormatFromContext(ctx)
 			pageSize = capPageSize(pageSize, limit)
 
 			if pageSize > NotionMaxPageSize {
@@ -103,7 +109,15 @@ Example - Fetch all comments:
 
 				// Print all results
 				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-				return printer.Print(ctx, allComments)
+				if resultsOnly || format == output.FormatTable {
+					return printer.Print(ctx, allComments)
+				}
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     allComments,
+					"has_more":    false,
+					"next_cursor": nil,
+				})
 			}
 
 			// Single page request
@@ -124,6 +138,9 @@ Example - Fetch all comments:
 
 			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			if resultsOnly || format == output.FormatTable {
+				return printer.Print(ctx, result.Results)
+			}
 			return printer.Print(ctx, result)
 		},
 	}
@@ -131,6 +148,7 @@ Example - Fetch all comments:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
+	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 
 	return cmd
 }
