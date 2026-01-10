@@ -66,6 +66,7 @@ func newUserListCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
+	var resultsOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -74,12 +75,13 @@ func newUserListCmd() *cobra.Command {
 
 Supports pagination with --start-cursor and --page-size flags.
 Use --all to fetch all pages of results automatically.
+Use --results-only to output just the results array (useful for piping to jq).
 
 Example:
   notion user list
   notion user list --page-size 50
   notion user list --start-cursor abc123
-  notion user list --all`,
+  notion user list --all --results-only`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -137,7 +139,7 @@ Example:
 
 				// Print all results
 				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-				if format == output.FormatTable {
+				if resultsOnly || format == output.FormatTable {
 					return printer.Print(ctx, allUsers)
 				}
 				return printer.Print(ctx, map[string]interface{}{
@@ -165,7 +167,7 @@ Example:
 
 			// Print result
 			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-			if format == output.FormatTable {
+			if resultsOnly || format == output.FormatTable {
 				return printer.Print(ctx, userList.Results)
 			}
 			return printer.Print(ctx, userList)
@@ -175,6 +177,7 @@ Example:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor from previous response")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of items per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
+	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 
 	return cmd
 }

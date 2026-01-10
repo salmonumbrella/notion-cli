@@ -179,22 +179,29 @@ Example:
 func newBlockAppendCmd() *cobra.Command {
 	var childrenJSON string
 	var afterBlockID string
+	var blockType string
+	var content string
 
 	cmd := &cobra.Command{
 		Use:   "append <block-id>",
 		Short: "Append children to a block",
 		Long: `Append child blocks to a parent block.
 
-The --children flag accepts a JSON array of block objects.
+SIMPLE USAGE (--type and --content):
+  notion block append PAGE_ID --type paragraph --content "Hello world"
+  notion block append PAGE_ID --type heading_2 --content "Section Title"
+  notion block append PAGE_ID --type bulleted_list_item --content "List item"
+
+Supported types: paragraph, heading_1, heading_2, heading_3, bulleted_list_item,
+numbered_list_item, quote, callout, code, to_do, toggle, divider
+
+ADVANCED USAGE (--children JSON):
+  notion block append PAGE_ID \
+    --children '[{"type":"paragraph","paragraph":{"rich_text":[{"type":"text","text":{"content":"Hello"}}]}}]'
+
 Use --after to insert blocks after a specific block instead of at the end.
 
-Example of a simple paragraph block:
-  notion block append 12345678-1234-1234-1234-123456789012 \
-    --children '[{"object":"block","type":"paragraph","paragraph":{"rich_text":[{"type":"text","text":{"content":"Hello world"}}]}}]'
-
-Example inserting after a specific block:
-  notion block append PAGE_ID --after BLOCK_ID \
-    --children '[{"object":"block","type":"to_do","to_do":{"rich_text":[{"type":"text","text":{"content":"New task"}}],"checked":false}}]'`,
+TIP: For convenience commands, see 'notion block add --help'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID, err := normalizeNotionID(args[0])
@@ -202,9 +209,28 @@ Example inserting after a specific block:
 				return err
 			}
 
+			// Handle convenience flags --type and --content
+			if blockType != "" && content != "" {
+				block := buildSimpleBlock(blockType, content)
+				if block == nil {
+					return fmt.Errorf("unsupported block type %q for simple mode\nSupported: paragraph, heading_1, heading_2, heading_3, bulleted_list_item, numbered_list_item, quote, callout, code, to_do, toggle, divider", blockType)
+				}
+				childrenJSON = mustMarshalJSON([]map[string]interface{}{block})
+			} else if blockType != "" && content == "" {
+				// Special case for content-less blocks
+				if blockType == "divider" {
+					block := notion.NewDivider()
+					childrenJSON = mustMarshalJSON([]map[string]interface{}{block})
+				} else {
+					return fmt.Errorf("--content is required when using --type (except for divider)")
+				}
+			} else if blockType == "" && content != "" {
+				return fmt.Errorf("--type is required when using --content")
+			}
+
 			// Validate required flag
 			if childrenJSON == "" {
-				return fmt.Errorf("--children flag is required")
+				return fmt.Errorf("either --children or both --type and --content are required\n\nSimple usage:\n  notion block append PAGE_ID --type paragraph --content \"Your text\"\n\nAdvanced usage:\n  notion block append PAGE_ID --children '[{\"type\":\"paragraph\",...}]'")
 			}
 
 			// Normalize after block ID if provided
@@ -254,10 +280,65 @@ Example inserting after a specific block:
 		},
 	}
 
-	cmd.Flags().StringVar(&childrenJSON, "children", "", "Children blocks as JSON array (required)")
+	cmd.Flags().StringVar(&childrenJSON, "children", "", "Children blocks as JSON array")
 	cmd.Flags().StringVar(&afterBlockID, "after", "", "Insert blocks after this block ID (instead of at end)")
+	cmd.Flags().StringVar(&blockType, "type", "", "Block type for simple mode (paragraph, heading_1, etc.)")
+	cmd.Flags().StringVar(&content, "content", "", "Text content for simple mode (use with --type)")
 
 	return cmd
+}
+
+// buildSimpleBlock creates a block from type and content for simple usage mode
+func buildSimpleBlock(blockType, content string) map[string]interface{} {
+	switch blockType {
+	case "paragraph":
+		return notion.NewParagraph(content)
+	case "heading_1":
+		return notion.NewHeading1(content)
+	case "heading_2":
+		return notion.NewHeading2(content)
+	case "heading_3":
+		return notion.NewHeading3(content)
+	case "bulleted_list_item":
+		return notion.NewBulletedListItem(content)
+	case "numbered_list_item":
+		return notion.NewNumberedListItem(content)
+	case "quote":
+		return notion.NewQuote(content)
+	case "callout":
+		return notion.NewCallout(content, "💡")
+	case "code":
+		return notion.NewCode(content, "plain text")
+	case "to_do":
+		return notion.NewToDo(content, false)
+	case "toggle":
+		return map[string]interface{}{
+			"type": "toggle",
+			"toggle": map[string]interface{}{
+				"rich_text": []map[string]interface{}{
+					{
+						"type": "text",
+						"text": map[string]interface{}{
+							"content": content,
+						},
+					},
+				},
+			},
+		}
+	case "divider":
+		return notion.NewDivider()
+	default:
+		return nil
+	}
+}
+
+// mustMarshalJSON marshals to JSON or panics (for internal use only)
+func mustMarshalJSON(v interface{}) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }
 
 func newBlockUpdateCmd() *cobra.Command {

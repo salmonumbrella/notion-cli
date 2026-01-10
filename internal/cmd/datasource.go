@@ -25,6 +25,7 @@ func newDataSourceCmd() *cobra.Command {
 	cmd.AddCommand(newDataSourceUpdateCmd())
 	cmd.AddCommand(newDataSourceQueryCmd())
 	cmd.AddCommand(newDataSourceTemplatesCmd())
+	cmd.AddCommand(newDataSourceListCmd())
 
 	return cmd
 }
@@ -394,4 +395,122 @@ Example:
 			return printer.Print(ctx, list)
 		},
 	}
+}
+
+func newDataSourceListCmd() *cobra.Command {
+	var pageSize int
+	var all bool
+	var resultsOnly bool
+	var startCursor string
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all data sources in the workspace",
+		Long: `List all data sources (databases) in the Notion workspace.
+
+This command searches for all databases accessible to the integration.
+Use --page-size to control results per page (max 100).
+Use --all to fetch all pages of results automatically.
+Use --results-only to output just the results array (useful for piping to jq).
+
+Example:
+  notion datasource list
+  notion ds list --all --results-only
+  notion ds list -o json | jq '.results[].id'`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			limit := output.LimitFromContext(ctx)
+			format := output.FormatFromContext(ctx)
+
+			pageSize = capPageSize(pageSize, limit)
+
+			if pageSize > NotionMaxPageSize {
+				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
+			}
+
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return fmt.Errorf("authentication required: %w", err)
+			}
+
+			client := NewNotionClient(token)
+
+			// Use search with database filter
+			filter := map[string]interface{}{
+				"property": "object",
+				"value":    "data_source",
+			}
+
+			if all {
+				var allResults []map[string]interface{}
+				cursor := startCursor
+				hasMore := false
+				var nextCursor *string
+
+				for {
+					req := &notion.SearchRequest{
+						Filter:      filter,
+						StartCursor: cursor,
+						PageSize:    pageSize,
+					}
+
+					result, err := client.Search(ctx, req)
+					if err != nil {
+						return fmt.Errorf("failed to list data sources: %w", err)
+					}
+
+					allResults = append(allResults, result.Results...)
+					hasMore = result.HasMore
+					nextCursor = result.NextCursor
+
+					if limit > 0 && len(allResults) >= limit {
+						allResults = allResults[:limit]
+						break
+					}
+
+					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
+						break
+					}
+					cursor = *result.NextCursor
+				}
+
+				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				if resultsOnly || format == output.FormatTable {
+					return printer.Print(ctx, allResults)
+				}
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     allResults,
+					"has_more":    hasMore,
+					"next_cursor": nextCursor,
+				})
+			}
+
+			// Single page request
+			req := &notion.SearchRequest{
+				Filter:      filter,
+				StartCursor: startCursor,
+				PageSize:    pageSize,
+			}
+
+			result, err := client.Search(ctx, req)
+			if err != nil {
+				return fmt.Errorf("failed to list data sources: %w", err)
+			}
+
+			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			if resultsOnly || format == output.FormatTable {
+				return printer.Print(ctx, result.Results)
+			}
+			return printer.Print(ctx, result)
+		},
+	}
+
+	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results")
+	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
+	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
+
+	return cmd
 }
