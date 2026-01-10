@@ -178,6 +178,7 @@ Example:
 
 func newBlockAppendCmd() *cobra.Command {
 	var childrenJSON string
+	var afterBlockID string
 
 	cmd := &cobra.Command{
 		Use:   "append <block-id>",
@@ -185,10 +186,15 @@ func newBlockAppendCmd() *cobra.Command {
 		Long: `Append child blocks to a parent block.
 
 The --children flag accepts a JSON array of block objects.
+Use --after to insert blocks after a specific block instead of at the end.
 
 Example of a simple paragraph block:
   notion block append 12345678-1234-1234-1234-123456789012 \
-    --children '[{"object":"block","type":"paragraph","paragraph":{"rich_text":[{"type":"text","text":{"content":"Hello world"}}]}}]'`,
+    --children '[{"object":"block","type":"paragraph","paragraph":{"rich_text":[{"type":"text","text":{"content":"Hello world"}}]}}]'
+
+Example inserting after a specific block:
+  notion block append PAGE_ID --after BLOCK_ID \
+    --children '[{"object":"block","type":"to_do","to_do":{"rich_text":[{"type":"text","text":{"content":"New task"}}],"checked":false}}]'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID, err := normalizeNotionID(args[0])
@@ -199,6 +205,14 @@ Example of a simple paragraph block:
 			// Validate required flag
 			if childrenJSON == "" {
 				return fmt.Errorf("--children flag is required")
+			}
+
+			// Normalize after block ID if provided
+			if afterBlockID != "" {
+				afterBlockID, err = normalizeNotionID(afterBlockID)
+				if err != nil {
+					return fmt.Errorf("invalid --after block ID: %w", err)
+				}
 			}
 
 			// Resolve and parse children JSON
@@ -225,6 +239,7 @@ Example of a simple paragraph block:
 			// Build request
 			req := &notion.AppendBlockChildrenRequest{
 				Children: children,
+				After:    afterBlockID,
 			}
 
 			// Append children
@@ -240,6 +255,7 @@ Example of a simple paragraph block:
 	}
 
 	cmd.Flags().StringVar(&childrenJSON, "children", "", "Children blocks as JSON array (required)")
+	cmd.Flags().StringVar(&afterBlockID, "after", "", "Insert blocks after this block ID (instead of at end)")
 
 	return cmd
 }
