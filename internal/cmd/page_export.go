@@ -76,7 +76,7 @@ func newPageExportCmd() *cobra.Command {
 	return cmd
 }
 
-func fetchExportBlocks(ctx context.Context, client *notion.Client, blockID string) ([]exportBlock, error) {
+func fetchExportBlocks(ctx context.Context, client blockChildrenReader, blockID string) ([]exportBlock, error) {
 	var blocks []notion.Block
 	cursor := ""
 

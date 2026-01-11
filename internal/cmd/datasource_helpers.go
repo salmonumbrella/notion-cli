@@ -8,7 +8,7 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
-func resolveDataSourceID(ctx context.Context, client *notion.Client, databaseID string, dataSourceID string) (string, error) {
+func resolveDataSourceID(ctx context.Context, client databaseGetter, databaseID string, dataSourceID string) (string, error) {
 	if dataSourceID != "" {
 		return dataSourceID, nil
 	}

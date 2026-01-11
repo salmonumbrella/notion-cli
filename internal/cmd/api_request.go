@@ -89,7 +89,7 @@ Examples:
 	return cmd
 }
 
-func runPaginatedAPIRequest(ctx context.Context, client *notion.Client, method, path string, body []byte, headers http.Header, raw bool, includeHeaders bool) error {
+func runPaginatedAPIRequest(ctx context.Context, client rawRequester, method, path string, body []byte, headers http.Header, raw bool, includeHeaders bool) error {
 	var allResults []interface{}
 	var lastResponse *notion.RawResponse
 	var nextCursor string

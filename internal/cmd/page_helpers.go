@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
-func resolvePageParent(ctx context.Context, client *notion.Client, parentID, parentType, dataSourceID string) (map[string]interface{}, error) {
+func resolvePageParent(ctx context.Context, client databaseGetter, parentID, parentType, dataSourceID string) (map[string]interface{}, error) {
 	if dataSourceID != "" {
 		return map[string]interface{}{"data_source_id": dataSourceID}, nil
 	}

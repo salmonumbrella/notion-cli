@@ -190,7 +190,7 @@ func overrideTitleProperty(properties map[string]interface{}, title string) {
 	}
 }
 
-func buildBlockTree(ctx context.Context, client *notion.Client, blockID string) ([]map[string]interface{}, error) {
+func buildBlockTree(ctx context.Context, client blockChildrenReader, blockID string) ([]map[string]interface{}, error) {
 	var blocks []notion.Block
 	cursor := ""
 
@@ -244,7 +244,7 @@ func buildBlockTree(ctx context.Context, client *notion.Client, blockID string) 
 	return payloads, nil
 }
 
-func appendChildrenInBatches(ctx context.Context, client *notion.Client, parentID string, children []map[string]interface{}) error {
+func appendChildrenInBatches(ctx context.Context, client blockChildrenWriter, parentID string, children []map[string]interface{}) error {
 	const batchSize = 100
 
 	for i := 0; i < len(children); i += batchSize {
