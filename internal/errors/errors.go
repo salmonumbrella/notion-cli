@@ -63,6 +63,11 @@ func (e *AuthError) Error() string {
 	return fmt.Sprintf("authentication error: %s", e.Reason)
 }
 
+// AuthRequiredError wraps an error with authentication required message and suggestion.
+func AuthRequiredError(err error) error {
+	return WrapUserError(err, "authentication required", "Run 'notion auth login' or 'notion auth add-token' to configure")
+}
+
 // CircuitBreakerError indicates the circuit is open
 type CircuitBreakerError struct{}
 

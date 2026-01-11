@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
+	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -83,7 +84,7 @@ Example - Upload and attach to page property:
 			}
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
@@ -168,7 +169,7 @@ Example:
 			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
@@ -203,7 +204,7 @@ Example:
 			pageSize = capPageSize(pageSize, limit)
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)

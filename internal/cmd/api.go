@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
@@ -34,7 +35,7 @@ Use --refresh to make a fresh API call and get updated rate limit info.`,
 			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)

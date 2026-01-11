@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
+	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -36,7 +37,7 @@ func newPageExportCmd() *cobra.Command {
 			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)

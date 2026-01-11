@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
+	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -51,7 +52,7 @@ Example:
 			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
@@ -113,7 +114,7 @@ Example:
 			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
@@ -177,7 +178,7 @@ Example:
 			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
@@ -258,7 +259,7 @@ Example - Query with filter:
 			// Get token from context (respects workspace selection)
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
@@ -382,7 +383,7 @@ Example:
 			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
@@ -432,7 +433,7 @@ Example:
 
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
-				return fmt.Errorf("authentication required: %w", err)
+				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
