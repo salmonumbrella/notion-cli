@@ -5,6 +5,7 @@
 //   - json: Pretty-printed JSON
 //   - ndjson: Newline-delimited JSON
 //   - table: Tabular format for lists with aligned columns
+//   - yaml: YAML format for structured data
 //
 // # Context-Based Dependency Injection
 //
