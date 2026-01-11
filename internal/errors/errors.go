@@ -6,17 +6,6 @@ import (
 	"time"
 )
 
-// APIError represents a Notion API error response
-type APIError struct {
-	Status  int
-	Code    string
-	Message string
-}
-
-func (e *APIError) Error() string {
-	return fmt.Sprintf("notion api error (status %d, code %s): %s", e.Status, e.Code, e.Message)
-}
-
 // ValidationError represents an input validation failure
 type ValidationError struct {
 	Field   string
@@ -82,11 +71,6 @@ func (e *CircuitBreakerError) Error() string {
 }
 
 // Type checkers
-func IsAPIError(err error) bool {
-	var e *APIError
-	return errors.As(err, &e)
-}
-
 func IsRateLimitError(err error) bool {
 	var e *RateLimitError
 	return errors.As(err, &e)
