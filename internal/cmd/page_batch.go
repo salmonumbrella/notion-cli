@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 type batchPageSpec struct {
@@ -101,7 +100,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 			parent, err := resolvePageParent(ctx, client, parentID, parentType, dataSourceID)
 			if err != nil {
 				return err
@@ -140,7 +139,7 @@ Example:
 				created = append(created, page)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if continueOnError && len(errors) > 0 {
 				return printer.Print(ctx, map[string]interface{}{
 					"pages":  created,
@@ -214,7 +213,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			var updated []*notion.Page
 			var errors []map[string]interface{}
@@ -269,7 +268,7 @@ Example:
 				updated = append(updated, page)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if continueOnError && len(errors) > 0 {
 				return printer.Print(ctx, map[string]interface{}{
 					"pages":  updated,

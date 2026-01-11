@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -56,7 +55,7 @@ Example:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Get block
 			block, err := client.GetBlock(ctx, blockID)
@@ -65,7 +64,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, block)
 		},
 	}
@@ -112,7 +111,7 @@ Example:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -143,7 +142,7 @@ Example:
 				}
 
 				// Print all results
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				return printer.Print(ctx, allBlocks)
 			}
 
@@ -164,7 +163,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, blockList)
 		},
 	}
@@ -260,7 +259,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Build request
 			req := &notion.AppendBlockChildrenRequest{
@@ -275,7 +274,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, blockList)
 		},
 	}
@@ -385,7 +384,7 @@ Example of updating a paragraph block:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			if dryRun {
 				// Fetch current block to show what would be updated
@@ -394,7 +393,7 @@ Example of updating a paragraph block:
 					return fmt.Errorf("failed to fetch block: %w", err)
 				}
 
-				printer := NewDryRunPrinter(os.Stderr)
+				printer := NewDryRunPrinter(stderrFromContext(ctx))
 				printer.Header("update", "block", blockID)
 				printer.Field("Type", currentBlock.Type)
 
@@ -411,7 +410,7 @@ Example of updating a paragraph block:
 				if contentJSON != "" {
 					printer.Section("Content to update:")
 					contentBytes, _ := json.MarshalIndent(content, "  ", "  ")
-					fmt.Fprintf(os.Stderr, "  %s\n", string(contentBytes))
+					_, _ = fmt.Fprintf(stderrFromContext(ctx), "  %s\n", string(contentBytes))
 				}
 
 				printer.Footer()
@@ -442,7 +441,7 @@ Example of updating a paragraph block:
 					if unarchiveErr != nil {
 						return fmt.Errorf("failed to update block (block is archived and auto-unarchive failed): %w", unarchiveErr)
 					}
-					fmt.Fprintf(os.Stderr, "Block was archived, auto-unarchived to apply update\n")
+					_, _ = fmt.Fprintf(stderrFromContext(ctx), "Block was archived, auto-unarchived to apply update\n")
 
 					// Retry the original update
 					block, err = client.UpdateBlock(ctx, blockID, req)
@@ -455,7 +454,7 @@ Example of updating a paragraph block:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, block)
 		},
 	}
@@ -497,7 +496,7 @@ Example:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			if dryRun {
 				// Fetch current block to show what would be deleted
@@ -506,7 +505,7 @@ Example:
 					return fmt.Errorf("failed to fetch block: %w", err)
 				}
 
-				printer := NewDryRunPrinter(os.Stderr)
+				printer := NewDryRunPrinter(stderrFromContext(ctx))
 				printer.Header("delete", "block", blockID)
 				printer.Field("Type", block.Type)
 				printer.Field("Archived", fmt.Sprintf("%t", block.Archived))
@@ -544,7 +543,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, block)
 		},
 	}
@@ -594,7 +593,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewTableOfContents(color)
 
@@ -607,7 +606,7 @@ Example:
 				return fmt.Errorf("failed to add table of contents: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -640,7 +639,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewBreadcrumb()
 
@@ -653,7 +652,7 @@ Example:
 				return fmt.Errorf("failed to add breadcrumb: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -681,7 +680,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewDivider()
 
@@ -694,7 +693,7 @@ Example:
 				return fmt.Errorf("failed to add divider: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -731,7 +730,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Create columns with placeholder content
 			columns := make([][]map[string]interface{}, columnCount)
@@ -752,7 +751,7 @@ Example:
 				return fmt.Errorf("failed to add columns: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}

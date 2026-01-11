@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -47,7 +46,7 @@ Example:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Get user
 			user, err := client.GetUser(ctx, userID)
@@ -56,7 +55,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, user)
 		},
 	}
@@ -102,7 +101,7 @@ Example:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -138,7 +137,7 @@ Example:
 				}
 
 				// Print all results
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				if resultsOnly || format == output.FormatTable {
 					return printer.Print(ctx, allUsers)
 				}
@@ -166,7 +165,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if resultsOnly || format == output.FormatTable {
 				return printer.Print(ctx, userList.Results)
 			}
@@ -203,7 +202,7 @@ Example:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Get self
 			user, err := client.GetSelf(ctx)
@@ -212,7 +211,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, user)
 		},
 	}

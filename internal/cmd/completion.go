@@ -1,10 +1,6 @@
 package cmd
 
-import (
-	"os"
-
-	"github.com/spf13/cobra"
-)
+import "github.com/spf13/cobra"
 
 func newCompletionCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -69,7 +65,7 @@ macOS:
 You will need to start a new shell for this setup to take effect.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Root().GenBashCompletion(os.Stdout)
+			return cmd.Root().GenBashCompletion(stdoutFromContext(cmd.Context()))
 		},
 	}
 }
@@ -91,7 +87,7 @@ To load completions for every new session, execute once:
 You will need to start a new shell for this setup to take effect.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Root().GenZshCompletion(os.Stdout)
+			return cmd.Root().GenZshCompletion(stdoutFromContext(cmd.Context()))
 		},
 	}
 }
@@ -113,7 +109,7 @@ To load completions for every new session, execute once:
 You will need to start a new shell for this setup to take effect.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Root().GenFishCompletion(os.Stdout, true)
+			return cmd.Root().GenFishCompletion(stdoutFromContext(cmd.Context()), true)
 		},
 	}
 }
@@ -135,7 +131,7 @@ To load completions for every new session, execute once:
 and source this file from your PowerShell profile.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			return cmd.Root().GenPowerShellCompletionWithDesc(stdoutFromContext(cmd.Context()))
 		},
 	}
 }

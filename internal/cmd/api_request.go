@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 func newAPIRequestCmd() *cobra.Command {
@@ -63,7 +61,7 @@ Examples:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			if paginate {
 				return runPaginatedAPIRequest(ctx, client, method, path, bodyBytes, customHeaders, raw, includeHeaders)
@@ -138,7 +136,7 @@ func runPaginatedAPIRequest(ctx context.Context, client *notion.Client, method, 
 
 	if raw {
 		if len(allResults) > 0 {
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, allResults)
 		}
 		return renderAPIResponse(ctx, lastResponse, raw, includeHeaders)
@@ -149,7 +147,7 @@ func runPaginatedAPIRequest(ctx context.Context, client *notion.Client, method, 
 			"results":  allResults,
 			"has_more": false,
 		}, includeHeaders)
-		printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+		printer := printerForContext(ctx)
 		return printer.Print(ctx, envelope)
 	}
 
@@ -164,15 +162,15 @@ func renderAPIResponse(ctx context.Context, resp *notion.RawResponse, raw bool, 
 	bodyPayload, isJSON := decodeJSONBody(resp.Body)
 	if raw {
 		if isJSON {
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, bodyPayload)
 		}
-		_, _ = fmt.Fprintln(os.Stdout, string(resp.Body))
+		_, _ = fmt.Fprintln(stdoutFromContext(ctx), string(resp.Body))
 		return nil
 	}
 
 	envelope := buildAPIEnvelope(resp, bodyPayload, includeHeaders)
-	printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+	printer := printerForContext(ctx)
 	return printer.Print(ctx, envelope)
 }
 

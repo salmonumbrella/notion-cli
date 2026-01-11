@@ -29,6 +29,7 @@ func newConfigShowCmd() *cobra.Command {
 		Short: "Display current configuration",
 		Long:  `Display the current configuration from ~/.config/notion-cli/config.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := stdoutFromContext(cmd.Context())
 			cfg, err := config.Load()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
@@ -43,13 +44,13 @@ func newConfigShowCmd() *cobra.Command {
 			// If config is empty, show a helpful message
 			if len(data) == 0 || string(data) == "{}\n" {
 				path, _ := config.DefaultConfigPath()
-				fmt.Printf("No configuration file found at %s\n", path)
-				fmt.Println("\nTo create a config file, use:")
-				fmt.Println("  notion config set output json")
+				_, _ = fmt.Fprintf(out, "No configuration file found at %s\n", path)
+				_, _ = fmt.Fprintln(out, "\nTo create a config file, use:")
+				_, _ = fmt.Fprintln(out, "  notion config set output json")
 				return nil
 			}
 
-			fmt.Print(string(data))
+			_, _ = fmt.Fprint(out, string(data))
 			return nil
 		},
 	}
@@ -72,6 +73,7 @@ Examples:
   notion config set default_workspace personal`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := stdoutFromContext(cmd.Context())
 			key := args[0]
 			value := args[1]
 
@@ -108,7 +110,7 @@ Examples:
 			}
 
 			path, _ := config.DefaultConfigPath()
-			fmt.Printf("Set %s = %s in %s\n", key, value, path)
+			_, _ = fmt.Fprintf(out, "Set %s = %s in %s\n", key, value, path)
 			return nil
 		},
 	}
@@ -120,18 +122,19 @@ func newConfigPathCmd() *cobra.Command {
 		Short: "Show configuration file path",
 		Long:  `Display the path to the configuration file`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := stdoutFromContext(cmd.Context())
 			path, err := config.DefaultConfigPath()
 			if err != nil {
 				return fmt.Errorf("failed to determine config path: %w", err)
 			}
 
-			fmt.Println(path)
+			_, _ = fmt.Fprintln(out, path)
 
 			// Show if file exists
 			if _, err := os.Stat(path); err == nil {
-				fmt.Println("(file exists)")
+				_, _ = fmt.Fprintln(out, "(file exists)")
 			} else if os.IsNotExist(err) {
-				fmt.Println("(file does not exist)")
+				_, _ = fmt.Fprintln(out, "(file does not exist)")
 			}
 
 			return nil

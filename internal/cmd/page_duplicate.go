@@ -3,12 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 var readOnlyPropertyTypes = map[string]bool{
@@ -69,7 +67,7 @@ Use --no-children to skip block duplication.`,
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			sourcePage, err := client.GetPage(ctx, sourceID)
 			if err != nil {
@@ -122,7 +120,7 @@ Use --no-children to skip block duplication.`,
 				}
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, createdPage)
 		},
 	}
@@ -212,7 +210,7 @@ func buildBlockTree(ctx context.Context, client *notion.Client, blockID string) 
 	for i := range blocks {
 		block := blocks[i]
 		if unsupportedBlockTypes[block.Type] {
-			fmt.Fprintf(os.Stderr, "warning: skipping unsupported block type %q (%s)\n", block.Type, block.ID)
+			_, _ = fmt.Fprintf(stderrFromContext(ctx), "warning: skipping unsupported block type %q (%s)\n", block.Type, block.ID)
 			continue
 		}
 

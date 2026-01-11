@@ -3,13 +3,11 @@ package cmd
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 func newFetchCmd() *cobra.Command {
@@ -38,14 +36,14 @@ Examples:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			switch strings.ToLower(strings.TrimSpace(fetchType)) {
 			case "", "auto":
 				// Try page first, then database
 				page, err := client.GetPage(ctx, id)
 				if err == nil {
-					printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+					printer := printerForContext(ctx)
 					return printer.Print(ctx, page)
 				}
 				if apiErr, ok := err.(*notion.APIError); !ok || apiErr.StatusCode != http.StatusNotFound {
@@ -56,21 +54,21 @@ Examples:
 				if err != nil {
 					return fmt.Errorf("failed to fetch database: %w", err)
 				}
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				return printer.Print(ctx, db)
 			case "page":
 				page, err := client.GetPage(ctx, id)
 				if err != nil {
 					return fmt.Errorf("failed to fetch page: %w", err)
 				}
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				return printer.Print(ctx, page)
 			case "database":
 				db, err := client.GetDatabase(ctx, id)
 				if err != nil {
 					return fmt.Errorf("failed to fetch database: %w", err)
 				}
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				return printer.Print(ctx, db)
 			default:
 				return fmt.Errorf("invalid --type %q (expected page, database, or auto)", fetchType)

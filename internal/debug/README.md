@@ -73,7 +73,7 @@ Or use the helper function from the cmd package:
 import "github.com/salmonumbrella/notion-cli/internal/cmd"
 
 // Automatically enables debug if --debug flag was set
-client := cmd.NewNotionClient(token)
+client := cmd.NewNotionClient(ctx, token)
 ```
 
 ## Output Format

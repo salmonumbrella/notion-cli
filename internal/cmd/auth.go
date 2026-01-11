@@ -18,7 +18,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/salmonumbrella/notion-cli/internal/auth"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 const (
@@ -186,12 +185,12 @@ If browser-based authentication fails, you can use 'notion auth add-token'
 to manually enter an integration token.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOAuthLogin()
+			return runOAuthLogin(cmd.Context())
 		},
 	}
 }
 
-func runOAuthLogin() error {
+func runOAuthLogin(ctx context.Context) error {
 	// Generate state for CSRF protection
 	state, err := generateState()
 	if err != nil {
@@ -280,28 +279,28 @@ func runOAuthLogin() error {
 	)
 
 	// Open browser
-	fmt.Fprintln(os.Stderr, "Opening browser to authorize notion-cli...")
-	fmt.Fprintln(os.Stderr)
+	_, _ = fmt.Fprintln(stderrFromContext(ctx), "Opening browser to authorize notion-cli...")
+	_, _ = fmt.Fprintln(stderrFromContext(ctx))
 	if err := openBrowser(authURL); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not open browser. Please visit:\n%s\n\n", authURL)
+		_, _ = fmt.Fprintf(stderrFromContext(ctx), "Could not open browser. Please visit:\n%s\n\n", authURL)
 	}
 
-	fmt.Fprintln(os.Stderr, "Waiting for authorization...")
+	_, _ = fmt.Fprintln(stderrFromContext(ctx), "Waiting for authorization...")
 
 	// Wait for token or timeout
 	select {
 	case token := <-tokenCh:
-		return storeOAuthToken(token)
+		return storeOAuthToken(ctx, token)
 	case err := <-errCh:
 		return err
 	case <-time.After(CallbackTimeout):
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Timed out waiting for authorization.")
-		fmt.Fprintln(os.Stderr, "If you completed authorization, you can paste the token manually.")
-		fmt.Fprint(os.Stderr, "Enter token (or press Enter to cancel): ")
+		_, _ = fmt.Fprintln(stderrFromContext(ctx))
+		_, _ = fmt.Fprintln(stderrFromContext(ctx), "Timed out waiting for authorization.")
+		_, _ = fmt.Fprintln(stderrFromContext(ctx), "If you completed authorization, you can paste the token manually.")
+		_, _ = fmt.Fprint(stderrFromContext(ctx), "Enter token (or press Enter to cancel): ")
 
 		tokenBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Fprintln(os.Stderr)
+		_, _ = fmt.Fprintln(stderrFromContext(ctx))
 		if err != nil {
 			return fmt.Errorf("failed to read token: %w", err)
 		}
@@ -311,11 +310,11 @@ func runOAuthLogin() error {
 			return fmt.Errorf("authorization timed out")
 		}
 
-		return storeOAuthToken(token)
+		return storeOAuthToken(ctx, token)
 	}
 }
 
-func storeOAuthToken(token string) error {
+func storeOAuthToken(ctx context.Context, token string) error {
 	// Validate token format
 	if !isValidNotionTokenFormat(token) {
 		return fmt.Errorf("invalid token format")
@@ -329,12 +328,11 @@ func storeOAuthToken(token string) error {
 	// Store auth source for backwards compatibility
 	if err := auth.StoreAuthSource(auth.SourceOAuth); err != nil {
 		// Non-fatal, continue
-		fmt.Fprintf(os.Stderr, "Warning: could not store auth source: %v\n", err)
+		_, _ = fmt.Fprintf(stderrFromContext(ctx), "Warning: could not store auth source: %v\n", err)
 	}
 
 	// Fetch and store user info
-	ctx := context.Background()
-	client := NewNotionClient(token)
+	client := NewNotionClient(ctx, token)
 	user, err := client.GetSelf(ctx)
 
 	var userInfo *auth.UserInfo
@@ -352,13 +350,13 @@ func storeOAuthToken(token string) error {
 	}
 
 	// Print success
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Successfully logged in!")
+	_, _ = fmt.Fprintln(stderrFromContext(ctx))
+	_, _ = fmt.Fprintln(stderrFromContext(ctx), "Successfully logged in!")
 	if userInfo != nil {
 		if userInfo.Email != "" {
-			fmt.Fprintf(os.Stderr, "Logged in as: %s (%s)\n", userInfo.Name, userInfo.Email)
+			_, _ = fmt.Fprintf(stderrFromContext(ctx), "Logged in as: %s (%s)\n", userInfo.Name, userInfo.Email)
 		} else {
-			fmt.Fprintf(os.Stderr, "Logged in as: %s\n", userInfo.Name)
+			_, _ = fmt.Fprintf(stderrFromContext(ctx), "Logged in as: %s\n", userInfo.Name)
 		}
 	}
 
@@ -407,15 +405,16 @@ You will be prompted to enter your token interactively. Input will be hidden.
 Get your internal integration token from: https://www.notion.so/my-integrations`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			// Prompt for token (use stderr for prompts so stdout is clean)
-			fmt.Fprint(os.Stderr, "Enter your Notion API token: ")
+			_, _ = fmt.Fprint(stderrFromContext(ctx), "Enter your Notion API token: ")
 
 			// Read token with hidden input
 			tokenBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 			if err != nil {
 				return fmt.Errorf("failed to read token: %w", err)
 			}
-			fmt.Fprintln(os.Stderr) // Print newline after hidden input
+			_, _ = fmt.Fprintln(stderrFromContext(ctx)) // Print newline after hidden input
 
 			// Trim whitespace
 			token := strings.TrimSpace(string(tokenBytes))
@@ -436,12 +435,11 @@ Get your internal integration token from: https://www.notion.so/my-integrations`
 			// Store auth source as internal integration for backwards compatibility
 			if err := auth.StoreAuthSource(auth.SourceInternal); err != nil {
 				// Non-fatal
-				fmt.Fprintf(os.Stderr, "Warning: could not store auth source: %v\n", err)
+				_, _ = fmt.Fprintf(stderrFromContext(ctx), "Warning: could not store auth source: %v\n", err)
 			}
 
 			// Fetch and store user info
-			ctx := context.Background()
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 			user, err := client.GetSelf(ctx)
 
 			var userInfo *auth.UserInfo
@@ -459,7 +457,7 @@ Get your internal integration token from: https://www.notion.so/my-integrations`
 			}
 
 			// Print success message
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			result := map[string]interface{}{
 				"status":  "success",
 				"message": "Token stored successfully in keyring",
@@ -502,6 +500,7 @@ Shows:
 Does not display the actual token value.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			// Check if token is available
 			hasToken := auth.HasToken()
 
@@ -573,8 +572,8 @@ Does not display the actual token value.`,
 				result["user"] = user
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-			return printer.Print(cmd.Context(), result)
+			printer := printerForContext(ctx)
+			return printer.Print(ctx, result)
 		},
 	}
 }
@@ -594,19 +593,20 @@ Note: If you have set the NOTION_TOKEN environment variable,
 you will need to unset it separately.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			// Delete token from keyring
 			if err := auth.DeleteToken(); err != nil {
 				return fmt.Errorf("failed to remove token: %w", err)
 			}
 
 			// Print success message
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			result := map[string]interface{}{
 				"status":  "success",
 				"message": "Logged out successfully",
 			}
 
-			return printer.Print(cmd.Context(), result)
+			return printer.Print(ctx, result)
 		},
 	}
 }

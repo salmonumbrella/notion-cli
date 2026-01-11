@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 func newBlockAddCmd() *cobra.Command {
@@ -53,7 +51,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewParagraph(text)
 			req := &notion.AppendBlockChildrenRequest{
@@ -65,7 +63,7 @@ Example:
 				return fmt.Errorf("failed to add paragraph: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -102,7 +100,7 @@ Examples:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			var block map[string]interface{}
 			switch level {
@@ -123,7 +121,7 @@ Examples:
 				return fmt.Errorf("failed to add heading: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -155,7 +153,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewBulletedListItem(text)
 			req := &notion.AppendBlockChildrenRequest{
@@ -167,7 +165,7 @@ Example:
 				return fmt.Errorf("failed to add bulleted list item: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -196,7 +194,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewNumberedListItem(text)
 			req := &notion.AppendBlockChildrenRequest{
@@ -208,7 +206,7 @@ Example:
 				return fmt.Errorf("failed to add numbered list item: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -240,7 +238,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Note: Toggle blocks in Notion API are toggle_list_item blocks
 			block := map[string]interface{}{
@@ -266,7 +264,7 @@ Example:
 				return fmt.Errorf("failed to add toggle: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -295,7 +293,7 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewQuote(text)
 			req := &notion.AppendBlockChildrenRequest{
@@ -307,7 +305,7 @@ Example:
 				return fmt.Errorf("failed to add quote: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -339,7 +337,7 @@ Examples:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewCallout(text, emoji)
 			req := &notion.AppendBlockChildrenRequest{
@@ -351,7 +349,7 @@ Examples:
 				return fmt.Errorf("failed to add callout: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -387,7 +385,7 @@ Examples:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewCode(code, language)
 			req := &notion.AppendBlockChildrenRequest{
@@ -399,7 +397,7 @@ Examples:
 				return fmt.Errorf("failed to add code block: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -434,7 +432,7 @@ Examples:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			block := notion.NewToDo(text, checked)
 			req := &notion.AppendBlockChildrenRequest{
@@ -446,7 +444,7 @@ Examples:
 				return fmt.Errorf("failed to add to-do: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}

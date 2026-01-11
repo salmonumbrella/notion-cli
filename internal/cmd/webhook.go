@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 func newWebhookCmd() *cobra.Command {
@@ -46,7 +45,7 @@ If --signature is omitted, this command prints the computed signature for the pa
 			}
 
 			ctx := cmd.Context()
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 
 			if signature == "" {
 				return printer.Print(ctx, map[string]interface{}{
@@ -85,7 +84,7 @@ func newWebhookParseCmd() *cobra.Command {
 			}
 
 			ctx := cmd.Context()
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 
 			if notion.IsVerificationRequest(payload) {
 				req, err := notion.ParseWebhookVerification(payload)

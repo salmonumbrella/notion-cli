@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -11,149 +13,143 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/auth"
 	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/salmonumbrella/notion-cli/internal/debug"
+	"github.com/salmonumbrella/notion-cli/internal/iocontext"
 	"github.com/salmonumbrella/notion-cli/internal/logging"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
+	"github.com/salmonumbrella/notion-cli/internal/ui"
 )
 
-var (
+func newRootCmd(app *App) *cobra.Command {
 	// Global flags
-	outputFormat  output.Format
-	debugMode     bool
-	workspaceName string
-	queryFile     string
+	var (
+		debugMode     bool
+		workspaceName string
+		queryFile     string
+		errorFormat   string
+		quietFlag     bool
 
-	// Agent-friendly flags
-	yesFlag   bool
-	limitFlag int
-	sortBy    string
-	descFlag  bool
-	quietFlag bool
+		// Agent-friendly flags
+		yesFlag   bool
+		limitFlag int
+		sortBy    string
+		descFlag  bool
+	)
 
-	// Version information
-	version   = "dev"
-	commit    = "unknown"
-	buildTime = "unknown"
+	rootCmd := &cobra.Command{
+		Use:   "notion",
+		Short: "CLI for Notion API",
+		Long:  `A command-line interface for interacting with the Notion API`,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Ensure Cobra doesn't emit its own error text; we handle error output centrally.
+			cmd.SilenceErrors = true
 
-	// Error output format
-	errorFormat string
-)
+			// Configure slog based on debug flag
+			logging.Setup(debugMode, app.Stderr)
 
-var rootCmd = &cobra.Command{
-	Use:   "notion",
-	Short: "CLI for Notion API",
-	Long:  `A command-line interface for interacting with the Notion API`,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Ensure Cobra doesn't emit its own error text; we handle error output centrally.
-		cmd.SilenceErrors = true
-
-		// Configure slog based on debug flag
-		logging.Setup(debugMode, os.Stderr)
-
-		// Load config file (skip for config commands to avoid recursion)
-		var cfg *config.Config
-		if cmd.Name() != "config" && (cmd.Parent() == nil || cmd.Parent().Name() != "config") {
-			loadedCfg, err := config.Load()
-			if err != nil {
-				return fmt.Errorf("failed to load config: %w", err)
+			// Load config file (skip for config commands to avoid recursion)
+			var cfg *config.Config
+			if cmd.Name() != "config" && (cmd.Parent() == nil || cmd.Parent().Name() != "config") {
+				loadedCfg, err := config.Load()
+				if err != nil {
+					return fmt.Errorf("failed to load config: %w", err)
+				}
+				cfg = loadedCfg
+			} else {
+				cfg = &config.Config{}
 			}
-			cfg = loadedCfg
-		} else {
-			cfg = &config.Config{}
-		}
 
-		// Determine workspace: flag > env var > config default
-		ws := workspaceName
-		if ws == "" {
-			ws = os.Getenv("NOTION_WORKSPACE")
-		}
-
-		// Get output format from flag or config file
-		// Priority: --format (alias) > --output > config file > default
-		formatStr, _ := cmd.Flags().GetString("output")
-		if cmd.Flags().Changed("format") {
-			// --format alias takes precedence if explicitly used
-			formatStr, _ = cmd.Flags().GetString("format")
-		} else if !cmd.Flags().Changed("output") && cfg.GetOutput() != "" {
-			// Fall back to config file default
-			formatStr = cfg.GetOutput()
-		} else if !cmd.Flags().Changed("output") {
-			// Default to JSON when stdout is not a TTY (agent-friendly)
-			if !term.IsTerminal(int(os.Stdout.Fd())) {
-				formatStr = string(output.FormatJSON)
+			// Determine workspace: flag > env var > config default
+			ws := workspaceName
+			if ws == "" {
+				ws = os.Getenv("NOTION_WORKSPACE")
 			}
-		}
 
-		// Parse and validate output format
-		format, err := output.ParseFormat(formatStr)
-		if err != nil {
-			return err
-		}
-
-		// Store format in both global var (for backwards compatibility)
-		// and context (new pattern for dependency injection)
-		outputFormat = format
-
-		// In non-interactive JSON/YAML output, suppress non-essential warnings by default.
-		if !cmd.Flags().Changed("quiet") && !term.IsTerminal(int(os.Stdout.Fd())) {
-			switch format {
-			case output.FormatJSON, output.FormatNDJSON, output.FormatYAML:
-				quietFlag = true
+			// Get output format from flag or config file
+			// Priority: --format (alias) > --output > config file > default
+			formatStr, _ := cmd.Flags().GetString("output")
+			if cmd.Flags().Changed("format") {
+				// --format alias takes precedence if explicitly used
+				formatStr, _ = cmd.Flags().GetString("format")
+			} else if !cmd.Flags().Changed("output") && cfg.GetOutput() != "" {
+				// Fall back to config file default
+				formatStr = cfg.GetOutput()
+			} else if !cmd.Flags().Changed("output") {
+				// Default to JSON when stdout is not a TTY (agent-friendly)
+				if !isTerminal(app.Stdout) {
+					formatStr = string(output.FormatJSON)
+				}
 			}
-		}
 
-		// Get jq query from flags
-		query, _ := cmd.Flags().GetString("query")
-		queryFileFlag, _ := cmd.Flags().GetString("query-file")
-		if query != "" && queryFileFlag != "" {
-			return fmt.Errorf("use only one of --query or --query-file")
-		}
-		if queryFileFlag != "" {
-			loaded, err := readInputSource(queryFileFlag)
+			// Parse and validate output format
+			format, err := output.ParseFormat(formatStr)
 			if err != nil {
 				return err
 			}
-			query = loaded
-		}
 
-		// Inject format, debug mode, query, and workspace into context so subcommands can access them
-		ctx := output.WithFormat(cmd.Context(), format)
-		ctx = output.WithQuery(ctx, query)
-		ctx = debug.WithDebug(ctx, debugMode)
-		ctx = WithWorkspace(ctx, ws)
+			// In non-interactive JSON/YAML output, suppress non-essential warnings by default.
+			if !cmd.Flags().Changed("quiet") && !isTerminal(app.Stdout) {
+				switch format {
+				case output.FormatJSON, output.FormatNDJSON, output.FormatYAML:
+					quietFlag = true
+				}
+			}
 
-		// Inject agent-friendly flags into context
-		ctx = output.WithYes(ctx, yesFlag)
-		ctx = output.WithLimit(ctx, limitFlag)
-		ctx = output.WithSort(ctx, sortBy, descFlag)
-		ctx = output.WithQuiet(ctx, quietFlag)
+			// Get jq query from flags
+			query, _ := cmd.Flags().GetString("query")
+			queryFileFlag, _ := cmd.Flags().GetString("query-file")
+			if query != "" && queryFileFlag != "" {
+				return fmt.Errorf("use only one of --query or --query-file")
+			}
+			if queryFileFlag != "" {
+				loaded, err := readInputSource(queryFileFlag)
+				if err != nil {
+					return err
+				}
+				query = loaded
+			}
 
-		cmd.SetContext(ctx)
+			// Inject format, debug mode, query, and workspace into context so subcommands can access them
+			ctx := cmd.Context()
+			ctx = iocontext.WithIO(ctx, app.Stdout, app.Stderr)
+			ctx = output.WithFormat(ctx, format)
+			ctx = output.WithQuery(ctx, query)
+			ctx = debug.WithDebug(ctx, debugMode)
+			ctx = WithWorkspace(ctx, ws)
 
-		// Check token age and warn if old (skip for auth and config commands)
-		skipCommands := map[string]bool{"auth": true, "config": true}
-		if !skipCommands[cmd.Name()] && (cmd.Parent() == nil || !skipCommands[cmd.Parent().Name()]) {
-			checkTokenAgeAndWarn(quietFlag)
-		}
+			// Inject agent-friendly flags into context
+			ctx = output.WithYes(ctx, yesFlag)
+			ctx = output.WithLimit(ctx, limitFlag)
+			ctx = output.WithSort(ctx, sortBy, descFlag)
+			ctx = output.WithQuiet(ctx, quietFlag)
+			ctx = WithErrorFormat(ctx, errorFormat)
+			ctx = ui.WithUI(ctx, ui.New(parseColorMode(cfg.GetColor())))
 
-		if err := validateErrorFormat(errorFormat); err != nil {
-			return err
-		}
+			cmd.SetContext(ctx)
 
-		// Suppress Cobra's default usage output when emitting structured errors.
-		// We handle error printing ourselves to keep machine-readable output clean.
-		if effectiveErrorFormat() != "text" {
-			cmd.SilenceUsage = true
-		}
+			// Check token age and warn if old (skip for auth and config commands)
+			skipCommands := map[string]bool{"auth": true, "config": true}
+			if !skipCommands[cmd.Name()] && (cmd.Parent() == nil || !skipCommands[cmd.Parent().Name()]) {
+				checkTokenAgeAndWarn(ctx, quietFlag)
+			}
 
-		return nil
-	},
-}
+			if err := validateErrorFormat(errorFormat); err != nil {
+				return err
+			}
 
-func init() {
+			// Suppress Cobra's default usage output when emitting structured errors.
+			// We handle error printing ourselves to keep machine-readable output clean.
+			if effectiveErrorFormat(ctx) != "text" {
+				cmd.SilenceUsage = true
+			}
+
+			return nil
+		},
+	}
+
 	// Set version info
-	rootCmd.Version = version
-	rootCmd.SetVersionTemplate(fmt.Sprintf("notion-cli %s (commit: %s, built: %s)\n", version, commit, buildTime))
+	rootCmd.Version = app.Version
+	rootCmd.SetVersionTemplate(fmt.Sprintf("notion-cli %s (commit: %s, built: %s)\n", app.Version, app.Commit, app.BuildTime))
 
 	// Global flags
 	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format (text|json|ndjson|table|yaml)")
@@ -190,11 +186,13 @@ func init() {
 	rootCmd.AddCommand(newWebhookCmd())
 	rootCmd.AddCommand(newCompletionCmd())
 	rootCmd.AddCommand(newAPICmd())
+
+	return rootCmd
 }
 
 // checkTokenAgeAndWarn checks if the token is older than the rotation threshold
 // and prints a warning to stderr if it is. This is non-blocking.
-func checkTokenAgeAndWarn(quiet bool) {
+func checkTokenAgeAndWarn(ctx context.Context, quiet bool) {
 	if quiet {
 		return
 	}
@@ -212,44 +210,15 @@ func checkTokenAgeAndWarn(quiet bool) {
 	// Check if token is old and warn
 	if auth.IsTokenExpiringSoon(metadata.CreatedAt) {
 		age := auth.TokenAgeDays(metadata.CreatedAt)
-		fmt.Fprintf(os.Stderr, "Warning: Your API token is %d days old. Consider rotating it for security.\n", age)
+		_, _ = fmt.Fprintf(stderrFromContext(ctx), "Warning: Your API token is %d days old. Consider rotating it for security.\n", age)
 	}
 }
 
-// Execute runs the root command with context for graceful shutdown
-func Execute(ctx context.Context, args []string) error {
-	rootCmd.SetArgs(args)
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		printCommandError(err)
-		return err
-	}
-	return nil
-}
-
-// GetOutputFormat returns the current output format for use by subcommands
-func GetOutputFormat() output.Format {
-	return outputFormat
-}
-
-// SetVersionInfo sets the version information for the CLI
-func SetVersionInfo(v, c, b string) {
-	version = v
-	commit = c
-	buildTime = b
-	rootCmd.Version = v
-	rootCmd.SetVersionTemplate(fmt.Sprintf("notion-cli %s (commit: %s, built: %s)\n", v, c, b))
-}
-
-// GetDebugMode returns true if debug mode is enabled
-func GetDebugMode() bool {
-	return debugMode
-}
-
-// NewNotionClient creates a new Notion API client with debug mode enabled if the --debug flag was set
-func NewNotionClient(token string) *notion.Client {
+// NewNotionClient creates a new Notion API client with debug mode enabled if the --debug flag was set.
+func NewNotionClient(ctx context.Context, token string) *notion.Client {
 	client := notion.NewClient(token)
-	if debugMode {
-		client.WithDebug()
+	if debug.IsDebug(ctx) {
+		client.WithDebugOutput(stderrFromContext(ctx))
 	}
 	return client
 }
@@ -265,4 +234,23 @@ func GetTokenFromContext(ctx context.Context) (string, error) {
 	}
 	// Fall back to default token (keyring or env var)
 	return auth.GetWorkspaceToken("")
+}
+
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	return term.IsTerminal(int(f.Fd()))
+}
+
+func parseColorMode(value string) ui.ColorMode {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "always":
+		return ui.ColorAlways
+	case "never":
+		return ui.ColorNever
+	default:
+		return ui.ColorAuto
+	}
 }

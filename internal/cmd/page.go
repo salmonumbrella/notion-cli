@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/salmonumbrella/notion-cli/internal/richtext"
 )
 
@@ -57,16 +55,16 @@ Example:
 			if err != nil {
 				return err
 			}
+			ctx := cmd.Context()
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Get page
 			page, err := client.GetPage(ctx, pageID)
@@ -80,7 +78,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, page)
 		},
 	}
@@ -116,7 +114,7 @@ Examples:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
@@ -166,7 +164,7 @@ Examples:
 				return rows[i]["name"].(string) < rows[j]["name"].(string)
 			})
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, rows)
 		},
 	}
@@ -287,7 +285,7 @@ Examples:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			parent, err := resolvePageParent(ctx, client, parentID, parentType, dataSourceID)
 			if err != nil {
@@ -307,7 +305,7 @@ Examples:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, page)
 		},
 	}
@@ -410,21 +408,22 @@ Combined example (all flags together):
 				}
 			}
 
+			ctx := cmd.Context()
+
 			// Transform string shorthand values to rich_text arrays with mentions
 			// Applies when --mention flags are provided OR --rich-text flag is set
 			if (len(mentions) > 0 || richText) && properties != nil {
-				properties, _ = transformPropertiesWithMentionsVerbose(os.Stderr, properties, mentions, verbose, len(mentions) > 0)
+				properties, _ = transformPropertiesWithMentionsVerbose(stderrFromContext(ctx), properties, mentions, verbose, len(mentions) > 0)
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			if dryRun {
 				// Fetch current page to show what would be updated
@@ -433,7 +432,7 @@ Combined example (all flags together):
 					return fmt.Errorf("failed to fetch page: %w", err)
 				}
 
-				printer := NewDryRunPrinter(os.Stderr)
+				printer := NewDryRunPrinter(stderrFromContext(ctx))
 				printer.Header("update", "page", pageID)
 
 				// Show archived status change if applicable
@@ -449,7 +448,7 @@ Combined example (all flags together):
 				if propertiesJSON != "" {
 					printer.Section("Properties to update:")
 					for propName := range properties {
-						fmt.Fprintf(os.Stderr, "  - %s\n", propName)
+						_, _ = fmt.Fprintf(stderrFromContext(ctx), "  - %s\n", propName)
 					}
 
 					// Show current values for properties being updated
@@ -457,16 +456,16 @@ Combined example (all flags together):
 					for propName := range properties {
 						if currentVal, ok := currentPage.Properties[propName]; ok {
 							currentBytes, _ := json.Marshal(currentVal)
-							fmt.Fprintf(os.Stderr, "  %s: %s\n", propName, string(currentBytes))
+							_, _ = fmt.Fprintf(stderrFromContext(ctx), "  %s: %s\n", propName, string(currentBytes))
 						} else {
-							fmt.Fprintf(os.Stderr, "  %s: (not set)\n", propName)
+							_, _ = fmt.Fprintf(stderrFromContext(ctx), "  %s: (not set)\n", propName)
 						}
 					}
 
 					printer.Section("New property values:")
 					for propName, propVal := range properties {
 						newBytes, _ := json.Marshal(propVal)
-						fmt.Fprintf(os.Stderr, "  %s: %s\n", propName, string(newBytes))
+						_, _ = fmt.Fprintf(stderrFromContext(ctx), "  %s: %s\n", propName, string(newBytes))
 					}
 				}
 
@@ -493,7 +492,7 @@ Combined example (all flags together):
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, page)
 		},
 	}
@@ -657,7 +656,7 @@ Example:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Get property
 			property, err := client.GetPageProperty(ctx, pageID, propertyID)
@@ -666,7 +665,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, property)
 		},
 	}
@@ -729,7 +728,7 @@ Example - Move page to database:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			req := &notion.MovePageRequest{
 				Parent: map[string]interface{}{parentKey: parentID},
@@ -741,7 +740,7 @@ Example - Move page to database:
 				return fmt.Errorf("failed to move page: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, page)
 		},
 	}

@@ -85,7 +85,7 @@ Example - Upload and attach to page property:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Step 1: Create file upload
 			createReq := &notion.CreateFileUploadRequest{
@@ -140,7 +140,7 @@ Example - Upload and attach to page property:
 				}
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}
@@ -170,14 +170,14 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			upload, err := client.GetFileUpload(ctx, fileUploadID)
 			if err != nil {
 				return fmt.Errorf("failed to get file upload: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, upload)
 		},
 	}
@@ -205,7 +205,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			opts := &notion.ListFileUploadsOptions{
 				StartCursor: startCursor,
@@ -222,7 +222,7 @@ Example:
 				list.HasMore = true
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, list)
 		},
 	}

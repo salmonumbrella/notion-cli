@@ -22,8 +22,11 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer cancel()
 
-	cmd.SetVersionInfo(Version, Commit, BuildTime)
-	err := cmd.Execute(ctx, os.Args[1:])
+	app := cmd.NewApp()
+	app.Version = Version
+	app.Commit = Commit
+	app.BuildTime = BuildTime
+	err := app.Execute(ctx, os.Args[1:])
 
 	// Check for updates after command execution
 	if msg := update.Check(ctx, Version); msg != "" {

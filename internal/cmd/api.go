@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -38,7 +37,7 @@ Use --refresh to make a fresh API call and get updated rate limit info.`,
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			if refresh {
 				// Make a lightweight API call to get fresh rate limit info
@@ -49,17 +48,18 @@ Use --refresh to make a fresh API call and get updated rate limit info.`,
 			}
 
 			info := client.GetRateLimitInfo()
+			format := output.FormatFromContext(ctx)
 			if info == nil {
 				// Check output format - for JSON/YAML, output empty object
-				if GetOutputFormat() == output.FormatJSON || GetOutputFormat() == output.FormatYAML {
-					printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-					return printer.Print(ctx, map[string]interface{}{
+				if format == output.FormatJSON || format == output.FormatYAML {
+					return printerForContext(ctx).Print(ctx, map[string]interface{}{
 						"available": false,
 						"message":   "No rate limit information available. Make an API call first, or use --refresh to fetch fresh data.",
 					})
 				}
-				fmt.Println("No rate limit information available.")
-				fmt.Println("Make an API call first, or use --refresh to fetch fresh data.")
+				out := stdoutFromContext(ctx)
+				_, _ = fmt.Fprintln(out, "No rate limit information available.")
+				_, _ = fmt.Fprintln(out, "Make an API call first, or use --refresh to fetch fresh data.")
 				return nil
 			}
 
@@ -80,34 +80,34 @@ Use --refresh to make a fresh API call and get updated rate limit info.`,
 			}
 
 			// Check output format
-			if GetOutputFormat() == output.FormatJSON || GetOutputFormat() == output.FormatYAML {
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
-				return printer.Print(ctx, data)
+			if format == output.FormatJSON || format == output.FormatYAML {
+				return printerForContext(ctx).Print(ctx, data)
 			}
 
 			// Display rate limit info in text format
-			fmt.Printf("Rate Limit Status\n")
-			fmt.Printf("─────────────────\n")
-			fmt.Printf("Remaining:  %d / %d requests\n", info.Remaining, info.Limit)
+			out := stdoutFromContext(ctx)
+			_, _ = fmt.Fprintln(out, "Rate Limit Status")
+			_, _ = fmt.Fprintln(out, "─────────────────")
+			_, _ = fmt.Fprintf(out, "Remaining:  %d / %d requests\n", info.Remaining, info.Limit)
 
 			if !info.ResetAt.IsZero() {
 				remaining := time.Until(info.ResetAt)
 				if remaining > 0 {
-					fmt.Printf("Resets in:  %s\n", remaining.Round(time.Second))
+					_, _ = fmt.Fprintf(out, "Resets in:  %s\n", remaining.Round(time.Second))
 				} else {
-					fmt.Printf("Reset:      Already reset\n")
+					_, _ = fmt.Fprintln(out, "Reset:      Already reset")
 				}
 			}
 
 			if info.RequestID != "" {
-				fmt.Printf("Request ID: %s\n", info.RequestID)
+				_, _ = fmt.Fprintf(out, "Request ID: %s\n", info.RequestID)
 			}
 
 			// Warn if low
 			if info.Limit > 0 {
 				pct := float64(info.Remaining) / float64(info.Limit) * 100
 				if pct < 10 && !output.QuietFromContext(ctx) {
-					fmt.Printf("\nWarning: Rate limit is low (%.1f%% remaining)\n", pct)
+					_, _ = fmt.Fprintf(out, "\nWarning: Rate limit is low (%.1f%% remaining)\n", pct)
 				}
 			}
 

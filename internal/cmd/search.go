@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -116,7 +115,7 @@ Example - Fetch all results:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// If --all flag is set, fetch all pages
 			format := output.FormatFromContext(ctx)
@@ -156,7 +155,7 @@ Example - Fetch all results:
 					cursor = *result.NextCursor
 				}
 
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				if resultsOnly || format == output.FormatTable {
 					return printer.Print(ctx, allResults)
 				}
@@ -183,7 +182,7 @@ Example - Fetch all results:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if resultsOnly || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}

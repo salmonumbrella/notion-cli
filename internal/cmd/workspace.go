@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -40,15 +41,16 @@ func newWorkspaceListCmd() *cobra.Command {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
 
+			out := stdoutFromContext(cmd.Context())
 			if len(cfg.Workspaces) == 0 {
-				fmt.Println("No workspaces configured.")
-				fmt.Println("\nTo add a workspace, use:")
-				fmt.Println("  notion workspace add <name> --token-source <source>")
+				_, _ = fmt.Fprintln(out, "No workspaces configured.")
+				_, _ = fmt.Fprintln(out, "\nTo add a workspace, use:")
+				_, _ = fmt.Fprintln(out, "  notion workspace add <name> --token-source <source>")
 				return nil
 			}
 
 			// Create tabwriter for aligned columns
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+			w := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 			_, _ = fmt.Fprintln(w, "NAME\tTOKEN SOURCE\tDEFAULT")
 
 			// Print each workspace
@@ -92,6 +94,7 @@ Examples:
   notion workspace add test --token-source secret_abc123 --default`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := stdoutFromContext(cmd.Context())
 			name := args[0]
 
 			// Validate token source is provided
@@ -132,9 +135,9 @@ Examples:
 			}
 
 			path, _ := config.DefaultConfigPath()
-			fmt.Printf("Added workspace %q to %s\n", name, path)
+			_, _ = fmt.Fprintf(out, "Added workspace %q to %s\n", name, path)
 			if cfg.DefaultWorkspace == name {
-				fmt.Println("Set as default workspace")
+				_, _ = fmt.Fprintln(out, "Set as default workspace")
 			}
 
 			return nil
@@ -168,10 +171,11 @@ func newWorkspaceRemoveCmd() *cobra.Command {
 
 			// Confirm if removing default workspace (unless -y flag is set)
 			ctx := cmd.Context()
+			out := stdoutFromContext(ctx)
 			if isDefault && !output.YesFromContext(ctx) {
-				fmt.Printf("Warning: %q is the default workspace.\n", name)
-				if !confirmAction("Are you sure you want to remove it?") {
-					fmt.Println("Cancelled.")
+				_, _ = fmt.Fprintf(out, "Warning: %q is the default workspace.\n", name)
+				if !confirmAction(out, "Are you sure you want to remove it?") {
+					_, _ = fmt.Fprintln(out, "Cancelled.")
 					return nil
 				}
 			}
@@ -187,11 +191,11 @@ func newWorkspaceRemoveCmd() *cobra.Command {
 			}
 
 			path, _ := config.DefaultConfigPath()
-			fmt.Printf("Removed workspace %q from %s\n", name, path)
+			_, _ = fmt.Fprintf(out, "Removed workspace %q from %s\n", name, path)
 
 			// If a new default was auto-selected, notify user
 			if isDefault && cfg.DefaultWorkspace != "" {
-				fmt.Printf("Default workspace is now %q\n", cfg.DefaultWorkspace)
+				_, _ = fmt.Fprintf(out, "Default workspace is now %q\n", cfg.DefaultWorkspace)
 			}
 
 			return nil
@@ -206,6 +210,7 @@ func newWorkspaceUseCmd() *cobra.Command {
 		Long:  "Set the default workspace to use when --workspace flag is not specified.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := stdoutFromContext(cmd.Context())
 			name := args[0]
 
 			// Load config
@@ -225,7 +230,7 @@ func newWorkspaceUseCmd() *cobra.Command {
 			}
 
 			path, _ := config.DefaultConfigPath()
-			fmt.Printf("Set default workspace to %q in %s\n", name, path)
+			_, _ = fmt.Fprintf(out, "Set default workspace to %q in %s\n", name, path)
 
 			return nil
 		},
@@ -239,6 +244,7 @@ func newWorkspaceShowCmd() *cobra.Command {
 		Long:  "Show detailed configuration for a workspace. If no name is provided, shows the default workspace.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := stdoutFromContext(cmd.Context())
 			// Load config
 			cfg, err := config.Load()
 			if err != nil {
@@ -274,20 +280,20 @@ func newWorkspaceShowCmd() *cobra.Command {
 			}
 
 			// Display workspace details
-			fmt.Printf("Workspace: %s\n", name)
+			_, _ = fmt.Fprintf(out, "Workspace: %s\n", name)
 			// Show "yes" if it's explicitly the default or if it's the only workspace (implicit default)
 			isDefault := cfg.DefaultWorkspace == name || (cfg.DefaultWorkspace == "" && len(cfg.Workspaces) == 1)
 			if isDefault {
-				fmt.Println("Default: yes")
+				_, _ = fmt.Fprintln(out, "Default: yes")
 			} else {
-				fmt.Println("Default: no")
+				_, _ = fmt.Fprintln(out, "Default: no")
 			}
-			fmt.Printf("Token Source: %s\n", formatTokenSource(ws.TokenSource))
+			_, _ = fmt.Fprintf(out, "Token Source: %s\n", formatTokenSource(ws.TokenSource))
 			if ws.APIURL != "" {
-				fmt.Printf("API URL: %s\n", ws.APIURL)
+				_, _ = fmt.Fprintf(out, "API URL: %s\n", ws.APIURL)
 			}
 			if ws.Output != "" {
-				fmt.Printf("Output Format: %s\n", ws.Output)
+				_, _ = fmt.Fprintf(out, "Output Format: %s\n", ws.Output)
 			}
 
 			return nil
@@ -343,9 +349,9 @@ func validateTokenSource(source string) error {
 }
 
 // confirmAction prompts the user for confirmation
-func confirmAction(prompt string) bool {
+func confirmAction(w io.Writer, prompt string) bool {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("%s [y/N]: ", prompt)
+	_, _ = fmt.Fprintf(w, "%s [y/N]: ", prompt)
 	response, err := reader.ReadString('\n')
 	if err != nil {
 		return false

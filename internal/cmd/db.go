@@ -77,7 +77,7 @@ Example - Fetch all results:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 			filter := map[string]interface{}{
 				"property": "object",
 				"value":    "data_source",
@@ -117,7 +117,7 @@ Example - Fetch all results:
 					allResults = filterDataSourcesByTitle(allResults, titleRE)
 				}
 
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				return printer.Print(ctx, allResults)
 			}
 
@@ -140,7 +140,7 @@ Example - Fetch all results:
 				result.Results = result.Results[:limit]
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result.Results)
 		},
 	}
@@ -215,7 +215,7 @@ Example:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Get database
 			database, err := client.GetDatabase(ctx, databaseID)
@@ -239,7 +239,7 @@ Example:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, database)
 		},
 	}
@@ -387,7 +387,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			resolvedDataSourceID, err := resolveDataSourceID(ctx, client, databaseID, dataSourceID)
 			if err != nil {
@@ -429,7 +429,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 					cursor = *result.NextCursor
 				}
 
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				if resultsOnly || format == output.FormatTable {
 					return printer.Print(ctx, allPages)
 				}
@@ -455,7 +455,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if resultsOnly || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}
@@ -610,7 +610,7 @@ Example - Create with description:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Build request
 			req := &notion.CreateDatabaseRequest{
@@ -633,7 +633,7 @@ Example - Create with description:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, database)
 		},
 	}
@@ -768,7 +768,7 @@ Example - Archive database:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			var resolvedDataSourceID string
 			if propertiesJSON != "" {
@@ -785,7 +785,7 @@ Example - Archive database:
 					return fmt.Errorf("failed to fetch database: %w", err)
 				}
 
-				printer := NewDryRunPrinter(os.Stderr)
+				printer := NewDryRunPrinter(stderrFromContext(ctx))
 				printer.Header("update", "database", databaseID)
 
 				// Show title change if applicable
@@ -819,9 +819,9 @@ Example - Archive database:
 					printer.Section(label)
 					for propName := range properties {
 						if _, exists := currentDB.Properties[propName]; exists {
-							fmt.Fprintf(os.Stderr, "  - %s (updating existing)\n", propName)
+							_, _ = fmt.Fprintf(stderrFromContext(ctx), "  - %s (updating existing)\n", propName)
 						} else {
-							fmt.Fprintf(os.Stderr, "  - %s (adding new)\n", propName)
+							_, _ = fmt.Fprintf(stderrFromContext(ctx), "  - %s (adding new)\n", propName)
 						}
 					}
 				}
@@ -829,7 +829,7 @@ Example - Archive database:
 				// Show description change if applicable
 				if descriptionJSON != "" {
 					printer.Section("Description:")
-					fmt.Fprintf(os.Stderr, "  Updating description\n")
+					_, _ = fmt.Fprintf(stderrFromContext(ctx), "  Updating description\n")
 				}
 
 				printer.Footer()
@@ -881,7 +881,7 @@ Example - Archive database:
 				return fmt.Errorf("no updates specified")
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if updatedDB != nil && updatedDataSource != nil {
 				return printer.Print(ctx, map[string]interface{}{
 					"database":    updatedDB,

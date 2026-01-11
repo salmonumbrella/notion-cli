@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -77,7 +76,7 @@ Example - Output only results array:
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -108,7 +107,7 @@ Example - Output only results array:
 				}
 
 				// Print all results
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				if resultsOnly || format == output.FormatTable {
 					return printer.Print(ctx, allComments)
 				}
@@ -137,7 +136,7 @@ Example - Output only results array:
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if resultsOnly || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}
@@ -174,14 +173,14 @@ Example:
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			comment, err := client.GetComment(ctx, commentID)
 			if err != nil {
 				return fmt.Errorf("failed to get comment: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, comment)
 		},
 	}
@@ -266,11 +265,11 @@ Combined example (all flags together):
 			}
 
 			// Create client
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Build rich text with inline mentions
 			// @Name patterns in text are replaced with mention objects using provided user IDs
-			richTextContent := buildCommentRichTextVerbose(os.Stderr, text, mentions, verbose, true)
+			richTextContent := buildCommentRichTextVerbose(stderrFromContext(ctx), text, mentions, verbose, true)
 
 			// Build request
 			req := &notion.CreateCommentRequest{
@@ -292,7 +291,7 @@ Combined example (all flags together):
 			}
 
 			// Print result
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
 		},
 	}

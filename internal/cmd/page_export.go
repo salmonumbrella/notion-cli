@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -39,7 +38,7 @@ func newPageExportCmd() *cobra.Command {
 				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
@@ -57,10 +56,10 @@ func newPageExportCmd() *cobra.Command {
 				if title := pageTitleFromProperties(page.Properties); title != "" {
 					markdown = "# " + title + "\n\n" + markdown
 				}
-				_, _ = fmt.Fprintln(os.Stdout, markdown)
+				_, _ = fmt.Fprintln(stdoutFromContext(ctx), markdown)
 				return nil
 			case "json":
-				printer := output.NewPrinter(os.Stdout, output.FormatJSON)
+				printer := output.NewPrinter(stdoutFromContext(ctx), output.FormatJSON)
 				return printer.Print(ctx, map[string]interface{}{
 					"page":   page,
 					"blocks": blocks,

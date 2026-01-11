@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 
 	"github.com/spf13/cobra"
@@ -53,14 +52,14 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			ds, err := client.GetDataSource(ctx, dataSourceID)
 			if err != nil {
 				return fmt.Errorf("failed to get data source: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, ds)
 		},
 	}
@@ -115,7 +114,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			req := &notion.CreateDataSourceRequest{
 				Parent:     map[string]interface{}{"database_id": parentID},
@@ -127,7 +126,7 @@ Example:
 				return fmt.Errorf("failed to create data source: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, ds)
 		},
 	}
@@ -179,7 +178,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			req := &notion.UpdateDataSourceRequest{
 				Properties: properties,
@@ -190,7 +189,7 @@ Example:
 				return fmt.Errorf("failed to update data source: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, ds)
 		},
 	}
@@ -260,7 +259,7 @@ Example - Query with filter:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			req := &notion.QueryDataSourceRequest{
 				Filter:   filter,
@@ -280,7 +279,7 @@ Example - Query with filter:
 				result.Results = filtered
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if resultsOnly || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}
@@ -384,14 +383,14 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			list, err := client.ListDataSourceTemplates(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to list templates: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			return printer.Print(ctx, list)
 		},
 	}
@@ -434,7 +433,7 @@ Example:
 				return fmt.Errorf("authentication required: %w", err)
 			}
 
-			client := NewNotionClient(token)
+			client := NewNotionClient(ctx, token)
 
 			// Use search with database filter
 			filter := map[string]interface{}{
@@ -475,7 +474,7 @@ Example:
 					cursor = *result.NextCursor
 				}
 
-				printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+				printer := printerForContext(ctx)
 				if resultsOnly || format == output.FormatTable {
 					return printer.Print(ctx, allResults)
 				}
@@ -499,7 +498,7 @@ Example:
 				return fmt.Errorf("failed to list data sources: %w", err)
 			}
 
-			printer := output.NewPrinter(os.Stdout, GetOutputFormat())
+			printer := printerForContext(ctx)
 			if resultsOnly || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}

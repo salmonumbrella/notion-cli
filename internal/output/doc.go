@@ -28,23 +28,12 @@
 //	printer := output.NewPrinter(os.Stdout, format)
 //	return printer.Print(cmd.Context(), data)
 //
-// # Legacy Pattern (Still Supported)
+// # Direct Construction
 //
-// The legacy pattern using GetOutputFormat() still works for backwards compatibility:
+// You can also create a printer directly if you already have a format value:
 //
-//	// Parse format from CLI flag
-//	format, err := output.ParseFormat(outputFlag)
-//	if err != nil {
-//	    return err
-//	}
-//
-//	// Create printer
-//	printer := output.NewPrinter(os.Stdout, format)
-//
-//	// Print data
-//	if err := printer.Print(ctx, data); err != nil {
-//	    return err
-//	}
+//	printer := output.NewPrinter(os.Stdout, output.FormatJSON)
+//	return printer.Print(ctx, data)
 //
 // # Data Type Handling
 //

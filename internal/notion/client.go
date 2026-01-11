@@ -171,13 +171,18 @@ func (c *Client) EnableCircuitBreaker() *Client {
 
 // WithDebug enables debug mode for HTTP request/response logging
 func (c *Client) WithDebug() *Client {
+	return c.WithDebugOutput(os.Stderr)
+}
+
+// WithDebugOutput enables debug mode for HTTP request/response logging to the provided writer.
+func (c *Client) WithDebugOutput(w io.Writer) *Client {
 	// Wrap the existing transport with the debug transport
 	baseTransport := c.httpClient.Transport
 	if baseTransport == nil {
 		baseTransport = http.DefaultTransport
 	}
 
-	c.httpClient.Transport = debug.NewDebugTransport(baseTransport, os.Stderr)
+	c.httpClient.Transport = debug.NewDebugTransport(baseTransport, w)
 	return c
 }
 

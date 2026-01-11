@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -26,10 +26,10 @@ func validateErrorFormat(format string) error {
 	}
 }
 
-func effectiveErrorFormat() string {
-	format := strings.ToLower(strings.TrimSpace(errorFormat))
+func effectiveErrorFormat(ctx context.Context) string {
+	format := strings.ToLower(strings.TrimSpace(ErrorFormatFromContext(ctx)))
 	if format == "" || format == "auto" {
-		switch outputFormat {
+		switch output.FormatFromContext(ctx) {
 		case output.FormatJSON, output.FormatNDJSON:
 			return "json"
 		case output.FormatYAML:
@@ -41,28 +41,28 @@ func effectiveErrorFormat() string {
 	return format
 }
 
-func printCommandError(err error) {
+func printCommandError(ctx context.Context, err error) {
 	if err == nil {
 		return
 	}
 
-	switch effectiveErrorFormat() {
+	switch effectiveErrorFormat(ctx) {
 	case "json":
-		enc := json.NewEncoder(os.Stderr)
+		enc := json.NewEncoder(stderrFromContext(ctx))
 		enc.SetEscapeHTML(false)
 		_ = enc.Encode(buildErrorEnvelope(err))
 		return
 	case "yaml":
-		enc := yaml.NewEncoder(os.Stderr)
+		enc := yaml.NewEncoder(stderrFromContext(ctx))
 		enc.SetIndent(2)
 		_ = enc.Encode(buildErrorEnvelope(err))
 		_ = enc.Close()
 		return
 	}
 
-	fmt.Fprintln(os.Stderr, err)
+	_, _ = fmt.Fprintln(stderrFromContext(ctx), err)
 	if suggestion := ctxerrors.UserSuggestion(err); suggestion != "" {
-		fmt.Fprintf(os.Stderr, "Hint: %s\n", suggestion)
+		_, _ = fmt.Fprintf(stderrFromContext(ctx), "Hint: %s\n", suggestion)
 	}
 }
 
