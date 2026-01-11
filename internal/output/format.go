@@ -287,6 +287,16 @@ func (p *Printer) printTextSlice(v reflect.Value) error {
 // printTable outputs data in tabular format using text/tabwriter.
 // Only works with slices of maps or structs.
 func (p *Printer) printTable(data interface{}) error {
+	switch v := data.(type) {
+	case Table:
+		return p.printTableFromTable(v)
+	case *Table:
+		if v == nil {
+			return nil
+		}
+		return p.printTableFromTable(*v)
+	}
+
 	v := reflect.ValueOf(data)
 	if !v.IsValid() {
 		return nil
@@ -326,6 +336,37 @@ func (p *Printer) printTable(data interface{}) error {
 	default:
 		return errors.New("table format requires slice of maps or structs")
 	}
+}
+
+// printTableFromTable outputs a table from a pre-built Table struct.
+func (p *Printer) printTableFromTable(t Table) error {
+	if len(t.Headers) == 0 && len(t.Rows) == 0 {
+		return nil
+	}
+
+	tw := tabwriter.NewWriter(p.w, 0, 0, 2, ' ', 0)
+
+	if len(t.Headers) > 0 {
+		for i, h := range t.Headers {
+			if i > 0 {
+				_, _ = fmt.Fprint(tw, "\t")
+			}
+			_, _ = fmt.Fprint(tw, h)
+		}
+		_, _ = fmt.Fprintln(tw)
+	}
+
+	for _, row := range t.Rows {
+		for i, cell := range row {
+			if i > 0 {
+				_, _ = fmt.Fprint(tw, "\t")
+			}
+			_, _ = fmt.Fprint(tw, cell)
+		}
+		_, _ = fmt.Fprintln(tw)
+	}
+
+	return tw.Flush()
 }
 
 // printTableFromMaps outputs a table from a slice of maps.

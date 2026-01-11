@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -85,10 +86,7 @@ Example - Fetch all results:
 			}
 
 			if all {
-				var allResults []map[string]interface{}
-				cursor := startCursor
-
-				for {
+				allResults, _, _, err := fetchAllPages(ctx, startCursor, pageSize, limit, func(ctx context.Context, cursor string, pageSize int) ([]map[string]interface{}, *string, bool, error) {
 					req := &notion.SearchRequest{
 						Query:       query,
 						Filter:      filter,
@@ -98,20 +96,13 @@ Example - Fetch all results:
 
 					result, err := client.Search(ctx, req)
 					if err != nil {
-						return fmt.Errorf("failed to list databases: %w", err)
+						return nil, nil, false, err
 					}
 
-					allResults = append(allResults, result.Results...)
-
-					if limit > 0 && len(allResults) >= limit {
-						allResults = allResults[:limit]
-						break
-					}
-
-					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
-						break
-					}
-					cursor = *result.NextCursor
+					return result.Results, result.NextCursor, result.HasMore, nil
+				})
+				if err != nil {
+					return fmt.Errorf("failed to list databases: %w", err)
 				}
 
 				if titleRE != nil {
@@ -397,12 +388,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 
 			// If --all flag is set, fetch all pages
 			if all {
-				var allPages []notion.Page
-				cursor := startCursor
-				hasMore := false
-				var nextCursor *string
-
-				for {
+				allPages, nextCursor, hasMore, err := fetchAllPages(ctx, startCursor, pageSize, limit, func(ctx context.Context, cursor string, pageSize int) ([]notion.Page, *string, bool, error) {
 					req := &notion.QueryDataSourceRequest{
 						Filter:      filter,
 						Sorts:       sorts,
@@ -412,22 +398,13 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 
 					result, err := client.QueryDataSource(ctx, resolvedDataSourceID, req)
 					if err != nil {
-						return fmt.Errorf("failed to query data source: %w", err)
+						return nil, nil, false, err
 					}
 
-					allPages = append(allPages, result.Results...)
-					hasMore = result.HasMore
-					nextCursor = result.NextCursor
-
-					if limit > 0 && len(allPages) >= limit {
-						allPages = allPages[:limit]
-						break
-					}
-
-					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
-						break
-					}
-					cursor = *result.NextCursor
+					return result.Results, result.NextCursor, result.HasMore, nil
+				})
+				if err != nil {
+					return fmt.Errorf("failed to query data source: %w", err)
 				}
 
 				printer := printerForContext(ctx)

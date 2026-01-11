@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -122,12 +123,7 @@ Example - Fetch all results:
 			format := output.FormatFromContext(ctx)
 
 			if all {
-				var allResults []map[string]interface{}
-				cursor := startCursor
-				hasMore := false
-				var nextCursor *string
-
-				for {
+				allResults, nextCursor, hasMore, err := fetchAllPages(ctx, startCursor, pageSize, limit, func(ctx context.Context, cursor string, pageSize int) ([]map[string]interface{}, *string, bool, error) {
 					req := &notion.SearchRequest{
 						Query:       query,
 						Sort:        sort,
@@ -138,22 +134,13 @@ Example - Fetch all results:
 
 					result, err := client.Search(ctx, req)
 					if err != nil {
-						return fmt.Errorf("failed to search: %w", err)
+						return nil, nil, false, err
 					}
 
-					allResults = append(allResults, result.Results...)
-					hasMore = result.HasMore
-					nextCursor = result.NextCursor
-
-					if limit > 0 && len(allResults) >= limit {
-						allResults = allResults[:limit]
-						break
-					}
-
-					if !result.HasMore || result.NextCursor == nil || *result.NextCursor == "" {
-						break
-					}
-					cursor = *result.NextCursor
+					return result.Results, result.NextCursor, result.HasMore, nil
+				})
+				if err != nil {
+					return fmt.Errorf("failed to search: %w", err)
 				}
 
 				printer := printerForContext(ctx)

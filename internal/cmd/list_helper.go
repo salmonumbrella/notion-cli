@@ -4,8 +4,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -60,7 +58,7 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 					if msg == "" {
 						msg = "No items found"
 					}
-					fmt.Fprintln(os.Stderr, msg)
+					_, _ = fmt.Fprintln(stderrFromContext(ctx), msg)
 				}
 				return nil
 			}
@@ -71,40 +69,28 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 
 			// Use Printer for JSON, YAML, and text formats
 			if format == output.FormatJSON || format == output.FormatYAML || format == output.FormatText {
-				printer := output.NewPrinter(os.Stdout, format)
+				printer := output.NewPrinter(stdoutFromContext(ctx), format)
 				return printer.Print(ctx, result.Items)
 			}
 
 			// Table output (default for FormatTable or unrecognized)
-			tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-
-			// Print headers
-			for i, h := range config.Headers {
-				if i > 0 {
-					_, _ = fmt.Fprint(tw, "\t")
-				}
-				_, _ = fmt.Fprint(tw, h)
-			}
-			_, _ = fmt.Fprintln(tw)
-
-			// Print rows
+			rows := make([][]string, 0, len(result.Items))
 			for _, item := range result.Items {
-				row := config.RowFunc(item)
-				for i, cell := range row {
-					if i > 0 {
-						_, _ = fmt.Fprint(tw, "\t")
-					}
-					_, _ = fmt.Fprint(tw, cell)
-				}
-				_, _ = fmt.Fprintln(tw)
+				rows = append(rows, config.RowFunc(item))
 			}
 
-			if err := tw.Flush(); err != nil {
-				return fmt.Errorf("failed to flush output: %w", err)
+			table := output.Table{
+				Headers: config.Headers,
+				Rows:    rows,
+			}
+
+			printer := output.NewPrinter(stdoutFromContext(ctx), format)
+			if err := printer.Print(ctx, table); err != nil {
+				return err
 			}
 
 			if result.HasMore && (limit == 0 || len(result.Items) < limit) && !output.QuietFromContext(ctx) {
-				fmt.Fprintln(os.Stderr, "\n(more results available, use --page-size to fetch more)")
+				_, _ = fmt.Fprintln(stderrFromContext(ctx), "\n(more results available, use --page-size to fetch more)")
 			}
 
 			return nil
