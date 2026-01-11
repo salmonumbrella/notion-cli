@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -25,6 +28,7 @@ func newBlockAddCmd() *cobra.Command {
 	cmd.AddCommand(newBlockAddCalloutCmd())
 	cmd.AddCommand(newBlockAddCodeCmd())
 	cmd.AddCommand(newBlockAddToDoCmd())
+	cmd.AddCommand(newBlockAddImageCmd())
 
 	return cmd
 }
@@ -451,5 +455,109 @@ Examples:
 	}
 
 	cmd.Flags().BoolVar(&checked, "checked", false, "Mark the to-do as checked")
+	return cmd
+}
+
+func newBlockAddImageCmd() *cobra.Command {
+	var filePath string
+	var caption string
+
+	cmd := &cobra.Command{
+		Use:   "image <parent-id>",
+		Short: "Add an image block from a local file",
+		Long: `Add an image block by uploading a local file.
+
+Example:
+  notion block add image abc123 --file ./photo.jpg
+
+Example with caption:
+  notion block add image abc123 --file ./photo.jpg --caption "Team offsite"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if filePath == "" {
+				return fmt.Errorf("--file is required")
+			}
+
+			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			if err != nil {
+				return err
+			}
+
+			file, err := os.Open(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to open file: %w", err)
+			}
+			defer func() { _ = file.Close() }()
+
+			filename := filepath.Base(filePath)
+
+			buffer := make([]byte, 512)
+			n, _ := file.Read(buffer)
+			contentType := http.DetectContentType(buffer[:n])
+			if _, err := file.Seek(0, 0); err != nil {
+				return fmt.Errorf("failed to reset file position: %w", err)
+			}
+
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return fmt.Errorf("authentication required: %w\nRun 'notion auth login' or 'notion auth add-token' to configure", err)
+			}
+
+			client := NewNotionClient(ctx, token)
+
+			createReq := &notion.CreateFileUploadRequest{
+				FileName:    filename,
+				ContentType: contentType,
+			}
+			upload, err := client.CreateFileUpload(ctx, createReq)
+			if err != nil {
+				return fmt.Errorf("failed to create file upload: %w", err)
+			}
+
+			upload, err = client.SendFileUpload(ctx, upload.UploadURL, file, filename, contentType)
+			if err != nil {
+				return fmt.Errorf("failed to upload file: %w", err)
+			}
+
+			image := map[string]interface{}{
+				"type": "image",
+				"image": map[string]interface{}{
+					"type": "file_upload",
+					"file_upload": map[string]interface{}{
+						"id": upload.ID,
+					},
+				},
+			}
+
+			if caption != "" {
+				imageProps := image["image"].(map[string]interface{})
+				imageProps["caption"] = []map[string]interface{}{
+					{
+						"type": "text",
+						"text": map[string]interface{}{
+							"content": caption,
+						},
+					},
+				}
+			}
+
+			req := &notion.AppendBlockChildrenRequest{
+				Children: []map[string]interface{}{image},
+			}
+
+			result, err := client.AppendBlockChildren(ctx, parentID, req)
+			if err != nil {
+				return fmt.Errorf("failed to add image: %w", err)
+			}
+
+			printer := printerForContext(ctx)
+			return printer.Print(ctx, result)
+		},
+	}
+
+	cmd.Flags().StringVar(&filePath, "file", "", "Local image file path")
+	cmd.Flags().StringVar(&caption, "caption", "", "Caption text for the image")
+
 	return cmd
 }

@@ -178,6 +178,7 @@ Example:
 
 func newBlockAppendCmd() *cobra.Command {
 	var childrenJSON string
+	var childrenFile string
 	var afterBlockID string
 	var blockType string
 	var content string
@@ -198,6 +199,9 @@ numbered_list_item, quote, callout, code, to_do, toggle, divider
 ADVANCED USAGE (--children JSON):
   notion block append PAGE_ID \
     --children '[{"type":"paragraph","paragraph":{"rich_text":[{"type":"text","text":{"content":"Hello"}}]}}]'
+
+ADVANCED USAGE (--children-file):
+  notion block append PAGE_ID --children-file /tmp/blocks.json
 
 Use --after to insert blocks after a specific block instead of at the end.
 
@@ -228,9 +232,13 @@ TIP: For convenience commands, see 'notion block add --help'`,
 				return fmt.Errorf("--type is required when using --content")
 			}
 
+			if childrenFile != "" && childrenJSON != "" {
+				return fmt.Errorf("use only one of --children or --children-file")
+			}
+
 			// Validate required flag
-			if childrenJSON == "" {
-				return fmt.Errorf("either --children or both --type and --content are required\n\nSimple usage:\n  notion block append PAGE_ID --type paragraph --content \"Your text\"\n\nAdvanced usage:\n  notion block append PAGE_ID --children '[{\"type\":\"paragraph\",...}]'")
+			if childrenJSON == "" && childrenFile == "" {
+				return fmt.Errorf("either --children/--children-file or both --type and --content are required\n\nSimple usage:\n  notion block append PAGE_ID --type paragraph --content \"Your text\"\n\nAdvanced usage:\n  notion block append PAGE_ID --children '[{\"type\":\"paragraph\",...}]'\n  notion block append PAGE_ID --children-file /tmp/blocks.json")
 			}
 
 			// Normalize after block ID if provided
@@ -243,7 +251,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 
 			// Resolve and parse children JSON
 			var children []map[string]interface{}
-			resolved, err := cmdutil.ReadJSONInput(childrenJSON)
+			resolved, err := cmdutil.ResolveJSONInput(childrenJSON, childrenFile)
 			if err != nil {
 				return err
 			}
@@ -281,6 +289,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 	}
 
 	cmd.Flags().StringVar(&childrenJSON, "children", "", "Children blocks as JSON array")
+	cmd.Flags().StringVar(&childrenFile, "children-file", "", "Read children JSON from file (or - for stdin)")
 	cmd.Flags().StringVar(&afterBlockID, "after", "", "Insert blocks after this block ID (instead of at end)")
 	cmd.Flags().StringVar(&blockType, "type", "", "Block type for simple mode (paragraph, heading_1, etc.)")
 	cmd.Flags().StringVar(&content, "content", "", "Text content for simple mode (use with --type)")
