@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -74,7 +75,7 @@ Example - Upload and attach to page property:
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
 			if pageID != "" {
-				normalized, err := normalizeNotionID(pageID)
+				normalized, err := cmdutil.NormalizeNotionID(pageID)
 				if err != nil {
 					return err
 				}

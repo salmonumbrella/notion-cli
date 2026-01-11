@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
@@ -41,20 +42,20 @@ By default, the duplicate is created under the same parent and includes children
 Use --no-children to skip block duplication.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sourceID, err := normalizeNotionID(args[0])
+			sourceID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
 
 			if parentID != "" {
-				normalized, err := normalizeNotionID(parentID)
+				normalized, err := cmdutil.NormalizeNotionID(parentID)
 				if err != nil {
 					return err
 				}
 				parentID = normalized
 			}
 			if dataSourceID != "" {
-				normalized, err := normalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
 				if err != nil {
 					return err
 				}

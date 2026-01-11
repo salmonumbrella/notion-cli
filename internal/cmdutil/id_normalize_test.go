@@ -1,4 +1,4 @@
-package cmd
+package cmdutil
 
 import "testing"
 
@@ -35,7 +35,7 @@ func TestNormalizeNotionID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := normalizeNotionID(tt.input)
+			got, err := NormalizeNotionID(tt.input)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")
@@ -76,6 +76,6 @@ func TestLooksLikeURL(t *testing.T) {
 func BenchmarkNormalizeNotionID(b *testing.B) {
 	input := "https://www.notion.so/Page-12345678123412341234123456789012"
 	for i := 0; i < b.N; i++ {
-		_, _ = normalizeNotionID(input)
+		_, _ = NormalizeNotionID(input)
 	}
 }

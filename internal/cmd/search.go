@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -62,7 +63,7 @@ Example - Fetch all results:
 			// Resolve and parse sort if provided
 			var sort map[string]interface{}
 			if sortJSON != "" {
-				resolved, err := readJSONInput(sortJSON)
+				resolved, err := cmdutil.ReadJSONInput(sortJSON)
 				if err != nil {
 					return err
 				}

@@ -11,6 +11,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/salmonumbrella/notion-cli/internal/auth"
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/salmonumbrella/notion-cli/internal/debug"
 	"github.com/salmonumbrella/notion-cli/internal/iocontext"
@@ -102,7 +103,7 @@ func newRootCmd(app *App) *cobra.Command {
 				return fmt.Errorf("use only one of --query or --query-file")
 			}
 			if queryFileFlag != "" {
-				loaded, err := readInputSource(queryFileFlag)
+				loaded, err := cmdutil.ReadInputSource(queryFileFlag)
 				if err != nil {
 					return err
 				}

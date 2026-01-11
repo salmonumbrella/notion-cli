@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
@@ -37,7 +38,7 @@ Examples:
 			method := strings.ToUpper(strings.TrimSpace(args[0]))
 			path := strings.TrimSpace(args[1])
 
-			bodyStr, err := resolveJSONInput(bodyJSON, bodyFile)
+			bodyStr, err := cmdutil.ResolveJSONInput(bodyJSON, bodyFile)
 			if err != nil {
 				return err
 			}

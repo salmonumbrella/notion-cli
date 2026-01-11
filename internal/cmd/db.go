@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -202,7 +203,7 @@ Example:
   notion db get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID, err := normalizeNotionID(args[0])
+			databaseID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -293,12 +294,12 @@ trailing spaces after the backslash. Otherwise the shell may split the command
 incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID, err := normalizeNotionID(args[0])
+			databaseID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
 			if dataSourceID != "" {
-				normalized, err := normalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
 				if err != nil {
 					return err
 				}
@@ -321,7 +322,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			// Resolve and parse filter if provided
 			var filter map[string]interface{}
 			if filterJSON != "" {
-				resolved, err := readJSONInput(filterJSON)
+				resolved, err := cmdutil.ReadJSONInput(filterJSON)
 				if err != nil {
 					return err
 				}
@@ -343,7 +344,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			// Resolve and parse sorts if provided
 			var sorts []map[string]interface{}
 			if sortsJSON != "" {
-				resolved, err := readJSONInput(sortsJSON)
+				resolved, err := cmdutil.ReadJSONInput(sortsJSON)
 				if err != nil {
 					return err
 				}
@@ -518,7 +519,7 @@ Example - Create with description:
 				return fmt.Errorf("--properties or --properties-file is required")
 			}
 
-			normalizedParent, err := normalizeNotionID(parentID)
+			normalizedParent, err := cmdutil.NormalizeNotionID(parentID)
 			if err != nil {
 				return err
 			}
@@ -526,7 +527,7 @@ Example - Create with description:
 
 			// Resolve and parse properties JSON
 			var properties map[string]map[string]interface{}
-			resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
+			resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
 			if err != nil {
 				return err
 			}
@@ -568,7 +569,7 @@ Example - Create with description:
 			// Resolve and parse optional fields
 			var description []map[string]interface{}
 			if descriptionJSON != "" {
-				resolved, err := readJSONInput(descriptionJSON)
+				resolved, err := cmdutil.ReadJSONInput(descriptionJSON)
 				if err != nil {
 					return err
 				}
@@ -580,7 +581,7 @@ Example - Create with description:
 
 			var icon map[string]interface{}
 			if iconJSON != "" {
-				resolved, err := readJSONInput(iconJSON)
+				resolved, err := cmdutil.ReadJSONInput(iconJSON)
 				if err != nil {
 					return err
 				}
@@ -592,7 +593,7 @@ Example - Create with description:
 
 			var cover map[string]interface{}
 			if coverJSON != "" {
-				resolved, err := readJSONInput(coverJSON)
+				resolved, err := cmdutil.ReadJSONInput(coverJSON)
 				if err != nil {
 					return err
 				}
@@ -685,12 +686,12 @@ Example - Archive database:
   notion db update 12345678-1234-1234-1234-123456789012 --archived true`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID, err := normalizeNotionID(args[0])
+			databaseID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
 			if dataSourceID != "" {
-				normalized, err := normalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
 				if err != nil {
 					return err
 				}
@@ -713,7 +714,7 @@ Example - Archive database:
 			// Resolve and parse properties if provided
 			var properties map[string]map[string]interface{}
 			if propertiesJSON != "" || propertiesFile != "" {
-				resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
+				resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
 				if err != nil {
 					return err
 				}
@@ -726,7 +727,7 @@ Example - Archive database:
 			// Resolve and parse optional fields
 			var description []map[string]interface{}
 			if descriptionJSON != "" {
-				resolved, err := readJSONInput(descriptionJSON)
+				resolved, err := cmdutil.ReadJSONInput(descriptionJSON)
 				if err != nil {
 					return err
 				}
@@ -738,7 +739,7 @@ Example - Archive database:
 
 			var icon map[string]interface{}
 			if iconJSON != "" {
-				resolved, err := readJSONInput(iconJSON)
+				resolved, err := cmdutil.ReadJSONInput(iconJSON)
 				if err != nil {
 					return err
 				}
@@ -750,7 +751,7 @@ Example - Archive database:
 
 			var cover map[string]interface{}
 			if coverJSON != "" {
-				resolved, err := readJSONInput(coverJSON)
+				resolved, err := cmdutil.ReadJSONInput(coverJSON)
 				if err != nil {
 					return err
 				}

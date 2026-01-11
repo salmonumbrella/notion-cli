@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -40,7 +41,7 @@ Example:
   notion ds get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID, err := normalizeNotionID(args[0])
+			dataSourceID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -91,14 +92,14 @@ Example:
 				return fmt.Errorf("--properties or --properties-file is required")
 			}
 
-			normalizedParent, err := normalizeNotionID(parentID)
+			normalizedParent, err := cmdutil.NormalizeNotionID(parentID)
 			if err != nil {
 				return err
 			}
 			parentID = normalizedParent
 
 			var properties map[string]interface{}
-			resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
+			resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
 			if err != nil {
 				return err
 			}
@@ -154,14 +155,14 @@ Example:
     --properties '{"Priority":{"select":{}}}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID, err := normalizeNotionID(args[0])
+			dataSourceID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
 
 			var properties map[string]interface{}
 			if propertiesJSON != "" || propertiesFile != "" {
-				resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
+				resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
 				if err != nil {
 					return err
 				}
@@ -225,7 +226,7 @@ Example - Query with filter:
     --page-size 10`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID, err := normalizeNotionID(args[0])
+			dataSourceID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -239,7 +240,7 @@ Example - Query with filter:
 
 			var filter map[string]interface{}
 			if filterJSON != "" {
-				resolved, err := readJSONInput(filterJSON)
+				resolved, err := cmdutil.ReadJSONInput(filterJSON)
 				if err != nil {
 					return err
 				}

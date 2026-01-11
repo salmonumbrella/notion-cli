@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/richtext"
 )
@@ -51,7 +52,7 @@ Example:
   notion page get 12345678-1234-1234-1234-123456789012 --editable -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := normalizeNotionID(args[0])
+			pageID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -103,7 +104,7 @@ Examples:
   notion page properties 12345678-1234-1234-1234-123456789012 --types title,select --only-set`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := normalizeNotionID(args[0])
+			pageID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -252,14 +253,14 @@ Examples:
 			}
 
 			if parentID != "" {
-				normalized, err := normalizeNotionID(parentID)
+				normalized, err := cmdutil.NormalizeNotionID(parentID)
 				if err != nil {
 					return err
 				}
 				parentID = normalized
 			}
 			if dataSourceID != "" {
-				normalized, err := normalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
 				if err != nil {
 					return err
 				}
@@ -268,7 +269,7 @@ Examples:
 
 			// Resolve and parse properties JSON
 			var properties map[string]interface{}
-			resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
+			resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
 			if err != nil {
 				return err
 			}
@@ -390,7 +391,7 @@ Combined example (all flags together):
     --verbose`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := normalizeNotionID(args[0])
+			pageID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -398,7 +399,7 @@ Combined example (all flags together):
 			// Resolve and parse properties JSON if provided
 			var properties map[string]interface{}
 			if propertiesJSON != "" || propertiesFile != "" {
-				resolved, err := resolveJSONInput(propertiesJSON, propertiesFile)
+				resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
 				if err != nil {
 					return err
 				}
@@ -642,7 +643,7 @@ Example:
   notion page property 12345678-1234-1234-1234-123456789012 title`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := normalizeNotionID(args[0])
+			pageID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -688,7 +689,7 @@ Example - Move page to database:
   notion page move abc123 --parent db789 --parent-type database`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := normalizeNotionID(args[0])
+			pageID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -697,14 +698,14 @@ Example - Move page to database:
 				return fmt.Errorf("--parent is required")
 			}
 
-			normalizedParent, err := normalizeNotionID(parentID)
+			normalizedParent, err := cmdutil.NormalizeNotionID(parentID)
 			if err != nil {
 				return err
 			}
 			parentID = normalizedParent
 
 			if after != "" {
-				normalizedAfter, err := normalizeNotionID(after)
+				normalizedAfter, err := cmdutil.NormalizeNotionID(after)
 				if err != nil {
 					return err
 				}

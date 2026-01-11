@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -42,7 +43,7 @@ Example:
   notion block get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := normalizeNotionID(args[0])
+			blockID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -90,7 +91,7 @@ Example:
   notion block children 12345678-1234-1234-1234-123456789012 --all`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := normalizeNotionID(args[0])
+			blockID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -203,7 +204,7 @@ Use --after to insert blocks after a specific block instead of at the end.
 TIP: For convenience commands, see 'notion block add --help'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := normalizeNotionID(args[0])
+			blockID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -234,7 +235,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 
 			// Normalize after block ID if provided
 			if afterBlockID != "" {
-				afterBlockID, err = normalizeNotionID(afterBlockID)
+				afterBlockID, err = cmdutil.NormalizeNotionID(afterBlockID)
 				if err != nil {
 					return fmt.Errorf("invalid --after block ID: %w", err)
 				}
@@ -242,7 +243,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 
 			// Resolve and parse children JSON
 			var children []map[string]interface{}
-			resolved, err := readJSONInput(childrenJSON)
+			resolved, err := cmdutil.ReadJSONInput(childrenJSON)
 			if err != nil {
 				return err
 			}
@@ -358,7 +359,7 @@ Example of updating a paragraph block:
     --content '{"paragraph":{"rich_text":[{"type":"text","text":{"content":"Updated text"}}]}}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := normalizeNotionID(args[0])
+			blockID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -366,7 +367,7 @@ Example of updating a paragraph block:
 			// Resolve and parse content JSON if provided
 			var content map[string]interface{}
 			if contentJSON != "" {
-				resolved, err := readJSONInput(contentJSON)
+				resolved, err := cmdutil.ReadJSONInput(contentJSON)
 				if err != nil {
 					return err
 				}
@@ -483,7 +484,7 @@ Example:
   notion block delete 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := normalizeNotionID(args[0])
+			blockID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -576,7 +577,7 @@ Example:
   notion block add-toc abc123 --color blue`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := normalizeNotionID(args[0])
+			parentID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -627,7 +628,7 @@ Example:
   notion block add-breadcrumb abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := normalizeNotionID(args[0])
+			parentID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -668,7 +669,7 @@ Example:
   notion block add-divider abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := normalizeNotionID(args[0])
+			parentID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -714,7 +715,7 @@ Example:
   notion block add-columns abc123 --columns 3`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := normalizeNotionID(args[0])
+			parentID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}

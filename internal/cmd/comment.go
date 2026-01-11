@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/salmonumbrella/notion-cli/internal/richtext"
@@ -55,7 +56,7 @@ Example - Output only results array:
   notion comment list abc123def456 --all --results-only`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := normalizeNotionID(args[0])
+			blockID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -162,7 +163,7 @@ Example:
   notion comment get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			commentID, err := normalizeNotionID(args[0])
+			commentID, err := cmdutil.NormalizeNotionID(args[0])
 			if err != nil {
 				return err
 			}
@@ -250,7 +251,7 @@ Combined example (all flags together):
 				return fmt.Errorf("cannot specify both --parent and --discussion-id")
 			}
 			if parentID != "" {
-				normalized, err := normalizeNotionID(parentID)
+				normalized, err := cmdutil.NormalizeNotionID(parentID)
 				if err != nil {
 					return err
 				}

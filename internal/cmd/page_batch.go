@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
@@ -57,14 +58,14 @@ Example:
 			}
 
 			if parentID != "" {
-				normalized, err := normalizeNotionID(parentID)
+				normalized, err := cmdutil.NormalizeNotionID(parentID)
 				if err != nil {
 					return err
 				}
 				parentID = normalized
 			}
 			if dataSourceID != "" {
-				normalized, err := normalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
 				if err != nil {
 					return err
 				}
@@ -79,7 +80,7 @@ Example:
 				pagesJSON = string(data)
 			}
 			if pagesJSON != "" {
-				resolved, err := readJSONInput(pagesJSON)
+				resolved, err := cmdutil.ReadJSONInput(pagesJSON)
 				if err != nil {
 					return err
 				}
@@ -192,7 +193,7 @@ Example:
 				pagesJSON = string(data)
 			}
 			if pagesJSON != "" {
-				resolved, err := readJSONInput(pagesJSON)
+				resolved, err := cmdutil.ReadJSONInput(pagesJSON)
 				if err != nil {
 					return err
 				}
@@ -228,7 +229,7 @@ Example:
 					return err
 				}
 
-				normalizedID, err := normalizeNotionID(spec.ID)
+				normalizedID, err := cmdutil.NormalizeNotionID(spec.ID)
 				if err != nil {
 					if continueOnError {
 						errors = append(errors, map[string]interface{}{"index": i, "error": err.Error()})
