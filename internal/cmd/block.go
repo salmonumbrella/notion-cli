@@ -13,6 +13,12 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
+// Column layout constraints defined by the Notion API.
+const (
+	MinColumnCount = 2
+	MaxColumnCount = 5
+)
+
 func newBlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "block",
@@ -730,8 +736,8 @@ Example:
 				return err
 			}
 
-			if columnCount < 2 || columnCount > 5 {
-				return fmt.Errorf("column count must be between 2 and 5, got %d", columnCount)
+			if columnCount < MinColumnCount || columnCount > MaxColumnCount {
+				return fmt.Errorf("column count must be between %d and %d, got %d", MinColumnCount, MaxColumnCount, columnCount)
 			}
 
 			// Get token from context (respects workspace selection)
@@ -767,7 +773,7 @@ Example:
 		},
 	}
 
-	cmd.Flags().IntVar(&columnCount, "columns", 2, "Number of columns (2-5)")
+	cmd.Flags().IntVar(&columnCount, "columns", MinColumnCount, fmt.Sprintf("Number of columns (%d-%d)", MinColumnCount, MaxColumnCount))
 	return cmd
 }
 
