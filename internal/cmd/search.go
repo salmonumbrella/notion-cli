@@ -20,6 +20,7 @@ func newSearchCmd() *cobra.Command {
 	var pageSize int
 	var all bool
 	var resultsOnly bool
+	var textQuery string
 
 	cmd := &cobra.Command{
 		Use:   "search [query]",
@@ -33,11 +34,17 @@ Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
 
+Note: The global --query flag is for jq filtering, not the search term.
+Use the positional argument or --text for the search term.
+
 Example - Search for all pages and databases:
   notion search
 
 Example - Search by query:
   notion search "project"
+
+Example - Search using --text flag:
+  notion search --text "project"
 
 Example - Search only pages:
   notion search "meeting notes" --filter page
@@ -52,10 +59,16 @@ Example - Fetch all results:
   notion search "project" --all`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Get query from args if provided
+			// Get query from args or --text flag
 			var query string
 			if len(args) > 0 {
 				query = args[0]
+			}
+			if textQuery != "" {
+				if query != "" {
+					return fmt.Errorf("cannot specify both positional query and --text flag")
+				}
+				query = textQuery
 			}
 
 			ctx := cmd.Context()
@@ -185,6 +198,7 @@ Example - Fetch all results:
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
+	cmd.Flags().StringVarP(&textQuery, "text", "t", "", "Search text (alternative to positional argument)")
 
 	return cmd
 }
