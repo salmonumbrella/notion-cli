@@ -28,3 +28,4 @@ docs/plans/
 
 # Internal docs
 CIRCUIT_BREAKER.md
+.private-journal/
