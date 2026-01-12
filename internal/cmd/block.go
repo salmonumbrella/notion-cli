@@ -304,43 +304,33 @@ TIP: For convenience commands, see 'notion block add --help'`,
 	return cmd
 }
 
-// buildSimpleBlock creates a block from type and content for simple usage mode
+// buildSimpleBlock creates a block from type and content for simple usage mode.
+// It automatically parses markdown formatting like **bold**, *italic*, and `code`.
 func buildSimpleBlock(blockType, content string) map[string]interface{} {
 	switch blockType {
 	case "paragraph":
-		return notion.NewParagraph(content)
+		return notion.NewParagraphWithMarkdown(content)
 	case "heading_1":
-		return notion.NewHeading1(content)
+		return notion.NewHeading1WithMarkdown(content)
 	case "heading_2":
-		return notion.NewHeading2(content)
+		return notion.NewHeading2WithMarkdown(content)
 	case "heading_3":
-		return notion.NewHeading3(content)
+		return notion.NewHeading3WithMarkdown(content)
 	case "bulleted_list_item":
-		return notion.NewBulletedListItem(content)
+		return notion.NewBulletedListItemWithMarkdown(content)
 	case "numbered_list_item":
-		return notion.NewNumberedListItem(content)
+		return notion.NewNumberedListItemWithMarkdown(content)
 	case "quote":
-		return notion.NewQuote(content)
+		return notion.NewQuoteWithMarkdown(content)
 	case "callout":
-		return notion.NewCallout(content, "💡")
+		return notion.NewCalloutWithMarkdown(content, "💡")
 	case "code":
+		// Code blocks don't parse markdown in their content
 		return notion.NewCode(content, "plain text")
 	case "to_do":
-		return notion.NewToDo(content, false)
+		return notion.NewToDoWithMarkdown(content, false)
 	case "toggle":
-		return map[string]interface{}{
-			"type": "toggle",
-			"toggle": map[string]interface{}{
-				"rich_text": []map[string]interface{}{
-					{
-						"type": "text",
-						"text": map[string]interface{}{
-							"content": content,
-						},
-					},
-				},
-			},
-		}
+		return notion.NewToggleWithMarkdown(content)
 	case "divider":
 		return notion.NewDivider()
 	default:

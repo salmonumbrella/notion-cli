@@ -187,6 +187,7 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.AddCommand(newWebhookCmd())
 	rootCmd.AddCommand(newCompletionCmd())
 	rootCmd.AddCommand(newAPICmd())
+	rootCmd.AddCommand(newImportCmd())
 
 	return rootCmd
 }
