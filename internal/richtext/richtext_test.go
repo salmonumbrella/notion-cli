@@ -770,6 +770,30 @@ func TestBuildWithMentionsAndPages(t *testing.T) {
 				{Type: "mention", Mention: &notion.Mention{Type: "user", User: &notion.UserMention{ID: "alice-id"}}},
 			},
 		},
+		{
+			name:    "triple-@ pattern with page ID",
+			text:    "@@@Name test",
+			userIDs: nil,
+			pageIDs: []string{"name-id"},
+			// @@Name is matched as page mention starting at index 1, the leading @ is kept as literal text
+			expected: []notion.RichText{
+				{Type: "text", Text: &notion.TextContent{Content: "@"}},
+				{Type: "mention", Mention: &notion.Mention{Type: "page", Page: &notion.PageMention{ID: "name-id"}}},
+				{Type: "text", Text: &notion.TextContent{Content: " test"}},
+			},
+		},
+		{
+			name:    "triple-@ pattern without page ID",
+			text:    "@@@Name test",
+			userIDs: nil,
+			pageIDs: nil,
+			// @@Name kept as plain text with leading @ separate
+			expected: []notion.RichText{
+				{Type: "text", Text: &notion.TextContent{Content: "@"}},
+				{Type: "text", Text: &notion.TextContent{Content: "@@Name"}},
+				{Type: "text", Text: &notion.TextContent{Content: " test"}},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -864,6 +888,7 @@ func TestCountUserMentionsOnly(t *testing.T) {
 		{"@user and @@page", 1},
 		{"@@Page-One and @@Page-Two", 0},     // only page mentions, no standalone user mentions
 		{"@Alice and @@Bob and @Charlie", 2}, // @Alice and @Charlie are user mentions, @Bob is part of @@Bob
+		{"@@@Name", 0},                       // @@Name starts at index 1, @Name at index 2 overlaps -> filtered out
 	}
 
 	for _, tt := range tests {
@@ -922,6 +947,229 @@ func TestFindPageMentions(t *testing.T) {
 			for i, v := range result {
 				if v != tt.expected[i] {
 					t.Errorf("FindPageMentions(%q)[%d] = %q, expected %q", tt.text, i, v, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestValidateLinkURLs(t *testing.T) {
+	tests := []struct {
+		name             string
+		tokens           []MarkdownToken
+		expectedWarnings []string
+	}{
+		{
+			name:             "no links - no warnings",
+			tokens:           []MarkdownToken{{Content: "plain text"}},
+			expectedWarnings: nil,
+		},
+		{
+			name: "valid https URL - no warning",
+			tokens: []MarkdownToken{
+				{Content: "docs", IsLink: true, LinkURL: "https://example.com"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "valid http URL - no warning",
+			tokens: []MarkdownToken{
+				{Content: "docs", IsLink: true, LinkURL: "http://example.com"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "mailto URL - no warning",
+			tokens: []MarkdownToken{
+				{Content: "email", IsLink: true, LinkURL: "mailto:test@example.com"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "tel URL - no warning",
+			tokens: []MarkdownToken{
+				{Content: "call", IsLink: true, LinkURL: "tel:+1234567890"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "relative URL with / - no warning",
+			tokens: []MarkdownToken{
+				{Content: "page", IsLink: true, LinkURL: "/about"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "relative URL with ./ - no warning",
+			tokens: []MarkdownToken{
+				{Content: "page", IsLink: true, LinkURL: "./about"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "relative URL with ../ - no warning",
+			tokens: []MarkdownToken{
+				{Content: "page", IsLink: true, LinkURL: "../about"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "anchor link - no warning",
+			tokens: []MarkdownToken{
+				{Content: "section", IsLink: true, LinkURL: "#section-name"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "empty URL - warning",
+			tokens: []MarkdownToken{
+				{Content: "broken", IsLink: true, LinkURL: ""},
+			},
+			expectedWarnings: []string{"link [broken] has empty URL"},
+		},
+		{
+			name: "URL with spaces - warning",
+			tokens: []MarkdownToken{
+				{Content: "bad link", IsLink: true, LinkURL: "https://example.com/path with spaces"},
+			},
+			expectedWarnings: []string{"link [bad link](https://example.com/path with spaces) contains spaces in URL"},
+		},
+		{
+			name: "missing protocol example.com - warning",
+			tokens: []MarkdownToken{
+				{Content: "site", IsLink: true, LinkURL: "example.com"},
+			},
+			expectedWarnings: []string{"link [site](example.com) may be missing protocol (http:// or https://)"},
+		},
+		{
+			name: "missing protocol www.example.com - warning",
+			tokens: []MarkdownToken{
+				{Content: "site", IsLink: true, LinkURL: "www.example.com"},
+			},
+			expectedWarnings: []string{"link [site](www.example.com) may be missing protocol (http:// or https://)"},
+		},
+		{
+			name: "missing protocol notion.so - warning",
+			tokens: []MarkdownToken{
+				{Content: "notion", IsLink: true, LinkURL: "notion.so/page"},
+			},
+			expectedWarnings: []string{"link [notion](notion.so/page) may be missing protocol (http:// or https://)"},
+		},
+		{
+			name: "simple path without TLD - no warning",
+			tokens: []MarkdownToken{
+				{Content: "internal", IsLink: true, LinkURL: "some-id"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "multiple issues in different links",
+			tokens: []MarkdownToken{
+				{Content: "text before"},
+				{Content: "empty", IsLink: true, LinkURL: ""},
+				{Content: "text middle"},
+				{Content: "spacy", IsLink: true, LinkURL: "bad url"},
+			},
+			expectedWarnings: []string{
+				"link [empty] has empty URL",
+				"link [spacy](bad url) contains spaces in URL",
+			},
+		},
+		{
+			name: "ftp URL - no warning",
+			tokens: []MarkdownToken{
+				{Content: "ftp", IsLink: true, LinkURL: "ftp://files.example.com"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "file URL - no warning",
+			tokens: []MarkdownToken{
+				{Content: "local", IsLink: true, LinkURL: "file:///path/to/file"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "data URL - no warning",
+			tokens: []MarkdownToken{
+				{Content: "data", IsLink: true, LinkURL: "data:text/html,<h1>Hello</h1>"},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "unknown extension without dot - no warning",
+			tokens: []MarkdownToken{
+				{Content: "ref", IsLink: true, LinkURL: "some-reference-id"},
+			},
+			expectedWarnings: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateLinkURLs(tt.tokens)
+
+			if len(result) != len(tt.expectedWarnings) {
+				t.Fatalf("expected %d warnings, got %d\nexpected: %v\ngot: %v",
+					len(tt.expectedWarnings), len(result), tt.expectedWarnings, result)
+			}
+
+			for i, warning := range result {
+				if warning != tt.expectedWarnings[i] {
+					t.Errorf("warning %d: expected %q, got %q", i, tt.expectedWarnings[i], warning)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateLinkURLsIntegration(t *testing.T) {
+	// Test that ParseMarkdown -> ValidateLinkURLs works correctly together
+	tests := []struct {
+		name             string
+		text             string
+		expectedWarnings []string
+	}{
+		{
+			name:             "valid link in markdown",
+			text:             "Check [docs](https://example.com) for info",
+			expectedWarnings: nil,
+		},
+		{
+			name:             "missing protocol in markdown",
+			text:             "Check [docs](example.com) for info",
+			expectedWarnings: []string{"link [docs](example.com) may be missing protocol (http:// or https://)"},
+		},
+		{
+			name:             "bold link with valid URL",
+			text:             "**[important](https://example.com)**",
+			expectedWarnings: nil,
+		},
+		{
+			name:             "anchor link in markdown",
+			text:             "See [section](#details) below",
+			expectedWarnings: nil,
+		},
+		{
+			name:             "relative link in markdown",
+			text:             "See [about page](/about) for info",
+			expectedWarnings: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tokens := ParseMarkdown(tt.text)
+			result := ValidateLinkURLs(tokens)
+
+			if len(result) != len(tt.expectedWarnings) {
+				t.Fatalf("expected %d warnings, got %d\nexpected: %v\ngot: %v",
+					len(tt.expectedWarnings), len(result), tt.expectedWarnings, result)
+			}
+
+			for i, warning := range result {
+				if warning != tt.expectedWarnings[i] {
+					t.Errorf("warning %d: expected %q, got %q", i, tt.expectedWarnings[i], warning)
 				}
 			}
 		})

@@ -119,3 +119,14 @@ func FormatAllMentionMappingsIndented(w io.Writer, text string, userIDs []string
 		}
 	}
 }
+
+// FormatLinkWarnings writes link URL validation warnings to w.
+// Does nothing if warnings slice is empty.
+func FormatLinkWarnings(w io.Writer, warnings []string) {
+	if len(warnings) == 0 {
+		return
+	}
+	for _, warning := range warnings {
+		_, _ = fmt.Fprintf(w, "warning: %s\n", warning)
+	}
+}

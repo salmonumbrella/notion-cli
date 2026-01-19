@@ -5,6 +5,7 @@ package richtext
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
@@ -513,13 +514,9 @@ func mergeAndSortMatches(userMatches, pageMatches [][]int) []mentionMatch {
 	}
 
 	// Sort by start position
-	for i := 0; i < len(all); i++ {
-		for j := i + 1; j < len(all); j++ {
-			if all[j].start < all[i].start {
-				all[i], all[j] = all[j], all[i]
-			}
-		}
-	}
+	slices.SortFunc(all, func(a, b mentionMatch) int {
+		return a.start - b.start
+	})
 
 	return all
 }
@@ -592,4 +589,99 @@ func FormatSummary(summary MarkdownSummary) string {
 
 func formatCount(count int, label string) string {
 	return fmt.Sprintf("%d %s", count, label)
+}
+
+// ValidateLinkURLs checks link tokens for malformed URLs and returns warnings.
+// It warns for:
+//   - Empty URLs
+//   - URLs containing spaces
+//   - URLs that look like web URLs but are missing protocol (e.g., "example.com")
+//
+// It does NOT warn for:
+//   - Relative URLs (starting with / or ./)
+//   - Valid schemes (http://, https://, mailto:, tel:, etc.)
+//   - Anchor links (#section)
+func ValidateLinkURLs(tokens []MarkdownToken) []string {
+	var warnings []string
+	for _, token := range tokens {
+		if !token.IsLink {
+			continue
+		}
+		url := token.LinkURL
+		if warning := validateSingleURL(url, token.Content); warning != "" {
+			warnings = append(warnings, warning)
+		}
+	}
+	return warnings
+}
+
+// validateSingleURL checks a single URL and returns a warning message if malformed.
+// Returns empty string if URL is valid.
+func validateSingleURL(url, linkText string) string {
+	// Empty URL
+	if url == "" {
+		return fmt.Sprintf("link [%s] has empty URL", linkText)
+	}
+
+	// URL with spaces
+	if strings.Contains(url, " ") {
+		return fmt.Sprintf("link [%s](%s) contains spaces in URL", linkText, url)
+	}
+
+	// Allow relative URLs
+	if strings.HasPrefix(url, "/") || strings.HasPrefix(url, "./") || strings.HasPrefix(url, "../") {
+		return ""
+	}
+
+	// Allow anchor links
+	if strings.HasPrefix(url, "#") {
+		return ""
+	}
+
+	// Allow known schemes
+	knownSchemes := []string{"http://", "https://", "mailto:", "tel:", "ftp://", "file://", "data:"}
+	for _, scheme := range knownSchemes {
+		if strings.HasPrefix(strings.ToLower(url), scheme) {
+			return ""
+		}
+	}
+
+	// Check if it looks like a web URL missing protocol (contains dot, looks like domain)
+	// e.g., "example.com", "www.example.com/path"
+	if looksLikeWebURL(url) {
+		return fmt.Sprintf("link [%s](%s) may be missing protocol (http:// or https://)", linkText, url)
+	}
+
+	return ""
+}
+
+// looksLikeWebURL returns true if the URL looks like it should be a web URL
+// but is missing the protocol. Checks for common patterns like domain.tld.
+func looksLikeWebURL(url string) bool {
+	// Must contain a dot to look like a domain
+	if !strings.Contains(url, ".") {
+		return false
+	}
+
+	// Get the potential domain part (before any path)
+	domain := url
+	if idx := strings.Index(url, "/"); idx != -1 {
+		domain = url[:idx]
+	}
+
+	// Check for common TLDs or www prefix
+	domain = strings.ToLower(domain)
+	if strings.HasPrefix(domain, "www.") {
+		return true
+	}
+
+	// Common TLDs that suggest this should be a full URL
+	commonTLDs := []string{".com", ".org", ".net", ".io", ".co", ".edu", ".gov", ".dev", ".app", ".so"}
+	for _, tld := range commonTLDs {
+		if strings.HasSuffix(domain, tld) {
+			return true
+		}
+	}
+
+	return false
 }

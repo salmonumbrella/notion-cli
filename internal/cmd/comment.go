@@ -324,6 +324,7 @@ Combined example (all flags together):
 // verbose output about markdown parsing and mention matching. The w parameter specifies where
 // verbose output is written (typically os.Stderr in production). If emitWarnings is true,
 // warnings are printed when --mention or --page-mention flags are provided but not used.
+// Link URL validation warnings are always printed when there are issues, regardless of verbose mode.
 func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, pageIDs []string, verbose bool, emitWarnings bool) []notion.RichText {
 	// Parse markdown first (for verbose output if enabled)
 	tokens := richtext.ParseMarkdown(text)
@@ -331,6 +332,10 @@ func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, pag
 		summary := richtext.SummarizeTokens(tokens)
 		_, _ = fmt.Fprintln(w, richtext.FormatSummary(summary))
 	}
+
+	// Validate link URLs and always show warnings (not gated by verbose)
+	linkWarnings := richtext.ValidateLinkURLs(tokens)
+	richtext.FormatLinkWarnings(w, linkWarnings)
 
 	// Count @Name patterns to match with user IDs (excluding those in @@Name patterns)
 	userMentionsNeeded := richtext.CountUserMentionsOnly(text)
