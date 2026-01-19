@@ -127,6 +127,64 @@ func TestParseMarkdown(t *testing.T) {
 				{Content: "bold", Bold: true},
 			},
 		},
+		// Link tests
+		{
+			name: "simple link",
+			text: "Check [this](https://example.com)",
+			expected: []MarkdownToken{
+				{Content: "Check "},
+				{Content: "this", IsLink: true, LinkURL: "https://example.com"},
+			},
+		},
+		{
+			name: "link with text around",
+			text: "Before [link](url) after",
+			expected: []MarkdownToken{
+				{Content: "Before "},
+				{Content: "link", IsLink: true, LinkURL: "url"},
+				{Content: " after"},
+			},
+		},
+		{
+			name: "multiple links",
+			text: "[one](url1) and [two](url2)",
+			expected: []MarkdownToken{
+				{Content: "one", IsLink: true, LinkURL: "url1"},
+				{Content: " and "},
+				{Content: "two", IsLink: true, LinkURL: "url2"},
+			},
+		},
+		{
+			name: "bold link",
+			text: "**[bold link](url)**",
+			expected: []MarkdownToken{
+				{Content: "bold link", Bold: true, IsLink: true, LinkURL: "url"},
+			},
+		},
+		{
+			name: "italic link",
+			text: "*[italic link](url)*",
+			expected: []MarkdownToken{
+				{Content: "italic link", Italic: true, IsLink: true, LinkURL: "url"},
+			},
+		},
+		{
+			name: "bold italic link",
+			text: "***[important](url)***",
+			expected: []MarkdownToken{
+				{Content: "important", Bold: true, Italic: true, IsLink: true, LinkURL: "url"},
+			},
+		},
+		{
+			name:     "malformed link - missing close bracket",
+			text:     "[broken link(url)",
+			expected: []MarkdownToken{{Content: "[broken link(url)"}},
+		},
+		{
+			name:     "malformed link - missing close paren",
+			text:     "[broken](url",
+			expected: []MarkdownToken{{Content: "[broken](url"}},
+		},
 	}
 
 	for _, tt := range tests {
@@ -150,6 +208,12 @@ func TestParseMarkdown(t *testing.T) {
 				}
 				if result[i].Code != tt.expected[i].Code {
 					t.Errorf("token %d: expected code=%v, got %v", i, tt.expected[i].Code, result[i].Code)
+				}
+				if result[i].IsLink != tt.expected[i].IsLink {
+					t.Errorf("token %d: expected isLink=%v, got %v", i, tt.expected[i].IsLink, result[i].IsLink)
+				}
+				if result[i].LinkURL != tt.expected[i].LinkURL {
+					t.Errorf("token %d: expected linkURL=%q, got %q", i, tt.expected[i].LinkURL, result[i].LinkURL)
 				}
 			}
 		})
@@ -572,6 +636,16 @@ func TestVerboseOutputIntegration(t *testing.T) {
 			text:          "This is ***very important***",
 			expectedParts: []string{"1 bold+italic"},
 		},
+		{
+			name:          "link detected",
+			text:          "Check [docs](https://example.com)",
+			expectedParts: []string{"1 link"},
+		},
+		{
+			name:          "bold link detected",
+			text:          "**[important](url)**",
+			expectedParts: []string{"1 link", "1 bold"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -588,6 +662,266 @@ func TestVerboseOutputIntegration(t *testing.T) {
 			for _, part := range tt.notExpected {
 				if strings.Contains(output, part) {
 					t.Errorf("expected output to NOT contain %q, got %q", part, output)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildWithMentionsAndPages(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		userIDs  []string
+		pageIDs  []string
+		expected []notion.RichText
+	}{
+		{
+			name:    "simple link",
+			text:    "Check [docs](https://notion.so)",
+			userIDs: nil,
+			pageIDs: nil,
+			expected: []notion.RichText{
+				{Type: "text", Text: &notion.TextContent{Content: "Check "}},
+				{Type: "text", Text: &notion.TextContent{Content: "docs", Link: &notion.Link{URL: "https://notion.so"}}},
+			},
+		},
+		{
+			name:    "bold link",
+			text:    "**[important](url)**",
+			userIDs: nil,
+			pageIDs: nil,
+			expected: []notion.RichText{
+				{Type: "text", Text: &notion.TextContent{Content: "important", Link: &notion.Link{URL: "url"}}, Annotations: boldAnnotation()},
+			},
+		},
+		{
+			name:    "simple page mention",
+			text:    "See @@ProjectPlan",
+			userIDs: nil,
+			pageIDs: []string{"project-plan-id"},
+			expected: []notion.RichText{
+				{Type: "text", Text: &notion.TextContent{Content: "See "}},
+				{Type: "mention", Mention: &notion.Mention{Type: "page", Page: &notion.PageMention{ID: "project-plan-id"}}},
+			},
+		},
+		{
+			name:    "page mention without ID - kept as plain text",
+			text:    "See @@ProjectPlan",
+			userIDs: nil,
+			pageIDs: nil,
+			expected: []notion.RichText{
+				{Type: "text", Text: &notion.TextContent{Content: "See "}},
+				{Type: "text", Text: &notion.TextContent{Content: "@@ProjectPlan"}},
+			},
+		},
+		{
+			name:    "mixed user and page mentions",
+			text:    "@Alice see @@ProjectPlan",
+			userIDs: []string{"alice-id"},
+			pageIDs: []string{"project-plan-id"},
+			expected: []notion.RichText{
+				{Type: "mention", Mention: &notion.Mention{Type: "user", User: &notion.UserMention{ID: "alice-id"}}},
+				{Type: "text", Text: &notion.TextContent{Content: " see "}},
+				{Type: "mention", Mention: &notion.Mention{Type: "page", Page: &notion.PageMention{ID: "project-plan-id"}}},
+			},
+		},
+		{
+			name:    "link and user mention",
+			text:    "@Alice check [docs](https://example.com)",
+			userIDs: []string{"alice-id"},
+			pageIDs: nil,
+			expected: []notion.RichText{
+				{Type: "mention", Mention: &notion.Mention{Type: "user", User: &notion.UserMention{ID: "alice-id"}}},
+				{Type: "text", Text: &notion.TextContent{Content: " check "}},
+				{Type: "text", Text: &notion.TextContent{Content: "docs", Link: &notion.Link{URL: "https://example.com"}}},
+			},
+		},
+		{
+			name:    "multiple page mentions",
+			text:    "@@PageOne and @@PageTwo",
+			userIDs: nil,
+			pageIDs: []string{"page-one-id", "page-two-id"},
+			expected: []notion.RichText{
+				{Type: "mention", Mention: &notion.Mention{Type: "page", Page: &notion.PageMention{ID: "page-one-id"}}},
+				{Type: "text", Text: &notion.TextContent{Content: " and "}},
+				{Type: "mention", Mention: &notion.Mention{Type: "page", Page: &notion.PageMention{ID: "page-two-id"}}},
+			},
+		},
+		{
+			name:    "extra page IDs appended at end",
+			text:    "@@OnePage only",
+			userIDs: nil,
+			pageIDs: []string{"one-page-id", "extra-page-id"},
+			expected: []notion.RichText{
+				{Type: "mention", Mention: &notion.Mention{Type: "page", Page: &notion.PageMention{ID: "one-page-id"}}},
+				{Type: "text", Text: &notion.TextContent{Content: " only"}},
+				{Type: "mention", Mention: &notion.Mention{Type: "page", Page: &notion.PageMention{ID: "extra-page-id"}}},
+			},
+		},
+		{
+			name:    "mention inside link text - kept as literal",
+			text:    "[See @Alice's doc](url)",
+			userIDs: []string{"alice-id"},
+			pageIDs: nil,
+			// Link with literal text "@Alice's" inside, alice-id appended at end since no @mention found in non-link text
+			expected: []notion.RichText{
+				{Type: "text", Text: &notion.TextContent{Content: "See @Alice's doc", Link: &notion.Link{URL: "url"}}},
+				{Type: "mention", Mention: &notion.Mention{Type: "user", User: &notion.UserMention{ID: "alice-id"}}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildWithMentionsAndPages(tt.text, tt.userIDs, tt.pageIDs)
+
+			if len(result) != len(tt.expected) {
+				t.Fatalf("expected %d rich text elements, got %d\nexpected: %+v\ngot: %+v",
+					len(tt.expected), len(result), tt.expected, result)
+			}
+
+			for i := range result {
+				if result[i].Type != tt.expected[i].Type {
+					t.Errorf("element %d: expected type %q, got %q", i, tt.expected[i].Type, result[i].Type)
+				}
+
+				if tt.expected[i].Text != nil {
+					if result[i].Text == nil {
+						t.Errorf("element %d: expected text content, got nil", i)
+					} else {
+						if result[i].Text.Content != tt.expected[i].Text.Content {
+							t.Errorf("element %d: expected text content %q, got %q",
+								i, tt.expected[i].Text.Content, result[i].Text.Content)
+						}
+						// Check link
+						if tt.expected[i].Text.Link != nil {
+							if result[i].Text.Link == nil {
+								t.Errorf("element %d: expected link, got nil", i)
+							} else if result[i].Text.Link.URL != tt.expected[i].Text.Link.URL {
+								t.Errorf("element %d: expected link URL %q, got %q",
+									i, tt.expected[i].Text.Link.URL, result[i].Text.Link.URL)
+							}
+						} else if result[i].Text.Link != nil {
+							t.Errorf("element %d: expected no link, got %+v", i, result[i].Text.Link)
+						}
+					}
+				}
+
+				if tt.expected[i].Mention != nil {
+					if result[i].Mention == nil {
+						t.Errorf("element %d: expected mention, got nil", i)
+					} else {
+						if tt.expected[i].Mention.User != nil {
+							if result[i].Mention.User == nil {
+								t.Errorf("element %d: expected user mention, got nil", i)
+							} else if result[i].Mention.User.ID != tt.expected[i].Mention.User.ID {
+								t.Errorf("element %d: expected user ID %q, got %q",
+									i, tt.expected[i].Mention.User.ID, result[i].Mention.User.ID)
+							}
+						}
+						if tt.expected[i].Mention.Page != nil {
+							if result[i].Mention.Page == nil {
+								t.Errorf("element %d: expected page mention, got nil", i)
+							} else if result[i].Mention.Page.ID != tt.expected[i].Mention.Page.ID {
+								t.Errorf("element %d: expected page ID %q, got %q",
+									i, tt.expected[i].Mention.Page.ID, result[i].Mention.Page.ID)
+							}
+						}
+					}
+				}
+
+				// Check annotations
+				if tt.expected[i].Annotations != nil {
+					if result[i].Annotations == nil {
+						t.Errorf("element %d: expected annotations, got nil", i)
+					} else {
+						if result[i].Annotations.Bold != tt.expected[i].Annotations.Bold {
+							t.Errorf("element %d: expected bold=%v, got %v",
+								i, tt.expected[i].Annotations.Bold, result[i].Annotations.Bold)
+						}
+						if result[i].Annotations.Italic != tt.expected[i].Annotations.Italic {
+							t.Errorf("element %d: expected italic=%v, got %v",
+								i, tt.expected[i].Annotations.Italic, result[i].Annotations.Italic)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestCountUserMentionsOnly(t *testing.T) {
+	tests := []struct {
+		text     string
+		expected int
+	}{
+		{"", 0},
+		{"plain text", 0},
+		{"@user mention", 1},
+		{"@one and @two", 2},
+		{"@@page mention only", 0},
+		{"@user and @@page", 1},
+		{"@@Page-One and @@Page-Two", 0},     // only page mentions, no standalone user mentions
+		{"@Alice and @@Bob and @Charlie", 2}, // @Alice and @Charlie are user mentions, @Bob is part of @@Bob
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			result := CountUserMentionsOnly(tt.text)
+			if result != tt.expected {
+				t.Errorf("CountUserMentionsOnly(%q) = %d, expected %d", tt.text, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCountPageMentions(t *testing.T) {
+	tests := []struct {
+		text     string
+		expected int
+	}{
+		{"", 0},
+		{"plain text", 0},
+		{"@user mention only", 0},
+		{"@@page mention", 1},
+		{"@@one and @@two", 2},
+		{"@user and @@page", 1},
+		{"@@Page-Name_123", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			result := CountPageMentions(tt.text)
+			if result != tt.expected {
+				t.Errorf("CountPageMentions(%q) = %d, expected %d", tt.text, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFindPageMentions(t *testing.T) {
+	tests := []struct {
+		text     string
+		expected []string
+	}{
+		{"", nil},
+		{"plain text", nil},
+		{"@@ProjectPlan", []string{"@@ProjectPlan"}},
+		{"@@One and @@Two", []string{"@@One", "@@Two"}},
+		{"@user and @@page", []string{"@@page"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			result := FindPageMentions(tt.text)
+			if len(result) != len(tt.expected) {
+				t.Errorf("FindPageMentions(%q) returned %d results, expected %d", tt.text, len(result), len(tt.expected))
+				return
+			}
+			for i, v := range result {
+				if v != tt.expected[i] {
+					t.Errorf("FindPageMentions(%q)[%d] = %q, expected %q", tt.text, i, v, tt.expected[i])
 				}
 			}
 		})

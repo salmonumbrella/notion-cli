@@ -193,6 +193,7 @@ func newCommentAddCmd() *cobra.Command {
 	var discussionID string
 	var text string
 	var mentions []string
+	var pageMentions []string
 	var verbose bool
 
 	cmd := &cobra.Command{
@@ -205,17 +206,19 @@ You must specify either --parent (to create a new discussion on a page) or
 
 The --text flag is required and contains the comment content.
 Use --mention to @-mention users (they will receive notifications).
+Use --page-mention to @@-mention pages (link to other Notion pages).
 
 MARKDOWN FORMATTING:
 The --text flag supports markdown formatting:
-  **bold**     - Bold text
-  *italic*     - Italic text (also _italic_)
-  ` + "`code`" + `       - Inline code
-  ***both***   - Bold and italic combined
+  **bold**       - Bold text
+  *italic*       - Italic text (also _italic_)
+  ` + "`code`" + `         - Inline code
+  ***both***     - Bold and italic combined
+  [text](url)    - Hyperlink
 
-When @Name patterns appear in --text, they are replaced with mentions in order.
-For example, "Hey @Georges" with --mention user-id will replace @Georges with
-a proper mention object at that position.
+MENTIONS:
+  @Name patterns are replaced with user mentions using --mention IDs.
+  @@Name patterns are replaced with page mentions using --page-mention IDs.
 
 Example - Create a new comment on a page:
   notion comment add --parent abc123def456 --text "This is my comment"
@@ -223,19 +226,27 @@ Example - Create a new comment on a page:
 Example - Create comment with formatting:
   notion comment add --parent abc123def456 --text "This is **bold** and *italic* and ` + "`code`" + `"
 
+Example - Create comment with a link:
+  notion comment add --parent abc123def456 --text "Check [Notion docs](https://notion.so) for help"
+
 Example - Create comment with inline user mention:
   notion comment add --parent abc123def456 --text "Hey @Georges, can you review?" --mention georges-user-id
 
-Example - Create comment with multiple mentions:
-  notion comment add --parent abc123def456 --text "@Alice and @Bob please review" --mention alice-id --mention bob-id
+Example - Create comment with page mention:
+  notion comment add --parent abc123def456 --text "See @@RelatedPage for context" --page-mention related-page-id
+
+Example - Create comment with both user and page mentions:
+  notion comment add --parent abc123def456 --text "@Alice see @@ProjectPlan for details" \
+    --mention alice-user-id --page-mention project-plan-page-id
 
 Example - Add to an existing discussion:
   notion comment add --discussion-id thread123 --text "Reply to discussion"
 
 Combined example (all flags together):
   notion comment add --parent abc123def456 \
-    --text "@Alice please **review** this ` + "`" + `code` + "`" + ` change" \
+    --text "@Alice please **review** @@ProjectPlan and check [docs](https://example.com)" \
     --mention alice-user-id \
+    --page-mention project-plan-id \
     --verbose`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -270,8 +281,9 @@ Combined example (all flags together):
 			client := NewNotionClient(ctx, token)
 
 			// Build rich text with inline mentions
-			// @Name patterns in text are replaced with mention objects using provided user IDs
-			richTextContent := buildCommentRichTextVerbose(stderrFromContext(ctx), text, mentions, verbose, true)
+			// @Name patterns in text are replaced with user mention objects using provided user IDs
+			// @@Name patterns in text are replaced with page mention objects using provided page IDs
+			richTextContent := buildCommentRichTextVerbose(stderrFromContext(ctx), text, mentions, pageMentions, verbose, true)
 
 			// Build request
 			req := &notion.CreateCommentRequest{
@@ -302,6 +314,7 @@ Combined example (all flags together):
 	cmd.Flags().StringVar(&discussionID, "discussion-id", "", "Discussion thread ID to add comment to (mutually exclusive with --parent)")
 	cmd.Flags().StringVar(&text, "text", "", "Comment text (required)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention (repeatable)")
+	cmd.Flags().StringArrayVar(&pageMentions, "page-mention", nil, "Page ID(s) to @@-mention (repeatable)")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show how markdown was parsed before creating comment")
 
 	return cmd
@@ -310,8 +323,8 @@ Combined example (all flags together):
 // buildCommentRichTextVerbose builds rich text from text with mentions, optionally printing
 // verbose output about markdown parsing and mention matching. The w parameter specifies where
 // verbose output is written (typically os.Stderr in production). If emitWarnings is true,
-// warnings are printed when --mention flags are provided but not used.
-func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, verbose bool, emitWarnings bool) []notion.RichText {
+// warnings are printed when --mention or --page-mention flags are provided but not used.
+func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, pageIDs []string, verbose bool, emitWarnings bool) []notion.RichText {
 	// Parse markdown first (for verbose output if enabled)
 	tokens := richtext.ParseMarkdown(text)
 	if verbose {
@@ -319,21 +332,32 @@ func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, ver
 		_, _ = fmt.Fprintln(w, richtext.FormatSummary(summary))
 	}
 
-	// Count @Name patterns to match with user IDs
-	mentionsNeeded := richtext.CountMentions(text)
+	// Count @Name patterns to match with user IDs (excluding those in @@Name patterns)
+	userMentionsNeeded := richtext.CountUserMentionsOnly(text)
+	// Count @@Name patterns to match with page IDs
+	pageMentionsNeeded := richtext.CountPageMentions(text)
 
 	if verbose {
-		richtext.FormatMentionMappings(w, text, userIDs)
+		richtext.FormatAllMentionMappings(w, text, userIDs, pageIDs)
 	}
 
 	// Emit warnings about unused --mention flags if requested
 	if emitWarnings && len(userIDs) > 0 {
-		if mentionsNeeded == 0 {
+		if userMentionsNeeded == 0 {
 			_, _ = fmt.Fprintf(w, "warning: %d --mention flag(s) provided but no @Name patterns found in text\n", len(userIDs))
-		} else if mentionsNeeded < len(userIDs) {
-			_, _ = fmt.Fprintf(w, "warning: %d of %d --mention flag(s) unused (not enough @Name patterns)\n", len(userIDs)-mentionsNeeded, len(userIDs))
+		} else if userMentionsNeeded < len(userIDs) {
+			_, _ = fmt.Fprintf(w, "warning: %d of %d --mention flag(s) unused (not enough @Name patterns)\n", len(userIDs)-userMentionsNeeded, len(userIDs))
 		}
 	}
 
-	return richtext.BuildWithMentionsFromTokens(tokens, userIDs)
+	// Emit warnings about unused --page-mention flags if requested
+	if emitWarnings && len(pageIDs) > 0 {
+		if pageMentionsNeeded == 0 {
+			_, _ = fmt.Fprintf(w, "warning: %d --page-mention flag(s) provided but no @@Name patterns found in text\n", len(pageIDs))
+		} else if pageMentionsNeeded < len(pageIDs) {
+			_, _ = fmt.Fprintf(w, "warning: %d of %d --page-mention flag(s) unused (not enough @@Name patterns)\n", len(pageIDs)-pageMentionsNeeded, len(pageIDs))
+		}
+	}
+
+	return richtext.BuildWithMentionsFromTokens(tokens, userIDs, pageIDs)
 }

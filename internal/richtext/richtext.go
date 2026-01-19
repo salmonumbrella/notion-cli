@@ -13,14 +13,39 @@ import (
 // mentionPattern matches @Name patterns in text (alphanumeric, hyphens, underscores)
 var mentionPattern = regexp.MustCompile(`@([A-Za-z0-9_-]+)`)
 
+// pageMentionPattern matches @@Name patterns for page mentions
+var pageMentionPattern = regexp.MustCompile(`@@([A-Za-z0-9_-]+)`)
+
+// linkPattern matches markdown links [text](url)
+var linkPattern = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+
 // CountMentions returns the number of @Name patterns found in the text.
 func CountMentions(text string) int {
 	return len(mentionPattern.FindAllStringIndex(text, -1))
 }
 
+// CountUserMentionsOnly returns the number of @Name patterns that are NOT part of @@Name patterns.
+// This provides an accurate count of user mentions by filtering out the @Name portion of page mentions.
+func CountUserMentionsOnly(text string) int {
+	userMatches := mentionPattern.FindAllStringIndex(text, -1)
+	pageMatches := pageMentionPattern.FindAllStringIndex(text, -1)
+	filtered := filterUserMentionsFromPageMentions(userMatches, pageMatches)
+	return len(filtered)
+}
+
 // FindMentions returns all @Name patterns found in the text (e.g., "@John", "@Jane-Doe").
 func FindMentions(text string) []string {
 	return mentionPattern.FindAllString(text, -1)
+}
+
+// CountPageMentions returns the number of @@Name patterns found in the text.
+func CountPageMentions(text string) int {
+	return len(pageMentionPattern.FindAllStringIndex(text, -1))
+}
+
+// FindPageMentions returns all @@Name patterns found in the text (e.g., "@@ProjectPlan").
+func FindPageMentions(text string) []string {
+	return pageMentionPattern.FindAllString(text, -1)
 }
 
 // MarkdownToken represents a parsed markdown segment with its formatting
@@ -29,6 +54,8 @@ type MarkdownToken struct {
 	Bold    bool
 	Italic  bool
 	Code    bool
+	IsLink  bool
+	LinkURL string
 }
 
 // ParseMarkdown parses text for markdown patterns and returns tokens.
@@ -38,6 +65,8 @@ type MarkdownToken struct {
 //   - *italic* or _italic_
 //   - `code`
 //   - ***bold italic*** or ___bold italic___
+//   - [text](url) for links
+//   - **[text](url)** for formatted links
 //
 // Limitations:
 //   - Nested or overlapping formatting (e.g., "**bold *italic** text*") may not
@@ -56,7 +85,8 @@ func ParseMarkdown(text string) []MarkdownToken {
 		earliest := -1
 		var matched string
 		var tokenContent string
-		var bold, italic, code bool
+		var bold, italic, code, isLink bool
+		var linkURL string
 
 		// Check for code first (highest priority, doesn't nest)
 		if idx := strings.Index(remaining, "`"); idx != -1 {
@@ -69,6 +99,28 @@ func ParseMarkdown(text string) []MarkdownToken {
 					code = true
 					bold = false
 					italic = false
+					isLink = false
+					linkURL = ""
+				}
+			}
+		}
+
+		// Check for links [text](url) - can be inside formatting
+		if linkMatch := linkPattern.FindStringIndex(remaining); linkMatch != nil {
+			idx := linkMatch[0]
+			if earliest == -1 || idx < earliest {
+				// Extract link text and URL
+				fullMatch := remaining[linkMatch[0]:linkMatch[1]]
+				submatches := linkPattern.FindStringSubmatch(fullMatch)
+				if len(submatches) == 3 {
+					earliest = idx
+					tokenContent = submatches[1] // link text
+					linkURL = submatches[2]      // URL
+					matched = fullMatch
+					isLink = true
+					bold = false
+					italic = false
+					code = false
 				}
 			}
 		}
@@ -78,12 +130,27 @@ func ParseMarkdown(text string) []MarkdownToken {
 			if idx := strings.Index(remaining, marker); idx != -1 && (earliest == -1 || idx < earliest) {
 				endIdx := strings.Index(remaining[idx+3:], marker)
 				if endIdx != -1 {
-					earliest = idx
-					tokenContent = remaining[idx+3 : idx+3+endIdx]
-					matched = remaining[idx : idx+3+endIdx+3]
-					bold = true
-					italic = true
-					code = false
+					innerContent := remaining[idx+3 : idx+3+endIdx]
+					// Check if inner content is a link
+					if linkMatch := linkPattern.FindStringSubmatch(innerContent); linkMatch != nil && linkMatch[0] == innerContent {
+						earliest = idx
+						tokenContent = linkMatch[1]
+						linkURL = linkMatch[2]
+						matched = remaining[idx : idx+3+endIdx+3]
+						bold = true
+						italic = true
+						code = false
+						isLink = true
+					} else {
+						earliest = idx
+						tokenContent = innerContent
+						matched = remaining[idx : idx+3+endIdx+3]
+						bold = true
+						italic = true
+						code = false
+						isLink = false
+						linkURL = ""
+					}
 				}
 			}
 		}
@@ -93,12 +160,27 @@ func ParseMarkdown(text string) []MarkdownToken {
 			if idx := strings.Index(remaining, marker); idx != -1 && (earliest == -1 || idx < earliest) {
 				endIdx := strings.Index(remaining[idx+2:], marker)
 				if endIdx != -1 {
-					earliest = idx
-					tokenContent = remaining[idx+2 : idx+2+endIdx]
-					matched = remaining[idx : idx+2+endIdx+2]
-					bold = true
-					italic = false
-					code = false
+					innerContent := remaining[idx+2 : idx+2+endIdx]
+					// Check if inner content is a link
+					if linkMatch := linkPattern.FindStringSubmatch(innerContent); linkMatch != nil && linkMatch[0] == innerContent {
+						earliest = idx
+						tokenContent = linkMatch[1]
+						linkURL = linkMatch[2]
+						matched = remaining[idx : idx+2+endIdx+2]
+						bold = true
+						italic = false
+						code = false
+						isLink = true
+					} else {
+						earliest = idx
+						tokenContent = innerContent
+						matched = remaining[idx : idx+2+endIdx+2]
+						bold = true
+						italic = false
+						code = false
+						isLink = false
+						linkURL = ""
+					}
 				}
 			}
 		}
@@ -157,12 +239,27 @@ func ParseMarkdown(text string) []MarkdownToken {
 					break
 				}
 				if endIdx > 0 {
-					earliest = idx
-					tokenContent = remaining[idx+1 : idx+1+endIdx]
-					matched = remaining[idx : idx+1+endIdx+1]
-					bold = false
-					italic = true
-					code = false
+					innerContent := remaining[idx+1 : idx+1+endIdx]
+					// Check if inner content is a link
+					if linkMatch := linkPattern.FindStringSubmatch(innerContent); linkMatch != nil && linkMatch[0] == innerContent {
+						earliest = idx
+						tokenContent = linkMatch[1]
+						linkURL = linkMatch[2]
+						matched = remaining[idx : idx+1+endIdx+1]
+						bold = false
+						italic = true
+						code = false
+						isLink = true
+					} else {
+						earliest = idx
+						tokenContent = innerContent
+						matched = remaining[idx : idx+1+endIdx+1]
+						bold = false
+						italic = true
+						code = false
+						isLink = false
+						linkURL = ""
+					}
 				}
 			}
 		}
@@ -184,6 +281,8 @@ func ParseMarkdown(text string) []MarkdownToken {
 			Bold:    bold,
 			Italic:  italic,
 			Code:    code,
+			IsLink:  isLink,
+			LinkURL: linkURL,
 		})
 
 		remaining = remaining[earliest+len(matched):]
@@ -210,34 +309,61 @@ func CreateAnnotations(bold, italic, code bool) *notion.Annotations {
 
 // BuildWithMentions parses text for markdown formatting and @Name patterns,
 // replacing them with properly formatted rich text and mention objects.
-// Supports: **bold**, *italic*, _italic_, `code`, ***bold italic***, and @mentions.
+// Supports: **bold**, *italic*, _italic_, `code`, ***bold italic***, [links](url), and @mentions.
 // Returns the rich_text array with interleaved text and mention objects.
 func BuildWithMentions(text string, userIDs []string) []notion.RichText {
-	if text == "" && len(userIDs) == 0 {
+	return BuildWithMentionsAndPages(text, userIDs, nil)
+}
+
+// BuildWithMentionsAndPages parses text for markdown formatting, @Name patterns (user mentions),
+// and @@Name patterns (page mentions), replacing them with properly formatted rich text.
+// Supports: **bold**, *italic*, _italic_, `code`, ***bold italic***, [links](url), @mentions, and @@page mentions.
+// Returns the rich_text array with interleaved text, link, and mention objects.
+func BuildWithMentionsAndPages(text string, userIDs []string, pageIDs []string) []notion.RichText {
+	if text == "" && len(userIDs) == 0 && len(pageIDs) == 0 {
 		return []notion.RichText{}
 	}
 
 	tokens := ParseMarkdown(text)
-	return BuildWithMentionsFromTokens(tokens, userIDs)
+	return BuildWithMentionsFromTokens(tokens, userIDs, pageIDs)
 }
 
 // BuildWithMentionsFromTokens builds rich text from pre-parsed markdown tokens.
 // Use this when you've already parsed markdown (e.g., for verbose output) to avoid
 // parsing twice. The tokens should come from ParseMarkdown.
-func BuildWithMentionsFromTokens(tokens []MarkdownToken, userIDs []string) []notion.RichText {
-	if len(tokens) == 0 && len(userIDs) == 0 {
+// userIDs are matched to @Name patterns, pageIDs are matched to @@Name patterns.
+func BuildWithMentionsFromTokens(tokens []MarkdownToken, userIDs []string, pageIDs []string) []notion.RichText {
+	if len(tokens) == 0 && len(userIDs) == 0 && len(pageIDs) == 0 {
 		return []notion.RichText{}
 	}
 
-	// Process each token, looking for @mentions within them
+	// Process each token, looking for @mentions and @@page mentions within them
 	var richText []notion.RichText
 	userIDIndex := 0
+	pageIDIndex := 0
 
 	for _, token := range tokens {
-		// Check for @mentions within this token's content
-		matches := mentionPattern.FindAllStringIndex(token.Content, -1)
+		// If this token is a link, handle it specially
+		if token.IsLink {
+			richText = append(richText, notion.RichText{
+				Type: "text",
+				Text: &notion.TextContent{
+					Content: token.Content,
+					Link:    &notion.Link{URL: token.LinkURL},
+				},
+				Annotations: CreateAnnotations(token.Bold, token.Italic, token.Code),
+			})
+			continue
+		}
 
-		if len(matches) == 0 {
+		// Find all mention patterns (both @ and @@) within this token's content
+		userMatches := mentionPattern.FindAllStringIndex(token.Content, -1)
+		pageMatches := pageMentionPattern.FindAllStringIndex(token.Content, -1)
+
+		// Filter out user mentions that are actually part of page mentions (@@Name contains @Name)
+		filteredUserMatches := filterUserMentionsFromPageMentions(userMatches, pageMatches)
+
+		if len(filteredUserMatches) == 0 && len(pageMatches) == 0 {
 			// No mentions in this token, add it directly with its formatting
 			if token.Content != "" {
 				richText = append(richText, notion.RichText{
@@ -249,10 +375,13 @@ func BuildWithMentionsFromTokens(tokens []MarkdownToken, userIDs []string) []not
 			continue
 		}
 
+		// Merge and sort all matches by position
+		allMatches := mergeAndSortMatches(filteredUserMatches, pageMatches)
+
 		// Process mentions within this formatted token
 		lastEnd := 0
-		for _, match := range matches {
-			start, end := match[0], match[1]
+		for _, match := range allMatches {
+			start, end := match.start, match.end
 
 			// Add text before this mention (with the token's formatting)
 			if start > lastEnd {
@@ -263,23 +392,44 @@ func BuildWithMentionsFromTokens(tokens []MarkdownToken, userIDs []string) []not
 				})
 			}
 
-			// Add mention if we have a user ID for it
-			if userIDIndex < len(userIDs) {
-				richText = append(richText, notion.RichText{
-					Type: "mention",
-					Mention: &notion.Mention{
-						Type: "user",
-						User: &notion.UserMention{ID: userIDs[userIDIndex]},
-					},
-				})
-				userIDIndex++
+			if match.isPageMention {
+				// Add page mention if we have a page ID for it
+				if pageIDIndex < len(pageIDs) {
+					richText = append(richText, notion.RichText{
+						Type: "mention",
+						Mention: &notion.Mention{
+							Type: "page",
+							Page: &notion.PageMention{ID: pageIDs[pageIDIndex]},
+						},
+					})
+					pageIDIndex++
+				} else {
+					// No more page IDs, keep the @@Name as plain text with formatting
+					richText = append(richText, notion.RichText{
+						Type:        "text",
+						Text:        &notion.TextContent{Content: token.Content[start:end]},
+						Annotations: CreateAnnotations(token.Bold, token.Italic, token.Code),
+					})
+				}
 			} else {
-				// No more user IDs, keep the @Name as plain text with formatting
-				richText = append(richText, notion.RichText{
-					Type:        "text",
-					Text:        &notion.TextContent{Content: token.Content[start:end]},
-					Annotations: CreateAnnotations(token.Bold, token.Italic, token.Code),
-				})
+				// Add user mention if we have a user ID for it
+				if userIDIndex < len(userIDs) {
+					richText = append(richText, notion.RichText{
+						Type: "mention",
+						Mention: &notion.Mention{
+							Type: "user",
+							User: &notion.UserMention{ID: userIDs[userIDIndex]},
+						},
+					})
+					userIDIndex++
+				} else {
+					// No more user IDs, keep the @Name as plain text with formatting
+					richText = append(richText, notion.RichText{
+						Type:        "text",
+						Text:        &notion.TextContent{Content: token.Content[start:end]},
+						Annotations: CreateAnnotations(token.Bold, token.Italic, token.Code),
+					})
+				}
 			}
 
 			lastEnd = end
@@ -306,7 +456,72 @@ func BuildWithMentionsFromTokens(tokens []MarkdownToken, userIDs []string) []not
 		})
 	}
 
+	// If there are extra page IDs (no matching @@Name patterns), append them at the end
+	for ; pageIDIndex < len(pageIDs); pageIDIndex++ {
+		richText = append(richText, notion.RichText{
+			Type: "mention",
+			Mention: &notion.Mention{
+				Type: "page",
+				Page: &notion.PageMention{ID: pageIDs[pageIDIndex]},
+			},
+		})
+	}
+
 	return richText
+}
+
+// mentionMatch represents a found mention with its position and type
+type mentionMatch struct {
+	start         int
+	end           int
+	isPageMention bool
+}
+
+// filterUserMentionsFromPageMentions removes user mention matches that overlap with page mentions.
+// Since @@Name contains @Name, we need to filter out the @Name match when there's a @@Name.
+func filterUserMentionsFromPageMentions(userMatches, pageMatches [][]int) [][]int {
+	if len(pageMatches) == 0 {
+		return userMatches
+	}
+
+	var filtered [][]int
+	for _, um := range userMatches {
+		overlaps := false
+		for _, pm := range pageMatches {
+			// Check if user match is inside page match (page match is @@ + Name, user match is @ + Name)
+			// Page match starts at @@, user match at @ inside the @@Name would be at pm[0]+1
+			if um[0] >= pm[0] && um[1] <= pm[1] {
+				overlaps = true
+				break
+			}
+		}
+		if !overlaps {
+			filtered = append(filtered, um)
+		}
+	}
+	return filtered
+}
+
+// mergeAndSortMatches combines user and page mention matches into a sorted slice
+func mergeAndSortMatches(userMatches, pageMatches [][]int) []mentionMatch {
+	var all []mentionMatch
+	for _, m := range userMatches {
+		all = append(all, mentionMatch{start: m[0], end: m[1], isPageMention: false})
+	}
+	for _, m := range pageMatches {
+		all = append(all, mentionMatch{start: m[0], end: m[1], isPageMention: true})
+	}
+
+	// Sort by start position
+	for i := 0; i < len(all); i++ {
+		for j := i + 1; j < len(all); j++ {
+			if all[j].start < all[i].start {
+				all[i], all[j] = all[j], all[i]
+			}
+		}
+	}
+
+	return all
 }
 
 // MarkdownSummary holds counts of detected markdown patterns
@@ -315,6 +530,7 @@ type MarkdownSummary struct {
 	Italic     int
 	Code       int
 	BoldItalic int
+	Links      int
 	Plain      int
 }
 
@@ -322,6 +538,18 @@ type MarkdownSummary struct {
 func SummarizeTokens(tokens []MarkdownToken) MarkdownSummary {
 	var summary MarkdownSummary
 	for _, token := range tokens {
+		if token.IsLink {
+			summary.Links++
+			// Also count the formatting on the link
+			if token.Bold && token.Italic {
+				summary.BoldItalic++
+			} else if token.Bold {
+				summary.Bold++
+			} else if token.Italic {
+				summary.Italic++
+			}
+			continue
+		}
 		switch {
 		case token.Bold && token.Italic:
 			summary.BoldItalic++
@@ -352,6 +580,9 @@ func FormatSummary(summary MarkdownSummary) string {
 	}
 	if summary.BoldItalic > 0 {
 		parts = append(parts, formatCount(summary.BoldItalic, "bold+italic"))
+	}
+	if summary.Links > 0 {
+		parts = append(parts, formatCount(summary.Links, "link"))
 	}
 	if len(parts) == 0 {
 		return "Parsed markdown: no formatting detected"

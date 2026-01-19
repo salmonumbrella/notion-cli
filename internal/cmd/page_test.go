@@ -477,8 +477,8 @@ func TestTransformPropertiesWithMentionsVerbose_Output(t *testing.T) {
 		t.Errorf("verbose output should contain property name, got: %s", output)
 	}
 	// Check that mention assignments are shown
-	if !strings.Contains(output, "Mentions:") {
-		t.Errorf("verbose output should contain 'Mentions:' header, got: %s", output)
+	if !strings.Contains(output, "User mentions:") {
+		t.Errorf("verbose output should contain 'User mentions:' header, got: %s", output)
 	}
 	if !strings.Contains(output, "@Georges → georges-user-id") {
 		t.Errorf("verbose output should show @Name → user ID mapping, got: %s", output)

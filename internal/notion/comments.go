@@ -51,10 +51,16 @@ type Link struct {
 type Mention struct {
 	Type string       `json:"type"`
 	User *UserMention `json:"user,omitempty"`
+	Page *PageMention `json:"page,omitempty"`
 }
 
 // UserMention represents a user mention.
 type UserMention struct {
+	ID string `json:"id"`
+}
+
+// PageMention represents a page mention.
+type PageMention struct {
 	ID string `json:"id"`
 }
 

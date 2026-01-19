@@ -572,7 +572,7 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 			}
 
 			// Build rich text array from pre-parsed tokens (avoids redundant parsing)
-			richTextContent := richtext.BuildWithMentionsFromTokens(tokens, propertyUserIDs)
+			richTextContent := richtext.BuildWithMentionsFromTokens(tokens, propertyUserIDs, nil)
 
 			// Convert to the format expected by Notion API
 			richTextArray := make([]interface{}, len(richTextContent))

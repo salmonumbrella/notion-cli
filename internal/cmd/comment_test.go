@@ -8,7 +8,7 @@ import (
 
 func TestBuildCommentRichTextVerbose_Output(t *testing.T) {
 	var buf bytes.Buffer
-	_ = buildCommentRichTextVerbose(&buf, "@Georges says hello", []string{"georges-id"}, true, false)
+	_ = buildCommentRichTextVerbose(&buf, "@Georges says hello", []string{"georges-id"}, nil, true, false)
 
 	output := buf.String()
 
@@ -18,8 +18,8 @@ func TestBuildCommentRichTextVerbose_Output(t *testing.T) {
 	}
 
 	// Should contain mention mappings
-	if !strings.Contains(output, "Mentions:") {
-		t.Errorf("verbose output should contain 'Mentions:' header, got: %s", output)
+	if !strings.Contains(output, "User mentions:") {
+		t.Errorf("verbose output should contain 'User mentions:' header, got: %s", output)
 	}
 	if !strings.Contains(output, "@Georges → georges-id") {
 		t.Errorf("verbose output should show mention mapping, got: %s", output)
@@ -28,7 +28,7 @@ func TestBuildCommentRichTextVerbose_Output(t *testing.T) {
 
 func TestBuildCommentRichTextVerbose_NoUserID(t *testing.T) {
 	var buf bytes.Buffer
-	_ = buildCommentRichTextVerbose(&buf, "@Alice and @Bob", []string{"alice-id"}, true, false)
+	_ = buildCommentRichTextVerbose(&buf, "@Alice and @Bob", []string{"alice-id"}, nil, true, false)
 
 	output := buf.String()
 
@@ -45,6 +45,7 @@ func TestBuildCommentRichTextVerbose_Warnings(t *testing.T) {
 		name           string
 		text           string
 		userIDs        []string
+		pageIDs        []string
 		emitWarnings   bool
 		expectContains []string
 		expectMissing  []string
@@ -59,7 +60,7 @@ func TestBuildCommentRichTextVerbose_Warnings(t *testing.T) {
 			},
 		},
 		{
-			name:         "warning when all mentions unused",
+			name:         "warning when all user mentions unused",
 			text:         "plain text with no mentions",
 			userIDs:      []string{"unused-id"},
 			emitWarnings: true,
@@ -68,7 +69,7 @@ func TestBuildCommentRichTextVerbose_Warnings(t *testing.T) {
 			},
 		},
 		{
-			name:         "warning when some mentions unused",
+			name:         "warning when some user mentions unused",
 			text:         "@Alice is here",
 			userIDs:      []string{"alice-id", "extra-id", "another-extra"},
 			emitWarnings: true,
@@ -77,7 +78,7 @@ func TestBuildCommentRichTextVerbose_Warnings(t *testing.T) {
 			},
 		},
 		{
-			name:          "no warning when all mentions used",
+			name:          "no warning when all user mentions used",
 			text:          "@Alice and @Bob",
 			userIDs:       []string{"alice-id", "bob-id"},
 			emitWarnings:  true,
@@ -90,12 +91,37 @@ func TestBuildCommentRichTextVerbose_Warnings(t *testing.T) {
 			emitWarnings:  true,
 			expectMissing: []string{"warning:"},
 		},
+		{
+			name:         "warning when all page mentions unused",
+			text:         "plain text with no page mentions",
+			pageIDs:      []string{"unused-page-id"},
+			emitWarnings: true,
+			expectContains: []string{
+				"warning: 1 --page-mention flag(s) provided but no @@Name patterns found",
+			},
+		},
+		{
+			name:         "warning when some page mentions unused",
+			text:         "@@PageOne is here",
+			pageIDs:      []string{"page-one-id", "extra-page-id"},
+			emitWarnings: true,
+			expectContains: []string{
+				"warning: 1 of 2 --page-mention flag(s) unused",
+			},
+		},
+		{
+			name:          "no warning when all page mentions used",
+			text:          "@@PageOne and @@PageTwo",
+			pageIDs:       []string{"page-one-id", "page-two-id"},
+			emitWarnings:  true,
+			expectMissing: []string{"warning:"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			_ = buildCommentRichTextVerbose(&buf, tt.text, tt.userIDs, false, tt.emitWarnings)
+			_ = buildCommentRichTextVerbose(&buf, tt.text, tt.userIDs, tt.pageIDs, false, tt.emitWarnings)
 
 			output := buf.String()
 
@@ -116,7 +142,7 @@ func TestBuildCommentRichTextVerbose_Warnings(t *testing.T) {
 
 func TestBuildCommentRichTextVerbose_NoVerbose(t *testing.T) {
 	var buf bytes.Buffer
-	_ = buildCommentRichTextVerbose(&buf, "@Georges says hello", []string{"georges-id"}, false, false)
+	_ = buildCommentRichTextVerbose(&buf, "@Georges says hello", []string{"georges-id"}, nil, false, false)
 
 	output := buf.String()
 
