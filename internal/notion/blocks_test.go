@@ -396,3 +396,141 @@ func TestDeleteBlock_EmptyID(t *testing.T) {
 		t.Errorf("expected error %q, got %q", expected, err.Error())
 	}
 }
+
+func TestGetBlockChildrenRecursive_Depth1(t *testing.T) {
+	// Mock server that returns a parent with one child that has_children=true
+	// but depth=1 means we only fetch direct children, not grandchildren
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/blocks/parent123/children" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object": "list",
+				"results": []interface{}{
+					map[string]interface{}{
+						"object":       "block",
+						"id":           "child1",
+						"type":         "toggle",
+						"has_children": true,
+						"toggle": map[string]interface{}{
+							"rich_text": []interface{}{},
+						},
+					},
+				},
+				"has_more":    false,
+				"next_cursor": nil,
+			})
+			return
+		}
+		t.Errorf("unexpected request to %s", r.URL.Path)
+	}))
+	defer server.Close()
+
+	client := NewClient("test-token").WithBaseURL(server.URL)
+	ctx := context.Background()
+
+	blocks, err := client.GetBlockChildrenRecursive(ctx, "parent123", 1, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(blocks))
+	}
+	if blocks[0].ID != "child1" {
+		t.Errorf("expected child ID 'child1', got %q", blocks[0].ID)
+	}
+	// At depth 1, children should NOT be fetched (no Children field populated)
+	if blocks[0].Children != nil {
+		t.Errorf("expected no children at depth 1, got %d", len(blocks[0].Children))
+	}
+}
+
+func TestGetBlockChildrenRecursive_Depth2(t *testing.T) {
+	// Mock server that returns nested blocks
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/blocks/parent123/children":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object": "list",
+				"results": []interface{}{
+					map[string]interface{}{
+						"object":       "block",
+						"id":           "child1",
+						"type":         "toggle",
+						"has_children": true,
+						"toggle": map[string]interface{}{
+							"rich_text": []interface{}{},
+						},
+					},
+				},
+				"has_more":    false,
+				"next_cursor": nil,
+			})
+		case "/blocks/child1/children":
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object": "list",
+				"results": []interface{}{
+					map[string]interface{}{
+						"object":       "block",
+						"id":           "grandchild1",
+						"type":         "paragraph",
+						"has_children": false,
+						"paragraph": map[string]interface{}{
+							"rich_text": []interface{}{
+								map[string]interface{}{
+									"type": "text",
+									"text": map[string]interface{}{
+										"content": "https://loom.com/share/abc123",
+									},
+								},
+							},
+						},
+					},
+				},
+				"has_more":    false,
+				"next_cursor": nil,
+			})
+		default:
+			t.Errorf("unexpected request to %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("test-token").WithBaseURL(server.URL)
+	ctx := context.Background()
+
+	blocks, err := client.GetBlockChildrenRecursive(ctx, "parent123", 2, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(blocks))
+	}
+	if blocks[0].ID != "child1" {
+		t.Errorf("expected child ID 'child1', got %q", blocks[0].ID)
+	}
+	// At depth 2, we should have fetched the grandchildren
+	if len(blocks[0].Children) != 1 {
+		t.Fatalf("expected 1 grandchild, got %d", len(blocks[0].Children))
+	}
+	if blocks[0].Children[0].ID != "grandchild1" {
+		t.Errorf("expected grandchild ID 'grandchild1', got %q", blocks[0].Children[0].ID)
+	}
+}
+
+func TestGetBlockChildrenRecursive_Depth0_ReturnsEmpty(t *testing.T) {
+	client := NewClient("test-token")
+	ctx := context.Background()
+
+	blocks, err := client.GetBlockChildrenRecursive(ctx, "parent123", 0, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(blocks) != 0 {
+		t.Errorf("expected 0 blocks at depth 0, got %d", len(blocks))
+	}
+}

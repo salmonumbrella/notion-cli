@@ -82,6 +82,7 @@ func newBlockChildrenCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
+	var depth int
 
 	cmd := &cobra.Command{
 		Use:   "children <block-id>",
@@ -91,11 +92,13 @@ func newBlockChildrenCmd() *cobra.Command {
 Use the --start-cursor flag to paginate through results.
 Use the --page-size flag to control the number of results per page (max 100).
 Use --all to fetch all pages of results automatically.
+Use --depth to recursively fetch nested children (e.g., content inside toggles, columns).
 
 Example:
   notion block children 12345678-1234-1234-1234-123456789012
   notion block children 12345678-1234-1234-1234-123456789012 --page-size 50
-  notion block children 12345678-1234-1234-1234-123456789012 --all`,
+  notion block children 12345678-1234-1234-1234-123456789012 --all
+  notion block children 12345678-1234-1234-1234-123456789012 --depth 3 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			blockID, err := cmdutil.NormalizeNotionID(args[0])
@@ -120,6 +123,26 @@ Example:
 
 			// Create client
 			client := NewNotionClient(ctx, token)
+
+			// If --depth flag is set, use recursive fetching
+			if depth > 0 {
+				opts := &notion.BlockChildrenOptions{
+					StartCursor: startCursor,
+					PageSize:    pageSize,
+				}
+
+				blocks, err := client.GetBlockChildrenRecursive(ctx, blockID, depth, opts)
+				if err != nil {
+					return fmt.Errorf("failed to get block children: %w", err)
+				}
+
+				if limit > 0 && len(blocks) > limit {
+					blocks = blocks[:limit]
+				}
+
+				printer := printerForContext(ctx)
+				return printer.Print(ctx, blocks)
+			}
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -179,6 +202,7 @@ Example:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
+	cmd.Flags().IntVar(&depth, "depth", 0, "Recursively fetch nested children up to this depth (0 = direct children only)")
 
 	return cmd
 }

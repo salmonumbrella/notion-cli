@@ -25,6 +25,8 @@ type Block struct {
 	// Type-specific content (e.g., paragraph, heading_1, etc.)
 	// Using map to handle different block types flexibly
 	Content map[string]interface{} `json:"-"` // Will be unmarshaled from type field
+	// Children contains nested child blocks when fetched with depth > 1
+	Children []Block `json:"children,omitempty"`
 }
 
 // MarshalJSON implements custom JSON marshaling to include type-specific content.
@@ -209,6 +211,57 @@ func (c *Client) UpdateBlock(ctx context.Context, blockID string, req *UpdateBlo
 	}
 
 	return block, nil
+}
+
+// GetBlockChildrenRecursive retrieves children of a block recursively up to the specified depth.
+// depth=0 returns no blocks, depth=1 returns direct children only, depth=2 includes grandchildren, etc.
+func (c *Client) GetBlockChildrenRecursive(ctx context.Context, blockID string, depth int, opts *BlockChildrenOptions) ([]Block, error) {
+	if depth <= 0 {
+		return []Block{}, nil
+	}
+
+	// Fetch direct children
+	var allBlocks []Block
+	cursor := ""
+	if opts != nil {
+		cursor = opts.StartCursor
+	}
+
+	for {
+		fetchOpts := &BlockChildrenOptions{
+			StartCursor: cursor,
+		}
+		if opts != nil && opts.PageSize > 0 {
+			fetchOpts.PageSize = opts.PageSize
+		}
+
+		blockList, err := c.GetBlockChildren(ctx, blockID, fetchOpts)
+		if err != nil {
+			return nil, err
+		}
+
+		allBlocks = append(allBlocks, blockList.Results...)
+
+		if !blockList.HasMore || blockList.NextCursor == nil || *blockList.NextCursor == "" {
+			break
+		}
+		cursor = *blockList.NextCursor
+	}
+
+	// If depth > 1, recursively fetch children for blocks that have children
+	if depth > 1 {
+		for i := range allBlocks {
+			if allBlocks[i].HasChildren {
+				children, err := c.GetBlockChildrenRecursive(ctx, allBlocks[i].ID, depth-1, opts)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get children of block %s: %w", allBlocks[i].ID, err)
+				}
+				allBlocks[i].Children = children
+			}
+		}
+	}
+
+	return allBlocks, nil
 }
 
 // DeleteBlock deletes (archives) a block.
