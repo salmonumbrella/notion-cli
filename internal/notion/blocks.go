@@ -61,6 +61,11 @@ func (b Block) MarshalJSON() ([]byte, error) {
 		m[b.Type] = b.Content
 	}
 
+	// Add children if present (from recursive fetching)
+	if len(b.Children) > 0 {
+		m["children"] = b.Children
+	}
+
 	return json.Marshal(m)
 }
 
@@ -250,9 +255,15 @@ func (c *Client) GetBlockChildrenRecursive(ctx context.Context, blockID string, 
 
 	// If depth > 1, recursively fetch children for blocks that have children
 	if depth > 1 {
+		// Create new options for child blocks - don't pass parent's StartCursor
+		childOpts := &BlockChildrenOptions{}
+		if opts != nil {
+			childOpts.PageSize = opts.PageSize
+		}
+
 		for i := range allBlocks {
 			if allBlocks[i].HasChildren {
-				children, err := c.GetBlockChildrenRecursive(ctx, allBlocks[i].ID, depth-1, opts)
+				children, err := c.GetBlockChildrenRecursive(ctx, allBlocks[i].ID, depth-1, childOpts)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get children of block %s: %w", allBlocks[i].ID, err)
 				}

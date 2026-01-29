@@ -534,3 +534,54 @@ func TestGetBlockChildrenRecursive_Depth0_ReturnsEmpty(t *testing.T) {
 		t.Errorf("expected 0 blocks at depth 0, got %d", len(blocks))
 	}
 }
+
+func TestBlock_MarshalJSON_IncludesChildren(t *testing.T) {
+	block := Block{
+		Object:      "block",
+		ID:          "parent-id",
+		Type:        "toggle",
+		HasChildren: true,
+		Content: map[string]interface{}{
+			"rich_text": []interface{}{},
+		},
+		Children: []Block{
+			{
+				Object:      "block",
+				ID:          "child-id",
+				Type:        "paragraph",
+				HasChildren: false,
+				Content: map[string]interface{}{
+					"rich_text": []interface{}{},
+				},
+			},
+		},
+	}
+
+	data, err := json.Marshal(block)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify children field is present in JSON output
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	children, ok := result["children"].([]interface{})
+	if !ok {
+		t.Fatal("expected children field in JSON output")
+	}
+	if len(children) != 1 {
+		t.Errorf("expected 1 child, got %d", len(children))
+	}
+
+	// Verify the child block has expected fields
+	child, ok := children[0].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected child to be an object")
+	}
+	if child["id"] != "child-id" {
+		t.Errorf("expected child id 'child-id', got %v", child["id"])
+	}
+}
