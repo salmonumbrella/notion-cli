@@ -2,6 +2,7 @@ package errors
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -165,5 +166,93 @@ func TestUserError(t *testing.T) {
 	expected := "authentication required: missing token"
 	if err.Error() != expected {
 		t.Errorf("Error() = %q, want %q", err.Error(), expected)
+	}
+}
+
+func TestNotFoundError(t *testing.T) {
+	err := NotFoundError("page", "abc123")
+
+	if !IsUserError(err) {
+		t.Error("NotFoundError should be a UserError")
+	}
+
+	if !strings.Contains(err.Error(), "page") {
+		t.Errorf("Error should mention entity type, got: %s", err.Error())
+	}
+
+	if !strings.Contains(err.Error(), "abc123") {
+		t.Errorf("Error should mention identifier, got: %s", err.Error())
+	}
+
+	suggestion := UserSuggestion(err)
+	if !strings.Contains(suggestion, "notion search") {
+		t.Errorf("Suggestion should include search command, got: %s", suggestion)
+	}
+}
+
+func TestNoDatabaseConfiguredError(t *testing.T) {
+	// Test with no databases
+	err := NoDatabaseConfiguredError(nil)
+	if !IsUserError(err) {
+		t.Error("NoDatabaseConfiguredError should be a UserError")
+	}
+
+	suggestion := UserSuggestion(err)
+	if !strings.Contains(suggestion, "notion skill init") {
+		t.Errorf("Suggestion should include skill init, got: %s", suggestion)
+	}
+
+	// Test with available databases
+	err = NoDatabaseConfiguredError([]string{"tasks", "projects"})
+	suggestion = UserSuggestion(err)
+	if !strings.Contains(suggestion, "tasks") {
+		t.Errorf("Suggestion should list available databases, got: %s", suggestion)
+	}
+}
+
+func TestAPINotFoundError(t *testing.T) {
+	// Test with a 404-style error
+	baseErr := errors.New("notion API error 404 (object_not_found): Page not found")
+	err := APINotFoundError(baseErr, "page", "abc123")
+
+	if !IsUserError(err) {
+		t.Error("APINotFoundError should return a UserError for 404")
+	}
+
+	suggestion := UserSuggestion(err)
+	if !strings.Contains(suggestion, "notion search") {
+		t.Errorf("Suggestion should include search command, got: %s", suggestion)
+	}
+
+	// Test with a non-404 error
+	baseErr = errors.New("rate limited")
+	err = APINotFoundError(baseErr, "page", "abc123")
+
+	// Should return original error unchanged
+	if err.Error() != baseErr.Error() {
+		t.Errorf("Expected original error for non-404, got: %s", err.Error())
+	}
+}
+
+func TestContains404Indicators(t *testing.T) {
+	tests := []struct {
+		errStr   string
+		expected bool
+	}{
+		{"notion API error 404 (object_not_found): Page not found", true},
+		{"object_not_found", true},
+		{"Could not find page", true},
+		{"page not found", true},
+		{"rate limited", false},
+		{"validation error", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.errStr, func(t *testing.T) {
+			if got := contains404Indicators(tt.errStr); got != tt.expected {
+				t.Errorf("contains404Indicators(%q) = %v, want %v", tt.errStr, got, tt.expected)
+			}
+		})
 	}
 }

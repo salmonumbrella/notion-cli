@@ -86,7 +86,7 @@ Example:
 			// Get block
 			block, err := client.GetBlock(ctx, blockID)
 			if err != nil {
-				return fmt.Errorf("failed to get block: %w", err)
+				return errors.APINotFoundError(err, "block", args[0])
 			}
 
 			// Print result
@@ -162,7 +162,7 @@ Example:
 
 				blocks, err := client.GetBlockChildrenRecursive(ctx, blockID, depth, opts)
 				if err != nil {
-					return fmt.Errorf("failed to get block children: %w", err)
+					return errors.APINotFoundError(err, "block", args[0])
 				}
 
 				if limit > 0 && len(blocks) > limit {
@@ -186,7 +186,7 @@ Example:
 
 					blockList, err := client.GetBlockChildren(ctx, blockID, opts)
 					if err != nil {
-						return fmt.Errorf("failed to get block children: %w", err)
+						return errors.APINotFoundError(err, "block", args[0])
 					}
 
 					allBlocks = append(allBlocks, blockList.Results...)
@@ -214,7 +214,7 @@ Example:
 
 			blockList, err := client.GetBlockChildren(ctx, blockID, opts)
 			if err != nil {
-				return fmt.Errorf("failed to get block children: %w", err)
+				return errors.APINotFoundError(err, "block", args[0])
 			}
 
 			if limit > 0 && len(blockList.Results) > limit {
@@ -349,7 +349,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 			// Append children
 			blockList, err := client.AppendBlockChildren(ctx, blockID, req)
 			if err != nil {
-				return fmt.Errorf("failed to append block children: %w", err)
+				return errors.APINotFoundError(err, "block", args[0])
 			}
 
 			// Print result
@@ -613,7 +613,7 @@ Example:
 			// Delete block
 			block, err := client.DeleteBlock(ctx, blockID)
 			if err != nil {
-				return fmt.Errorf("failed to delete block: %w", err)
+				return errors.APINotFoundError(err, "block", args[0])
 			}
 
 			// Print result
@@ -679,7 +679,7 @@ Example:
 
 			result, err := client.AppendBlockChildren(ctx, parentID, req)
 			if err != nil {
-				return fmt.Errorf("failed to add table of contents: %w", err)
+				return errors.APINotFoundError(err, "block", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -727,7 +727,7 @@ Example:
 
 			result, err := client.AppendBlockChildren(ctx, parentID, req)
 			if err != nil {
-				return fmt.Errorf("failed to add breadcrumb: %w", err)
+				return errors.APINotFoundError(err, "block", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -770,7 +770,7 @@ Example:
 
 			result, err := client.AppendBlockChildren(ctx, parentID, req)
 			if err != nil {
-				return fmt.Errorf("failed to add divider: %w", err)
+				return errors.APINotFoundError(err, "block", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -830,7 +830,7 @@ Example:
 
 			result, err := client.AppendBlockChildren(ctx, parentID, req)
 			if err != nil {
-				return fmt.Errorf("failed to add columns: %w", err)
+				return errors.APINotFoundError(err, "block", args[0])
 			}
 
 			printer := printerForContext(ctx)

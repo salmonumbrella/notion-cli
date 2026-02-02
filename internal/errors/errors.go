@@ -3,6 +3,7 @@ package errors
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -148,4 +149,83 @@ func (e *ContextualError) Unwrap() error {
 func IsContextualError(err error) bool {
 	var ce *ContextualError
 	return errors.As(err, &ce)
+}
+
+// NotFoundError creates a user-friendly error for when a resource is not found.
+// entityType is the type of entity (e.g., "page", "database", "block").
+// identifier is the ID or name that was searched for.
+func NotFoundError(entityType, identifier string) error {
+	suggestion := fmt.Sprintf("Run 'notion search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s", identifier, entityType, entityType)
+	return NewUserError(
+		fmt.Sprintf("%s %q not found", entityType, identifier),
+		suggestion,
+	)
+}
+
+// NotFoundWithSearchError creates a user-friendly error for when a resource is not found,
+// including search results that might be helpful.
+func NotFoundWithSearchError(entityType, identifier string, suggestions []string) error {
+	msg := fmt.Sprintf("%s %q not found", entityType, identifier)
+	var suggestion string
+	if len(suggestions) > 0 {
+		suggestion = fmt.Sprintf("Did you mean one of these?\n%s\n\nOr run 'notion search %s' to find more matches", formatSuggestionList(suggestions), identifier)
+	} else {
+		suggestion = fmt.Sprintf("Run 'notion search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s", identifier, entityType, entityType)
+	}
+	return NewUserError(msg, suggestion)
+}
+
+// NoDatabaseConfiguredError creates a user-friendly error when no database is configured for page creation.
+// availableDatabases is a list of database names/aliases from the skill file.
+func NoDatabaseConfiguredError(availableDatabases []string) error {
+	msg := "no database configured for page creation"
+	var suggestion string
+	if len(availableDatabases) > 0 {
+		suggestion = fmt.Sprintf("Available databases in your skill file:\n%s\n\nUse one of these with:\n  notion page create --parent <alias> --parent-type database --properties '{...}'", formatSuggestionList(availableDatabases))
+	} else {
+		suggestion = "To fix this:\n  1. Run 'notion skill init' to configure your workspace\n  2. Or use 'notion page create --parent <database-id> --parent-type database --properties '{...}' explicitly"
+	}
+	return NewUserError(msg, suggestion)
+}
+
+// formatSuggestionList formats a list of suggestions as a bulleted list.
+func formatSuggestionList(items []string) string {
+	var result string
+	for _, item := range items {
+		result += fmt.Sprintf("  • %s\n", item)
+	}
+	return result
+}
+
+// APINotFoundError wraps an API error with helpful suggestions for "not found" responses.
+// Returns the original error if it's not a 404-style error.
+func APINotFoundError(err error, entityType, identifier string) error {
+	if err == nil {
+		return nil
+	}
+	// Check if the error message contains "not found" or similar
+	errStr := err.Error()
+	if contains404Indicators(errStr) {
+		return WrapUserError(err, fmt.Sprintf("failed to get %s", entityType),
+			fmt.Sprintf("The %s %q was not found.\n\nSuggestions:\n  • Run 'notion search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s",
+				entityType, identifier, identifier, entityType, entityType))
+	}
+	return err
+}
+
+// contains404Indicators checks if an error message indicates a "not found" error.
+func contains404Indicators(errStr string) bool {
+	indicators := []string{
+		"object_not_found",
+		"404",
+		"not found",
+		"could not find",
+	}
+	errLower := strings.ToLower(errStr)
+	for _, indicator := range indicators {
+		if strings.Contains(errLower, indicator) {
+			return true
+		}
+	}
+	return false
 }

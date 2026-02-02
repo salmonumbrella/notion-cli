@@ -93,7 +93,7 @@ Example:
 				Archived: ptrBool(true),
 			})
 			if err != nil {
-				return fmt.Errorf("failed to archive page: %w", err)
+				return errors.APINotFoundError(err, "page", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -213,7 +213,7 @@ Example:
 			// Get page
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
-				return fmt.Errorf("failed to get page: %w", err)
+				return errors.APINotFoundError(err, "page", args[0])
 			}
 
 			// Filter out read-only properties if requested
@@ -277,7 +277,7 @@ Examples:
 
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
-				return fmt.Errorf("failed to get page: %w", err)
+				return errors.APINotFoundError(err, "page", args[0])
 			}
 
 			typeFilter := make(map[string]bool)
@@ -477,7 +477,8 @@ Examples:
 			// Create page
 			page, err := client.CreatePage(ctx, req)
 			if err != nil {
-				return fmt.Errorf("failed to create page: %w", err)
+				// Provide better error for parent not found
+				return errors.APINotFoundError(err, "parent", parentID)
 			}
 
 			// Print result
@@ -986,7 +987,7 @@ Example - Move page to database:
 
 			page, err := client.MovePage(ctx, pageID, req)
 			if err != nil {
-				return fmt.Errorf("failed to move page: %w", err)
+				return errors.APINotFoundError(err, "page", args[0])
 			}
 
 			printer := printerForContext(ctx)

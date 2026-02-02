@@ -293,7 +293,7 @@ Example:
 
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
-				return fmt.Errorf("failed to get page: %w", err)
+				return errors.APINotFoundError(err, "page", args[0])
 			}
 
 			// Open in browser
@@ -399,8 +399,12 @@ Example:
 				return printer.Print(ctx, block)
 			}
 
-			// All failed - show helpful error
-			return fmt.Errorf("could not find entity with ID %q:\n  page: %v\n  database: %v\n  block: %v", id, pageErr, dbErr, blockErr)
+			// All failed - show helpful error with suggestions
+			return errors.WrapUserError(
+				fmt.Errorf("tried page, database, and block APIs"),
+				fmt.Sprintf("could not find object %q", args[0]),
+				fmt.Sprintf("Suggestions:\n  • Run 'notion search %s' to find matching pages or databases\n  • Check the ID or name is correct\n  • Verify your integration has access to this object", args[0]),
+			)
 		},
 	})
 
@@ -427,7 +431,7 @@ Example:
 
 			// Get the first database from skill file
 			if sf == nil || len(sf.Databases) == 0 {
-				return fmt.Errorf("no databases configured in skill file\n\nRun 'notion skill init' to set up database aliases, or use:\n  notion page create --parent <database-id> --parent-type database --properties '{...}'")
+				return errors.NoDatabaseConfiguredError(nil)
 			}
 
 			// Get first database (sorted alphabetically for consistency)
@@ -490,7 +494,7 @@ Example:
 
 			page, err := client.CreatePage(ctx, req)
 			if err != nil {
-				return fmt.Errorf("failed to create page: %w", err)
+				return errors.APINotFoundError(err, "database", firstDB.Alias)
 			}
 
 			printer := printerForContext(ctx)

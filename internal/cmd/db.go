@@ -229,7 +229,7 @@ Example:
 			// Get database
 			database, err := client.GetDatabase(ctx, databaseID)
 			if err != nil {
-				return fmt.Errorf("failed to get database: %w", err)
+				return errors.APINotFoundError(err, "database", args[0])
 			}
 
 			// In API 2025-09-03+, properties live on data sources, not databases.
@@ -431,7 +431,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 					return result.Results, result.NextCursor, result.HasMore, nil
 				})
 				if err != nil {
-					return fmt.Errorf("failed to query data source: %w", err)
+					return errors.APINotFoundError(err, "database", args[0])
 				}
 
 				printer := printerForContext(ctx)
@@ -456,7 +456,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 
 			result, err := client.QueryDataSource(ctx, resolvedDataSourceID, req)
 			if err != nil {
-				return fmt.Errorf("failed to query data source: %w", err)
+				return errors.APINotFoundError(err, "database", args[0])
 			}
 
 			// Print result
