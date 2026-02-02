@@ -368,25 +368,25 @@ Example:
 			printer := printerForContext(ctx)
 
 			// Try page first (most common)
-			page, err := client.GetPage(ctx, id)
-			if err == nil {
+			page, pageErr := client.GetPage(ctx, id)
+			if pageErr == nil {
 				return printer.Print(ctx, page)
 			}
 
 			// Try database
-			db, err := client.GetDatabase(ctx, id)
-			if err == nil {
+			db, dbErr := client.GetDatabase(ctx, id)
+			if dbErr == nil {
 				return printer.Print(ctx, db)
 			}
 
 			// Try block
-			block, err := client.GetBlock(ctx, id)
-			if err == nil {
+			block, blockErr := client.GetBlock(ctx, id)
+			if blockErr == nil {
 				return printer.Print(ctx, block)
 			}
 
-			// All attempts failed
-			return fmt.Errorf("could not find page, database, or block with ID %q", id)
+			// All failed - show helpful error
+			return fmt.Errorf("could not find entity with ID %q:\n  page: %v\n  database: %v\n  block: %v", id, pageErr, dbErr, blockErr)
 		},
 	})
 
@@ -489,41 +489,14 @@ Example:
 		Use:     "delete <page-id-or-alias>",
 		Aliases: []string{"rm", "archive"},
 		Short:   "Archive a page (alias for 'page delete')",
-		Long: `Archive a Notion page by its ID.
+		Long: `Archive a Notion page by its ID or skill file alias.
 
-This is a convenience alias for 'notion page delete'.
-Archived pages can be restored from the Notion UI.
-
-Example:
-  notion delete abc123
-  notion rm my-page-alias
-  notion archive old-page`,
+This is a convenience alias for 'notion page delete'.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
-
-			token, err := GetTokenFromContext(ctx)
-			if err != nil {
-				return errors.AuthRequiredError(err)
-			}
-
-			client := NewNotionClient(ctx, token)
-
-			page, err := client.UpdatePage(ctx, pageID, &notion.UpdatePageRequest{
-				Archived: ptrBool(true),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to archive page: %w", err)
-			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, page)
+			deleteCmd := newPageDeleteCmd()
+			deleteCmd.SetContext(cmd.Context())
+			return deleteCmd.RunE(deleteCmd, args)
 		},
 	})
 
