@@ -29,12 +29,14 @@ func newPageExportCmd() *cobra.Command {
 		Long:  "Export a Notion page as Markdown or JSON block tree.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)

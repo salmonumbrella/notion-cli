@@ -35,13 +35,15 @@ Example:
   notion user get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			userID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			userID, err := cmdutil.NormalizeNotionID(resolveUserID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)

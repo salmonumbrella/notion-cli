@@ -194,13 +194,15 @@ Example:
   notion db get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			databaseID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -285,18 +287,20 @@ trailing spaces after the backslash. Otherwise the shell may split the command
 incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			databaseID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			if dataSourceID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, dataSourceID))
 				if err != nil {
 					return err
 				}
 				dataSourceID = normalized
 			}
-			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
 			sortField, sortDesc := output.SortFromContext(ctx)
 			format := output.FormatFromContext(ctx)
@@ -488,6 +492,9 @@ Example - Create with description:
     --description '[{"type":"text","text":{"content":"My projects database"}}]' \
     --properties '{"Name":{"title":{}}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
 			// Validate required flags
 			if parentID == "" {
 				return fmt.Errorf("--parent flag is required")
@@ -496,7 +503,7 @@ Example - Create with description:
 				return fmt.Errorf("--properties or --properties-file is required")
 			}
 
-			normalizedParent, err := cmdutil.NormalizeNotionID(parentID)
+			normalizedParent, err := cmdutil.NormalizeNotionID(resolveID(sf, parentID))
 			if err != nil {
 				return err
 			}
@@ -581,7 +588,6 @@ Example - Create with description:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -663,12 +669,15 @@ Example - Archive database:
   notion db update 12345678-1234-1234-1234-123456789012 --archived true`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			databaseID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			databaseID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			if dataSourceID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, dataSourceID))
 				if err != nil {
 					return err
 				}
@@ -739,7 +748,6 @@ Example - Archive database:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)

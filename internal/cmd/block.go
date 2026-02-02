@@ -21,9 +21,10 @@ const (
 
 func newBlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "block",
-		Short: "Manage Notion blocks",
-		Long:  `Retrieve, append, update, and delete Notion blocks.`,
+		Use:     "block",
+		Aliases: []string{"blocks"},
+		Short:   "Manage Notion blocks",
+		Long:    `Retrieve, append, update, and delete Notion blocks.`,
 	}
 
 	cmd.AddCommand(newBlockGetCmd())
@@ -50,13 +51,15 @@ Example:
   notion block get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -101,13 +104,15 @@ Example:
   notion block children 12345678-1234-1234-1234-123456789012 --depth 3 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
 			pageSize = capPageSize(pageSize, limit)
 
@@ -239,7 +244,10 @@ Use --after to insert blocks after a specific block instead of at the end.
 TIP: For convenience commands, see 'notion block add --help'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -274,7 +282,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 
 			// Normalize after block ID if provided
 			if afterBlockID != "" {
-				afterBlockID, err = cmdutil.NormalizeNotionID(afterBlockID)
+				afterBlockID, err = cmdutil.NormalizeNotionID(resolveID(sf, afterBlockID))
 				if err != nil {
 					return fmt.Errorf("invalid --after block ID: %w", err)
 				}
@@ -300,7 +308,6 @@ TIP: For convenience commands, see 'notion block add --help'`,
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -397,7 +404,10 @@ Example of updating a paragraph block:
     --content '{"paragraph":{"rich_text":[{"type":"text","text":{"content":"Updated text"}}]}}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -416,7 +426,6 @@ Example of updating a paragraph block:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -522,13 +531,15 @@ Example:
   notion block delete 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -615,7 +626,10 @@ Example:
   notion block add-toc abc123 --color blue`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -626,7 +640,6 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -666,13 +679,15 @@ Example:
   notion block add-breadcrumb abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -707,13 +722,15 @@ Example:
   notion block add-divider abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -753,7 +770,10 @@ Example:
   notion block add-columns abc123 --columns 3`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -763,7 +783,6 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)

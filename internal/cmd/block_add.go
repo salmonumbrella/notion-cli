@@ -44,14 +44,16 @@ Example:
   notion block add paragraph abc123 "This is a paragraph"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			text := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -89,7 +91,10 @@ Examples:
   notion block add heading abc123 "Section" --level 3`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -100,7 +105,6 @@ Examples:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -146,14 +150,16 @@ Example:
   notion block add bullet abc123 "First item"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			text := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -187,14 +193,16 @@ Example:
   notion block add number abc123 "First item"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			text := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -231,14 +239,16 @@ Example:
   notion block add toggle abc123 "Click to expand"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			text := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -286,14 +296,16 @@ Example:
   notion block add quote abc123 "To be or not to be"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			text := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -330,14 +342,16 @@ Examples:
   notion block add callout abc123 "Warning!" --emoji "⚠️"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			text := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -378,14 +392,16 @@ Examples:
   notion block add code abc123 'def hello():\n    print("hello")' --language python`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			code := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -425,14 +441,16 @@ Examples:
   notion block add todo abc123 "Completed task" --checked`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			text := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -475,11 +493,14 @@ Example with caption:
   notion block add image abc123 --file ./photo.jpg --caption "Team offsite"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
 			if filePath == "" {
 				return fmt.Errorf("--file is required")
 			}
 
-			parentID, err := cmdutil.NormalizeNotionID(args[0])
+			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -499,7 +520,6 @@ Example with caption:
 				return fmt.Errorf("failed to reset file position: %w", err)
 			}
 
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)

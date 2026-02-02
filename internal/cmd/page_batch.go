@@ -47,6 +47,9 @@ Use --file to read the JSON array from a file instead of passing it inline.
 Example:
   notion page create-batch --parent <id> --pages '[{"properties":{"Name":{"title":[{"text":{"content":"One"}}]}}},{"properties":{"Name":{"title":[{"text":{"content":"Two"}}]}}}]'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
 			if parentID == "" && dataSourceID == "" {
 				return fmt.Errorf("--parent flag is required (or use --data-source)")
 			}
@@ -58,14 +61,14 @@ Example:
 			}
 
 			if parentID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(parentID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, parentID))
 				if err != nil {
 					return err
 				}
 				parentID = normalized
 			}
 			if dataSourceID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, dataSourceID))
 				if err != nil {
 					return err
 				}
@@ -95,7 +98,6 @@ Example:
 				return fmt.Errorf("no pages provided")
 			}
 
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)

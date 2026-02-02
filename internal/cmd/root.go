@@ -18,6 +18,7 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/logging"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
+	"github.com/salmonumbrella/notion-cli/internal/skill"
 	"github.com/salmonumbrella/notion-cli/internal/ui"
 )
 
@@ -126,6 +127,10 @@ func newRootCmd(app *App) *cobra.Command {
 			ctx = output.WithQuiet(ctx, quietFlag)
 			ctx = WithErrorFormat(ctx, errorFormat)
 			ctx = ui.WithUI(ctx, ui.New(parseColorMode(cfg.GetColor())))
+
+			// Load skill file for alias resolution (non-fatal if missing)
+			sf, _ := skill.Load()
+			ctx = WithSkillFile(ctx, sf)
 
 			cmd.SetContext(ctx)
 

@@ -43,27 +43,29 @@ By default, the duplicate is created under the same parent and includes children
 Use --no-children to skip block duplication.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sourceID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			sourceID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			if parentID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(parentID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, parentID))
 				if err != nil {
 					return err
 				}
 				parentID = normalized
 			}
 			if dataSourceID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, dataSourceID))
 				if err != nil {
 					return err
 				}
 				dataSourceID = normalized
 			}
 
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)

@@ -53,11 +53,13 @@ Example:
   notion page get 12345678-1234-1234-1234-123456789012 --editable -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
-			ctx := cmd.Context()
 
 			// Get token from context (respects workspace selection)
 			token, err := GetTokenFromContext(ctx)
@@ -105,12 +107,14 @@ Examples:
   notion page properties 12345678-1234-1234-1234-123456789012 --types title,select --only-set`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -245,6 +249,9 @@ Examples:
     --properties '{"Name": {"title": [{"text": {"content": "Database Entry"}}]}}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
 			// Validate required flags
 			if parentID == "" && dataSourceID == "" {
 				return fmt.Errorf("--parent flag is required (or use --data-source)")
@@ -254,14 +261,14 @@ Examples:
 			}
 
 			if parentID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(parentID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, parentID))
 				if err != nil {
 					return err
 				}
 				parentID = normalized
 			}
 			if dataSourceID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(dataSourceID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, dataSourceID))
 				if err != nil {
 					return err
 				}
@@ -280,7 +287,6 @@ Examples:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -392,7 +398,10 @@ Combined example (all flags together):
     --verbose`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -409,8 +418,6 @@ Combined example (all flags together):
 					return fmt.Errorf("failed to parse properties JSON: %w", err)
 				}
 			}
-
-			ctx := cmd.Context()
 
 			// Transform string shorthand values to rich_text arrays with mentions
 			// Applies when --mention flags are provided OR --rich-text flag is set
@@ -644,14 +651,16 @@ Example:
   notion page property 12345678-1234-1234-1234-123456789012 title`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 			propertyID := args[1]
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -690,7 +699,10 @@ Example - Move page to database:
   notion page move abc123 --parent db789 --parent-type database`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pageID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -699,14 +711,14 @@ Example - Move page to database:
 				return fmt.Errorf("--parent is required")
 			}
 
-			normalizedParent, err := cmdutil.NormalizeNotionID(parentID)
+			normalizedParent, err := cmdutil.NormalizeNotionID(resolveID(sf, parentID))
 			if err != nil {
 				return err
 			}
 			parentID = normalizedParent
 
 			if after != "" {
-				normalizedAfter, err := cmdutil.NormalizeNotionID(after)
+				normalizedAfter, err := cmdutil.NormalizeNotionID(resolveID(sf, after))
 				if err != nil {
 					return err
 				}
@@ -724,7 +736,6 @@ Example - Move page to database:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)

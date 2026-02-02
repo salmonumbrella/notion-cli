@@ -42,13 +42,15 @@ Example:
   notion ds get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			dataSourceID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -86,6 +88,9 @@ Example:
     --properties '{"Name":{"title":{}},"Status":{"select":{}}}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
 			if parentID == "" {
 				return fmt.Errorf("--parent is required")
 			}
@@ -93,7 +98,7 @@ Example:
 				return fmt.Errorf("--properties or --properties-file is required")
 			}
 
-			normalizedParent, err := cmdutil.NormalizeNotionID(parentID)
+			normalizedParent, err := cmdutil.NormalizeNotionID(resolveID(sf, parentID))
 			if err != nil {
 				return err
 			}
@@ -110,7 +115,6 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -156,7 +160,10 @@ Example:
     --properties '{"Priority":{"select":{}}}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			dataSourceID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
@@ -174,7 +181,6 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -227,11 +233,13 @@ Example - Query with filter:
     --page-size 10`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataSourceID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			dataSourceID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
-			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
 			format := output.FormatFromContext(ctx)
 

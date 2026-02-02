@@ -57,13 +57,15 @@ Example - Output only results array:
   notion comment list abc123def456 --all --results-only`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			blockID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
 			format := output.FormatFromContext(ctx)
 			pageSize = capPageSize(pageSize, limit)
@@ -164,12 +166,14 @@ Example:
   notion comment get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			commentID, err := cmdutil.NormalizeNotionID(args[0])
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			commentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
 			if err != nil {
 				return err
 			}
 
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -250,6 +254,9 @@ Combined example (all flags together):
     --verbose`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
 			// Validate that text is provided
 			if text == "" {
 				return fmt.Errorf("--text is required")
@@ -263,15 +270,25 @@ Combined example (all flags together):
 				return fmt.Errorf("cannot specify both --parent and --discussion-id")
 			}
 			if parentID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(parentID)
+				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, parentID))
 				if err != nil {
 					return err
 				}
 				parentID = normalized
 			}
 
+			// Resolve user aliases in mentions
+			resolvedMentions := make([]string, len(mentions))
+			for i, m := range mentions {
+				resolvedMentions[i] = resolveUserID(sf, m)
+			}
+			// Resolve page aliases in page mentions
+			resolvedPageMentions := make([]string, len(pageMentions))
+			for i, p := range pageMentions {
+				resolvedPageMentions[i] = resolveID(sf, p)
+			}
+
 			// Get token from context (respects workspace selection)
-			ctx := cmd.Context()
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
@@ -283,7 +300,7 @@ Combined example (all flags together):
 			// Build rich text with inline mentions
 			// @Name patterns in text are replaced with user mention objects using provided user IDs
 			// @@Name patterns in text are replaced with page mention objects using provided page IDs
-			richTextContent := buildCommentRichTextVerbose(stderrFromContext(ctx), text, mentions, pageMentions, verbose, true)
+			richTextContent := buildCommentRichTextVerbose(stderrFromContext(ctx), text, resolvedMentions, resolvedPageMentions, verbose, true)
 
 			// Build request
 			req := &notion.CreateCommentRequest{
