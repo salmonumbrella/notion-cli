@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -101,8 +102,67 @@ Example:
 	}
 }
 
+// EnrichedPage wraps a Page with additional metadata resolved via extra API calls.
+// parent_title is the resolved title of the parent database or page.
+// child_count is the number of immediate child blocks.
+type EnrichedPage struct {
+	*notion.Page
+	ParentTitle string `json:"parent_title,omitempty"`
+	ChildCount  int    `json:"child_count"`
+}
+
+// enrichPage fetches additional metadata for a page: parent title and child count.
+// This requires extra API calls, so it's opt-in via the --enrich flag.
+func enrichPage(ctx context.Context, client *notion.Client, page *notion.Page) *EnrichedPage {
+	enriched := &EnrichedPage{Page: page}
+
+	// Get parent title
+	if page.Parent != nil {
+		if dbID, ok := page.Parent["database_id"].(string); ok && dbID != "" {
+			db, err := client.GetDatabase(ctx, dbID)
+			if err == nil && db != nil {
+				enriched.ParentTitle = extractDatabaseTitle(*db)
+			}
+		} else if pageID, ok := page.Parent["page_id"].(string); ok && pageID != "" {
+			parentPage, err := client.GetPage(ctx, pageID)
+			if err == nil && parentPage != nil {
+				enriched.ParentTitle = extractPageTitleFromProperties(parentPage.Properties)
+			}
+		}
+	}
+
+	// Get child count (immediate children only)
+	children, err := client.GetBlockChildren(ctx, page.ID, nil)
+	if err == nil && children != nil {
+		enriched.ChildCount = len(children.Results)
+	}
+
+	return enriched
+}
+
+// extractPageTitleFromProperties extracts the plain text title from a page's properties.
+func extractPageTitleFromProperties(properties map[string]interface{}) string {
+	if properties == nil {
+		return ""
+	}
+	// Look for the title property (type: "title")
+	for _, v := range properties {
+		prop, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if prop["type"] == "title" {
+			if titleArr, ok := prop["title"].([]interface{}); ok {
+				return extractTitlePlainText(titleArr)
+			}
+		}
+	}
+	return ""
+}
+
 func newPageGetCmd() *cobra.Command {
 	var editableOnly bool
+	var enrich bool
 
 	cmd := &cobra.Command{
 		Use:   "get <page-id-or-name>",
@@ -116,10 +176,16 @@ Use --editable to filter out read-only computed properties (formula, rollup,
 created_by, created_time, last_edited_by, last_edited_time, unique_id, button).
 This is useful when you want to copy properties to create or update a page.
 
+Use --enrich to include additional metadata:
+  - parent_title: the resolved title of the parent database or page
+  - child_count: the number of immediate child blocks
+Note: --enrich requires extra API calls.
+
 Example:
   notion page get 12345678-1234-1234-1234-123456789012
   notion page get "Meeting Notes"
-  notion page get 12345678-1234-1234-1234-123456789012 --editable -o json`,
+  notion page get 12345678-1234-1234-1234-123456789012 --editable -o json
+  notion page get 12345678-1234-1234-1234-123456789012 --enrich`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -155,13 +221,18 @@ Example:
 				page.Properties = filterEditableProperties(page.Properties)
 			}
 
-			// Print result
+			// Print result (enriched or plain)
 			printer := printerForContext(ctx)
+			if enrich {
+				enrichedPage := enrichPage(ctx, client, page)
+				return printer.Print(ctx, enrichedPage)
+			}
 			return printer.Print(ctx, page)
 		},
 	}
 
 	cmd.Flags().BoolVar(&editableOnly, "editable", false, "Filter out read-only computed properties")
+	cmd.Flags().BoolVar(&enrich, "enrich", false, "Include parent title and child count (extra API calls)")
 
 	return cmd
 }
