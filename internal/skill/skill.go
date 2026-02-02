@@ -5,11 +5,14 @@ package skill
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
+	"text/template"
 )
 
 // SkillFile represents the parsed skill file
@@ -195,4 +198,116 @@ var uuidRegex = regexp.MustCompile(`^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9
 
 func looksLikeUUID(s string) bool {
 	return uuidRegex.MatchString(strings.ToLower(s))
+}
+
+const skillTemplate = `---
+name: notion-cli
+description: "Use when interacting with Notion via the CLI - contains database aliases, user mappings, and shortcuts"
+---
+
+# Notion CLI
+
+## Databases
+
+| Alias | Name | ID | Title Property | Default Status |
+|-------|------|-----|----------------|----------------|
+{{- range .SortedDatabases }}
+| {{ .Alias }} | {{ .Name }} | {{ .ID }} | {{ .TitleProperty }} | {{ .DefaultStatus }} |
+{{- end }}
+
+## Users
+
+| Alias | Name | ID |
+|-------|------|-----|
+{{- range .SortedUsers }}
+| {{ .Alias }} | {{ .Name }} | {{ .ID }} |
+{{- end }}
+
+## Custom Aliases
+
+| Alias | Type | Target ID |
+|-------|------|-----------|
+{{- range .SortedAliases }}
+| {{ .Alias }} | {{ .Type }} | {{ .TargetID }} |
+{{- end }}
+
+## Quick Reference
+
+| Operation | Command |
+|-----------|---------|
+| Create page | ` + "`notion page create --database <alias> --title \"...\" --status <status>`" + ` |
+| Query database | ` + "`notion db query <alias> --dri me --status \"In Progress\"`" + ` |
+| Add comment | ` + "`notion comment add --page <id> --text \"...\" --mention <user-alias>`" + ` |
+`
+
+// Write writes the skill file to a writer
+func (s *SkillFile) Write(w io.Writer) error {
+	tmpl, err := template.New("skill").Parse(skillTemplate)
+	if err != nil {
+		return fmt.Errorf("template parse error: %w", err)
+	}
+
+	data := struct {
+		SortedDatabases []DatabaseAlias
+		SortedUsers     []UserAlias
+		SortedAliases   []CustomAlias
+	}{
+		SortedDatabases: s.sortedDatabases(),
+		SortedUsers:     s.sortedUsers(),
+		SortedAliases:   s.sortedAliases(),
+	}
+
+	return tmpl.Execute(w, data)
+}
+
+// Save saves the skill file to the default path
+func (s *SkillFile) Save() error {
+	path := DefaultPath()
+
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create skill directory: %w", err)
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create skill file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	return s.Write(f)
+}
+
+func (s *SkillFile) sortedDatabases() []DatabaseAlias {
+	dbs := make([]DatabaseAlias, 0, len(s.Databases))
+	for _, db := range s.Databases {
+		dbs = append(dbs, db)
+	}
+	sort.Slice(dbs, func(i, j int) bool {
+		return dbs[i].Alias < dbs[j].Alias
+	})
+	return dbs
+}
+
+func (s *SkillFile) sortedUsers() []UserAlias {
+	users := make([]UserAlias, 0, len(s.Users))
+	for _, u := range s.Users {
+		users = append(users, u)
+	}
+	sort.Slice(users, func(i, j int) bool {
+		return users[i].Alias < users[j].Alias
+	})
+	return users
+}
+
+func (s *SkillFile) sortedAliases() []CustomAlias {
+	aliases := make([]CustomAlias, 0, len(s.Aliases))
+	for _, a := range s.Aliases {
+		aliases = append(aliases, a)
+	}
+	sort.Slice(aliases, func(i, j int) bool {
+		return aliases[i].Alias < aliases[j].Alias
+	})
+	return aliases
 }

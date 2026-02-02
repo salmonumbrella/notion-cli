@@ -306,3 +306,54 @@ func TestParseTableRow(t *testing.T) {
 		})
 	}
 }
+
+func TestWriteSkillFile(t *testing.T) {
+	skill := &SkillFile{
+		Databases: map[string]DatabaseAlias{
+			"issues": {
+				Alias:         "issues",
+				Name:          "Issue Tracker",
+				ID:            "abc123",
+				TitleProperty: "Title",
+				DefaultStatus: "Todo",
+			},
+		},
+		Users: map[string]UserAlias{
+			"me": {Alias: "me", Name: "Test User", ID: "user123"},
+		},
+		Aliases: map[string]CustomAlias{
+			"standup": {Alias: "standup", Type: "page", TargetID: "page123"},
+		},
+	}
+
+	var buf strings.Builder
+	err := skill.Write(&buf)
+	if err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	output := buf.String()
+
+	// Verify structure
+	if !strings.Contains(output, "## Databases") {
+		t.Error("missing Databases section")
+	}
+	if !strings.Contains(output, "| issues |") {
+		t.Error("missing issues row")
+	}
+	if !strings.Contains(output, "## Users") {
+		t.Error("missing Users section")
+	}
+	if !strings.Contains(output, "## Custom Aliases") {
+		t.Error("missing Custom Aliases section")
+	}
+
+	// Verify it can be round-tripped
+	parsed, err := Parse(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("Round-trip parse failed: %v", err)
+	}
+	if parsed.Databases["issues"].ID != "abc123" {
+		t.Error("round-trip failed for database ID")
+	}
+}
