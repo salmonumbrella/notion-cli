@@ -2,10 +2,28 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
+	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/skill"
 )
+
+// mockSearcher implements the searcher interface for testing
+type mockSearcher struct {
+	results []map[string]interface{}
+	err     error
+	called  bool
+}
+
+func (m *mockSearcher) Search(ctx context.Context, req *notion.SearchRequest) (*notion.SearchResult, error) {
+	m.called = true
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &notion.SearchResult{Results: m.results}, nil
+}
 
 func TestResolveID(t *testing.T) {
 	sf := &skill.SkillFile{
@@ -304,5 +322,321 @@ func TestFilterExactTitleMatches(t *testing.T) {
 	matches = filterExactTitleMatches(results, "Meeting")
 	if len(matches) != 0 {
 		t.Errorf("filterExactTitleMatches() returned %d matches for partial title, want 0", len(matches))
+	}
+}
+
+func TestResolveBySearch_UUIDInput(t *testing.T) {
+	mock := &mockSearcher{}
+	ctx := context.Background()
+
+	// UUID input should be returned as-is without search
+	result, err := resolveBySearch(ctx, mock, "12345678-1234-1234-1234-123456789012", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "12345678-1234-1234-1234-123456789012" {
+		t.Errorf("got %q, want UUID unchanged", result)
+	}
+	if mock.called {
+		t.Error("search should not be called for UUID input")
+	}
+}
+
+func TestResolveBySearch_ShortInput(t *testing.T) {
+	mock := &mockSearcher{}
+	ctx := context.Background()
+
+	// Short input (< 2 chars) should be returned as-is
+	result, err := resolveBySearch(ctx, mock, "x", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "x" {
+		t.Errorf("got %q, want short input unchanged", result)
+	}
+	if mock.called {
+		t.Error("search should not be called for short input")
+	}
+
+	// Empty input
+	result, err = resolveBySearch(ctx, mock, "", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "" {
+		t.Errorf("got %q, want empty input unchanged", result)
+	}
+}
+
+func TestResolveBySearch_SingleExactMatch(t *testing.T) {
+	mock := &mockSearcher{
+		results: []map[string]interface{}{
+			{
+				"id":     "page-id-123",
+				"object": "page",
+				"properties": map[string]interface{}{
+					"Name": map[string]interface{}{
+						"type":  "title",
+						"title": []interface{}{map[string]interface{}{"plain_text": "Meeting Notes"}},
+					},
+				},
+			},
+		},
+	}
+	ctx := context.Background()
+
+	result, err := resolveBySearch(ctx, mock, "Meeting Notes", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "page-id-123" {
+		t.Errorf("got %q, want %q", result, "page-id-123")
+	}
+	if !mock.called {
+		t.Error("search should be called")
+	}
+}
+
+func TestResolveBySearch_MultipleExactMatches(t *testing.T) {
+	mock := &mockSearcher{
+		results: []map[string]interface{}{
+			{
+				"id":     "page-id-1",
+				"object": "page",
+				"properties": map[string]interface{}{
+					"Name": map[string]interface{}{
+						"type":  "title",
+						"title": []interface{}{map[string]interface{}{"plain_text": "Meeting Notes"}},
+					},
+				},
+			},
+			{
+				"id":     "page-id-2",
+				"object": "page",
+				"properties": map[string]interface{}{
+					"Name": map[string]interface{}{
+						"type":  "title",
+						"title": []interface{}{map[string]interface{}{"plain_text": "Meeting Notes"}},
+					},
+				},
+			},
+		},
+	}
+	ctx := context.Background()
+
+	result, err := resolveBySearch(ctx, mock, "Meeting Notes", "page")
+	if err == nil {
+		t.Fatal("expected ambiguous error, got nil")
+	}
+	if result != "" {
+		t.Errorf("got result %q, want empty string on ambiguous", result)
+	}
+	// Check error message contains "ambiguous"
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("error should mention 'ambiguous', got: %v", err)
+	}
+}
+
+func TestResolveBySearch_SinglePartialMatch(t *testing.T) {
+	mock := &mockSearcher{
+		results: []map[string]interface{}{
+			{
+				"id":     "page-id-456",
+				"object": "page",
+				"properties": map[string]interface{}{
+					"Name": map[string]interface{}{
+						"type":  "title",
+						"title": []interface{}{map[string]interface{}{"plain_text": "Meeting Notes - Q1 2024"}},
+					},
+				},
+			},
+		},
+	}
+	ctx := context.Background()
+
+	// Searching for "Meeting" should find the partial match
+	result, err := resolveBySearch(ctx, mock, "Meeting", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "page-id-456" {
+		t.Errorf("got %q, want %q", result, "page-id-456")
+	}
+}
+
+func TestResolveBySearch_MultiplePartialMatches(t *testing.T) {
+	mock := &mockSearcher{
+		results: []map[string]interface{}{
+			{
+				"id":     "page-id-1",
+				"object": "page",
+				"properties": map[string]interface{}{
+					"Name": map[string]interface{}{
+						"type":  "title",
+						"title": []interface{}{map[string]interface{}{"plain_text": "Meeting Notes - Q1"}},
+					},
+				},
+			},
+			{
+				"id":     "page-id-2",
+				"object": "page",
+				"properties": map[string]interface{}{
+					"Name": map[string]interface{}{
+						"type":  "title",
+						"title": []interface{}{map[string]interface{}{"plain_text": "Meeting Notes - Q2"}},
+					},
+				},
+			},
+		},
+	}
+	ctx := context.Background()
+
+	// Searching for "Meeting" with multiple partial matches should return ambiguous error
+	result, err := resolveBySearch(ctx, mock, "Meeting", "page")
+	if err == nil {
+		t.Fatal("expected ambiguous error for multiple partial matches, got nil")
+	}
+	if result != "" {
+		t.Errorf("got result %q, want empty string on ambiguous", result)
+	}
+}
+
+func TestResolveBySearch_NoMatches(t *testing.T) {
+	mock := &mockSearcher{
+		results: []map[string]interface{}{},
+	}
+	ctx := context.Background()
+
+	// No matches should return original input
+	result, err := resolveBySearch(ctx, mock, "Nonexistent Page", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "Nonexistent Page" {
+		t.Errorf("got %q, want original input unchanged", result)
+	}
+}
+
+func TestResolveBySearch_SearchError(t *testing.T) {
+	mock := &mockSearcher{
+		err: errors.New("API error"),
+	}
+	ctx := context.Background()
+
+	// Search error should return original input (not error)
+	result, err := resolveBySearch(ctx, mock, "Some Page", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "Some Page" {
+		t.Errorf("got %q, want original input on search error", result)
+	}
+}
+
+func TestResolveIDWithSearch_SkillFileMatch(t *testing.T) {
+	sf := &skill.SkillFile{
+		Databases: map[string]skill.DatabaseAlias{
+			"tasks": {ID: "db-tasks-123"},
+		},
+		Users:   map[string]skill.UserAlias{},
+		Aliases: map[string]skill.CustomAlias{},
+	}
+
+	mock := &mockSearcher{}
+	ctx := context.Background()
+
+	// Skill file alias should be resolved without search
+	result, err := resolveIDWithSearch(ctx, mock, sf, "tasks", "database")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "db-tasks-123" {
+		t.Errorf("got %q, want %q", result, "db-tasks-123")
+	}
+	if mock.called {
+		t.Error("search should not be called when skill file has a match")
+	}
+}
+
+func TestResolveIDWithSearch_NoSkillFileMatch_SearchMatch(t *testing.T) {
+	sf := &skill.SkillFile{
+		Databases: map[string]skill.DatabaseAlias{},
+		Users:     map[string]skill.UserAlias{},
+		Aliases:   map[string]skill.CustomAlias{},
+	}
+
+	mock := &mockSearcher{
+		results: []map[string]interface{}{
+			{
+				"id":     "db-search-456",
+				"object": "data_source",
+				"title":  []interface{}{map[string]interface{}{"plain_text": "Projects Database"}},
+			},
+		},
+	}
+	ctx := context.Background()
+
+	// No skill file match, should fall back to search
+	result, err := resolveIDWithSearch(ctx, mock, sf, "Projects Database", "database")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "db-search-456" {
+		t.Errorf("got %q, want %q", result, "db-search-456")
+	}
+	if !mock.called {
+		t.Error("search should be called when skill file has no match")
+	}
+}
+
+func TestResolveIDWithSearch_NoMatchAnywhere(t *testing.T) {
+	sf := &skill.SkillFile{
+		Databases: map[string]skill.DatabaseAlias{},
+		Users:     map[string]skill.UserAlias{},
+		Aliases:   map[string]skill.CustomAlias{},
+	}
+
+	mock := &mockSearcher{
+		results: []map[string]interface{}{},
+	}
+	ctx := context.Background()
+
+	// No match in skill file or search - returns original
+	result, err := resolveIDWithSearch(ctx, mock, sf, "Unknown Thing", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "Unknown Thing" {
+		t.Errorf("got %q, want original input unchanged", result)
+	}
+}
+
+func TestResolveIDWithSearch_NilSkillFile(t *testing.T) {
+	mock := &mockSearcher{
+		results: []map[string]interface{}{
+			{
+				"id":     "page-id-789",
+				"object": "page",
+				"properties": map[string]interface{}{
+					"Name": map[string]interface{}{
+						"type":  "title",
+						"title": []interface{}{map[string]interface{}{"plain_text": "My Page"}},
+					},
+				},
+			},
+		},
+	}
+	ctx := context.Background()
+
+	// Nil skill file should fall through to search
+	result, err := resolveIDWithSearch(ctx, mock, nil, "My Page", "page")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "page-id-789" {
+		t.Errorf("got %q, want %q", result, "page-id-789")
+	}
+	if !mock.called {
+		t.Error("search should be called with nil skill file")
 	}
 }
