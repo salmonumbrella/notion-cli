@@ -57,6 +57,15 @@ func ReadJSONInput(value string) (string, error) {
 
 // NormalizeJSONInput unwraps double-serialized JSON strings when possible.
 // If the input is a JSON string containing JSON, it returns the inner JSON.
+//
+// This handles cases where JSON has been inadvertently quoted, such as:
+//   - Shell escaping issues: "{\"key\": \"value\"}" -> {"key": "value"}
+//   - Copy-paste from string literals: "[1, 2, 3]" -> [1, 2, 3]
+//
+// The function only unwraps one level - triple-serialized JSON will
+// only have one layer removed.
+//
+// If the input is not a double-serialized JSON string, it is returned unchanged.
 func NormalizeJSONInput(raw string) string {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
