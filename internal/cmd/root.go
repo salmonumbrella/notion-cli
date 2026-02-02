@@ -310,6 +310,223 @@ Example:
 		},
 	})
 
+	// Action-first top-level commands (agent-friendly desire paths)
+
+	// `notion list` → search for pages
+	rootCmd.AddCommand(&cobra.Command{
+		Use:     "list [query]",
+		Aliases: []string{"ls"},
+		Short:   "List pages (alias for 'search --filter page')",
+		Long: `Search for pages in Notion.
+
+This is a convenience alias for 'notion search --filter page'.
+
+Example:
+  notion list
+  notion list "project"
+  notion ls meetings`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Delegate to search with page filter
+			searchCmd := newSearchCmd()
+			searchCmd.SetContext(cmd.Context())
+			if err := searchCmd.Flags().Set("filter", "page"); err != nil {
+				return err
+			}
+			return searchCmd.RunE(searchCmd, args)
+		},
+	})
+
+	// `notion get <id>` → auto-detect entity type
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "get <id-or-alias>",
+		Short: "Get any Notion object by ID (auto-detects type)",
+		Long: `Retrieve a Notion page, database, or block by its ID.
+
+Automatically detects the object type by trying page first, then database,
+then block. This is useful when you have an ID but don't know its type.
+
+Example:
+  notion get abc123
+  notion get my-page-alias`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			id, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			if err != nil {
+				return err
+			}
+
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return errors.AuthRequiredError(err)
+			}
+
+			client := NewNotionClient(ctx, token)
+			printer := printerForContext(ctx)
+
+			// Try page first (most common)
+			page, err := client.GetPage(ctx, id)
+			if err == nil {
+				return printer.Print(ctx, page)
+			}
+
+			// Try database
+			db, err := client.GetDatabase(ctx, id)
+			if err == nil {
+				return printer.Print(ctx, db)
+			}
+
+			// Try block
+			block, err := client.GetBlock(ctx, id)
+			if err == nil {
+				return printer.Print(ctx, block)
+			}
+
+			// All attempts failed
+			return fmt.Errorf("could not find page, database, or block with ID %q", id)
+		},
+	})
+
+	// `notion create <title>` → create page with smart defaults
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "create <title>",
+		Short: "Create a page with smart defaults",
+		Long: `Create a new page using the first database from your skill file.
+
+This is a convenience command for quick page creation. It uses the first
+database configured in your skill file (~/.claude/skills/notion-cli/notion-cli.md).
+
+If no databases are configured, run 'notion skill init' first.
+
+Example:
+  notion create "My new page"
+  notion create "Meeting notes for today"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			title := args[0]
+
+			// Get the first database from skill file
+			if sf == nil || len(sf.Databases) == 0 {
+				return fmt.Errorf("no databases configured in skill file\n\nRun 'notion skill init' to set up database aliases, or use:\n  notion page create --parent <database-id> --parent-type database --properties '{...}'")
+			}
+
+			// Get first database (sorted alphabetically for consistency)
+			var firstDB *skill.DatabaseAlias
+			for _, db := range sf.Databases {
+				if firstDB == nil || db.Alias < firstDB.Alias {
+					dbCopy := db
+					firstDB = &dbCopy
+				}
+			}
+
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return errors.AuthRequiredError(err)
+			}
+
+			client := NewNotionClient(ctx, token)
+
+			// Build properties based on database config
+			titleProp := "Name"
+			if firstDB.TitleProperty != "" {
+				titleProp = firstDB.TitleProperty
+			}
+
+			properties := map[string]interface{}{
+				titleProp: map[string]interface{}{
+					"title": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": map[string]interface{}{
+								"content": title,
+							},
+						},
+					},
+				},
+			}
+
+			// Add default status if configured
+			if firstDB.DefaultStatus != "" {
+				properties["Status"] = map[string]interface{}{
+					"status": map[string]interface{}{
+						"name": firstDB.DefaultStatus,
+					},
+				}
+			}
+
+			// Resolve the data source ID for the database
+			resolvedDataSourceID, err := resolveDataSourceID(ctx, client, firstDB.ID, "")
+			if err != nil {
+				return err
+			}
+
+			req := &notion.CreatePageRequest{
+				Parent: map[string]interface{}{
+					"type":           "data_source_id",
+					"data_source_id": resolvedDataSourceID,
+				},
+				Properties: properties,
+			}
+
+			page, err := client.CreatePage(ctx, req)
+			if err != nil {
+				return fmt.Errorf("failed to create page: %w", err)
+			}
+
+			printer := printerForContext(ctx)
+			return printer.Print(ctx, page)
+		},
+	})
+
+	// `notion delete <id>` → delete (archive) a page
+	rootCmd.AddCommand(&cobra.Command{
+		Use:     "delete <page-id-or-alias>",
+		Aliases: []string{"rm", "archive"},
+		Short:   "Archive a page (alias for 'page delete')",
+		Long: `Archive a Notion page by its ID.
+
+This is a convenience alias for 'notion page delete'.
+Archived pages can be restored from the Notion UI.
+
+Example:
+  notion delete abc123
+  notion rm my-page-alias
+  notion archive old-page`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			if err != nil {
+				return err
+			}
+
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return errors.AuthRequiredError(err)
+			}
+
+			client := NewNotionClient(ctx, token)
+
+			page, err := client.UpdatePage(ctx, pageID, &notion.UpdatePageRequest{
+				Archived: ptrBool(true),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to archive page: %w", err)
+			}
+
+			printer := printerForContext(ctx)
+			return printer.Print(ctx, page)
+		},
+	})
+
 	return rootCmd
 }
 
