@@ -13,9 +13,10 @@ import (
 
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Manage CLI configuration",
-		Long:  `Manage notion-cli configuration file at ~/.config/notion-cli/config.yaml`,
+		Use:     "config",
+		Aliases: []string{"cfg"},
+		Short:   "Manage CLI configuration",
+		Long:    `Manage notion-cli configuration file at ~/.config/notion-cli/config.yaml`,
 	}
 	cmd.AddCommand(newConfigShowCmd())
 	cmd.AddCommand(newConfigSetCmd())

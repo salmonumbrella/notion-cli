@@ -16,9 +16,10 @@ import (
 
 func newFileCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "file",
-		Short: "Manage Notion file uploads",
-		Long:  `Upload files to Notion and manage file uploads.`,
+		Use:     "file",
+		Aliases: []string{"f", "files"},
+		Short:   "Manage Notion file uploads",
+		Long:    `Upload files to Notion and manage file uploads.`,
 	}
 
 	cmd.AddCommand(newFileUploadCmd())

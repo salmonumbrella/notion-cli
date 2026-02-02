@@ -16,7 +16,7 @@ import (
 func newCommentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "comment",
-		Aliases: []string{"comments"},
+		Aliases: []string{"comments", "c"},
 		Short:   "Manage Notion comments",
 		Long:    `List and create comments on Notion pages and blocks.`,
 	}
