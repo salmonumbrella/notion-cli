@@ -17,6 +17,12 @@ func newUserCmd() *cobra.Command {
 		Aliases: []string{"users", "u"},
 		Short:   "Manage Notion users",
 		Long:    `Retrieve and list Notion users in the workspace.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// When invoked without subcommand, default to list
+			listCmd := newUserListCmd()
+			listCmd.SetContext(cmd.Context())
+			return listCmd.RunE(listCmd, args)
+		},
 	}
 
 	cmd.AddCommand(newUserGetCmd())

@@ -19,6 +19,13 @@ func newCommentCmd() *cobra.Command {
 		Aliases: []string{"comments", "c"},
 		Short:   "Manage Notion comments",
 		Long:    `List and create comments on Notion pages and blocks.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// When invoked without subcommand, default to list
+			// Note: list requires a block-id argument
+			listCmd := newCommentListCmd()
+			listCmd.SetContext(cmd.Context())
+			return listCmd.RunE(listCmd, args)
+		},
 	}
 
 	cmd.AddCommand(newCommentListCmd())
