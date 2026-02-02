@@ -13,6 +13,7 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/richtext"
+	"github.com/salmonumbrella/notion-cli/internal/skill"
 )
 
 func newPageCmd() *cobra.Command {
@@ -305,6 +306,9 @@ func newPageCreateCmd() *cobra.Command {
 	var propertiesJSON string
 	var propertiesFile string
 	var dataSourceID string
+	var statusFlag string
+	var priorityFlag string
+	var assigneeFlag string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -319,15 +323,24 @@ The simplest format for a basic page is:
 The --parent-type flag specifies whether the parent is a "page" (default), "database", or "data-source".
 Use --data-source to target a specific data source (overrides --parent-type database).
 
+PROPERTY SHORTHAND FLAGS:
+For common properties, you can use shorthand flags instead of JSON:
+  --status <value>    Set Status property (status type)
+  --priority <value>  Set Priority property (select type)
+  --assignee <value>  Set Assignee property (people type, accepts user ID or alias)
+
+These flags merge with --properties; shorthand flags take precedence if both specify the same property.
+
 Examples:
   # Create page under another page
   notion page create --parent 12345678-1234-1234-1234-123456789012 \
     --properties '{"title": [{"text": {"content": "My New Page"}}]}'
 
-  # Create page under a database
+  # Create page under a database with shorthand flags
   notion page create --parent 87654321-4321-4321-4321-210987654321 \
     --parent-type database \
-    --properties '{"Name": {"title": [{"text": {"content": "Database Entry"}}]}}'`,
+    --properties '{"Name": {"title": [{"text": {"content": "Task"}}]}}' \
+    --status "In Progress" --priority High --assignee user-id-or-alias`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -367,6 +380,9 @@ Examples:
 				return fmt.Errorf("failed to parse properties JSON: %w", err)
 			}
 
+			// Merge shorthand flags into properties (flags take precedence)
+			properties = buildPropertiesFromFlags(sf, properties, statusFlag, priorityFlag, assigneeFlag)
+
 			// Get token from context (respects workspace selection)
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
@@ -404,6 +420,9 @@ Examples:
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON (required, @file or - for stdin)")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID (optional, overrides --parent-type database)")
+	cmd.Flags().StringVar(&statusFlag, "status", "", "Set Status property value")
+	cmd.Flags().StringVar(&priorityFlag, "priority", "", "Set Priority property value")
+	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Set Assignee property (user ID or alias)")
 
 	return cmd
 }
@@ -417,6 +436,9 @@ func newPageUpdateCmd() *cobra.Command {
 	var mentions []string
 	var verbose bool
 	var richText bool
+	var statusFlag string
+	var priorityFlag string
+	var assigneeFlag string
 
 	cmd := &cobra.Command{
 		Use:   "update <page-id-or-name>",
@@ -428,6 +450,19 @@ If you provide a name instead of an ID, the CLI will search for matching pages.
 The --properties flag accepts a JSON string with the properties to update.
 Only the properties specified will be updated; others remain unchanged.
 You can also pass @file or - (stdin) to avoid shell-escaping JSON.
+
+PROPERTY SHORTHAND FLAGS:
+For common properties, you can use shorthand flags instead of JSON:
+  --status <value>    Set Status property (status type)
+  --priority <value>  Set Priority property (select type)
+  --assignee <value>  Set Assignee property (people type, accepts user ID or alias)
+
+These flags merge with --properties; shorthand flags take precedence if both specify the same property.
+
+Example - Using shorthand flags:
+  notion page update PAGE_ID --status Done
+  notion page update PAGE_ID --status "In Progress" --priority High
+  notion page update PAGE_ID --assignee user-id-or-alias
 
 RICH TEXT WITH MARKDOWN:
 For rich_text properties, you can use a string shorthand with markdown formatting:
@@ -514,6 +549,9 @@ Combined example (all flags together):
 				}
 			}
 
+			// Merge shorthand flags into properties (flags take precedence)
+			properties = buildPropertiesFromFlags(sf, properties, statusFlag, priorityFlag, assigneeFlag)
+
 			// Transform string shorthand values to rich_text arrays with mentions
 			// Applies when --mention flags are provided OR --rich-text flag is set
 			if (len(mentions) > 0 || richText) && properties != nil {
@@ -599,6 +637,9 @@ Combined example (all flags together):
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention in rich_text properties (repeatable)")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show parsed markdown details for property transformations")
 	cmd.Flags().BoolVar(&richText, "rich-text", false, "Enable markdown parsing for string values without requiring --mention")
+	cmd.Flags().StringVar(&statusFlag, "status", "", "Set Status property value")
+	cmd.Flags().StringVar(&priorityFlag, "priority", "", "Set Priority property value")
+	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Set Assignee property (user ID or alias)")
 	// Track if archived flag was explicitly set
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		setArchived = cmd.Flags().Changed("archived")
@@ -722,6 +763,44 @@ func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]i
 	}
 
 	return result, userIDIndex
+}
+
+// buildPropertiesFromFlags merges shorthand property flags into a properties map.
+// The shorthand flags take precedence over properties already in the map.
+// If properties is nil, a new map is created.
+// Supports: --status (status property), --priority (select property), --assignee (people property).
+func buildPropertiesFromFlags(sf *skill.SkillFile, properties map[string]interface{}, status, priority, assignee string) map[string]interface{} {
+	if properties == nil {
+		properties = make(map[string]interface{})
+	}
+
+	if status != "" {
+		properties["Status"] = map[string]interface{}{
+			"status": map[string]interface{}{
+				"name": status,
+			},
+		}
+	}
+
+	if priority != "" {
+		properties["Priority"] = map[string]interface{}{
+			"select": map[string]interface{}{
+				"name": priority,
+			},
+		}
+	}
+
+	if assignee != "" {
+		// Resolve user ID from skill file or use as-is
+		resolvedID := resolveUserID(sf, assignee)
+		properties["Assignee"] = map[string]interface{}{
+			"people": []map[string]interface{}{
+				{"object": "user", "id": resolvedID},
+			},
+		}
+	}
+
+	return properties
 }
 
 func newPagePropertyCmd() *cobra.Command {

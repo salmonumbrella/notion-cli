@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/salmonumbrella/notion-cli/internal/skill"
 )
 
 func TestPropertyHasValue(t *testing.T) {
@@ -733,5 +735,270 @@ func TestTransformPropertiesWithMentions_RichTextFlagBehavior(t *testing.T) {
 			result, _ := transformPropertiesWithMentions(tt.properties, tt.userIDs)
 			tt.checkFunc(t, result)
 		})
+	}
+}
+
+func TestBuildPropertiesFromFlags(t *testing.T) {
+	tests := []struct {
+		name       string
+		sf         *skill.SkillFile
+		properties map[string]interface{}
+		status     string
+		priority   string
+		assignee   string
+		checkFunc  func(t *testing.T, result map[string]interface{})
+	}{
+		{
+			name:       "nil properties creates new map",
+			sf:         nil,
+			properties: nil,
+			status:     "Done",
+			priority:   "",
+			assignee:   "",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				if result == nil {
+					t.Fatal("expected non-nil result")
+				}
+				status := result["Status"].(map[string]interface{})
+				statusData := status["status"].(map[string]interface{})
+				if statusData["name"] != "Done" {
+					t.Errorf("expected Status name 'Done', got %v", statusData["name"])
+				}
+			},
+		},
+		{
+			name:       "status flag sets Status property",
+			sf:         nil,
+			properties: make(map[string]interface{}),
+			status:     "In Progress",
+			priority:   "",
+			assignee:   "",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				status := result["Status"].(map[string]interface{})
+				statusData := status["status"].(map[string]interface{})
+				if statusData["name"] != "In Progress" {
+					t.Errorf("expected Status name 'In Progress', got %v", statusData["name"])
+				}
+			},
+		},
+		{
+			name:       "priority flag sets Priority property",
+			sf:         nil,
+			properties: make(map[string]interface{}),
+			status:     "",
+			priority:   "High",
+			assignee:   "",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				priority := result["Priority"].(map[string]interface{})
+				selectData := priority["select"].(map[string]interface{})
+				if selectData["name"] != "High" {
+					t.Errorf("expected Priority name 'High', got %v", selectData["name"])
+				}
+			},
+		},
+		{
+			name:       "assignee flag sets Assignee property with user ID",
+			sf:         nil,
+			properties: make(map[string]interface{}),
+			status:     "",
+			priority:   "",
+			assignee:   "user-123",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				assignee := result["Assignee"].(map[string]interface{})
+				people := assignee["people"].([]map[string]interface{})
+				if len(people) != 1 {
+					t.Fatalf("expected 1 person, got %d", len(people))
+				}
+				if people[0]["id"] != "user-123" {
+					t.Errorf("expected id 'user-123', got %v", people[0]["id"])
+				}
+				if people[0]["object"] != "user" {
+					t.Errorf("expected object 'user', got %v", people[0]["object"])
+				}
+			},
+		},
+		{
+			name:       "all flags together",
+			sf:         nil,
+			properties: make(map[string]interface{}),
+			status:     "Done",
+			priority:   "Low",
+			assignee:   "user-456",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				// Check Status
+				status := result["Status"].(map[string]interface{})
+				statusData := status["status"].(map[string]interface{})
+				if statusData["name"] != "Done" {
+					t.Errorf("expected Status name 'Done', got %v", statusData["name"])
+				}
+
+				// Check Priority
+				priority := result["Priority"].(map[string]interface{})
+				selectData := priority["select"].(map[string]interface{})
+				if selectData["name"] != "Low" {
+					t.Errorf("expected Priority name 'Low', got %v", selectData["name"])
+				}
+
+				// Check Assignee
+				assignee := result["Assignee"].(map[string]interface{})
+				people := assignee["people"].([]map[string]interface{})
+				if people[0]["id"] != "user-456" {
+					t.Errorf("expected assignee id 'user-456', got %v", people[0]["id"])
+				}
+			},
+		},
+		{
+			name: "flags override existing properties",
+			sf:   nil,
+			properties: map[string]interface{}{
+				"Status": map[string]interface{}{
+					"status": map[string]interface{}{
+						"name": "Todo",
+					},
+				},
+			},
+			status:   "Done",
+			priority: "",
+			assignee: "",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				status := result["Status"].(map[string]interface{})
+				statusData := status["status"].(map[string]interface{})
+				if statusData["name"] != "Done" {
+					t.Errorf("expected Status name 'Done' (flag takes precedence), got %v", statusData["name"])
+				}
+			},
+		},
+		{
+			name: "preserves other properties when adding via flags",
+			sf:   nil,
+			properties: map[string]interface{}{
+				"Title": map[string]interface{}{
+					"title": []interface{}{
+						map[string]interface{}{"text": map[string]interface{}{"content": "My Page"}},
+					},
+				},
+			},
+			status:   "In Progress",
+			priority: "",
+			assignee: "",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				// Check that Title is preserved
+				title, ok := result["Title"].(map[string]interface{})
+				if !ok {
+					t.Fatal("Title property should be preserved")
+				}
+				titleArr := title["title"].([]interface{})
+				if len(titleArr) != 1 {
+					t.Errorf("expected Title to have 1 element")
+				}
+
+				// Check that Status was added
+				status := result["Status"].(map[string]interface{})
+				statusData := status["status"].(map[string]interface{})
+				if statusData["name"] != "In Progress" {
+					t.Errorf("expected Status name 'In Progress', got %v", statusData["name"])
+				}
+			},
+		},
+		{
+			name:       "empty flags don't set properties",
+			sf:         nil,
+			properties: make(map[string]interface{}),
+			status:     "",
+			priority:   "",
+			assignee:   "",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				if len(result) != 0 {
+					t.Errorf("expected empty result when no flags set, got %d properties", len(result))
+				}
+			},
+		},
+		{
+			name: "skill file resolves user alias",
+			sf: &skill.SkillFile{
+				Users: map[string]skill.UserAlias{
+					"alice": {Alias: "alice", ID: "resolved-alice-id"},
+				},
+			},
+			properties: make(map[string]interface{}),
+			status:     "",
+			priority:   "",
+			assignee:   "alice",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				assignee := result["Assignee"].(map[string]interface{})
+				people := assignee["people"].([]map[string]interface{})
+				if people[0]["id"] != "resolved-alice-id" {
+					t.Errorf("expected resolved id 'resolved-alice-id', got %v", people[0]["id"])
+				}
+			},
+		},
+		{
+			name: "unresolved user alias passes through",
+			sf: &skill.SkillFile{
+				Users: map[string]skill.UserAlias{
+					"bob": {Alias: "bob", ID: "bob-id"},
+				},
+			},
+			properties: make(map[string]interface{}),
+			status:     "",
+			priority:   "",
+			assignee:   "unknown-user",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				assignee := result["Assignee"].(map[string]interface{})
+				people := assignee["people"].([]map[string]interface{})
+				if people[0]["id"] != "unknown-user" {
+					t.Errorf("expected unresolved 'unknown-user', got %v", people[0]["id"])
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildPropertiesFromFlags(tt.sf, tt.properties, tt.status, tt.priority, tt.assignee)
+			tt.checkFunc(t, result)
+		})
+	}
+}
+
+func TestBuildPropertiesFromFlags_JSONOutput(t *testing.T) {
+	// Verify the output structure matches what the Notion API expects
+	result := buildPropertiesFromFlags(nil, nil, "Done", "High", "user-123")
+
+	// Should be serializable to JSON
+	jsonBytes, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("failed to marshal result to JSON: %v", err)
+	}
+
+	// Verify the JSON structure
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	// Check Status structure: {"Status":{"status":{"name":"Done"}}}
+	status := parsed["Status"].(map[string]interface{})
+	statusData := status["status"].(map[string]interface{})
+	if statusData["name"] != "Done" {
+		t.Errorf("expected Status name 'Done', got %v", statusData["name"])
+	}
+
+	// Check Priority structure: {"Priority":{"select":{"name":"High"}}}
+	priority := parsed["Priority"].(map[string]interface{})
+	selectData := priority["select"].(map[string]interface{})
+	if selectData["name"] != "High" {
+		t.Errorf("expected Priority name 'High', got %v", selectData["name"])
+	}
+
+	// Check Assignee structure: {"Assignee":{"people":[{"object":"user","id":"user-123"}]}}
+	assignee := parsed["Assignee"].(map[string]interface{})
+	people := assignee["people"].([]interface{})
+	person := people[0].(map[string]interface{})
+	if person["object"] != "user" {
+		t.Errorf("expected object 'user', got %v", person["object"])
+	}
+	if person["id"] != "user-123" {
+		t.Errorf("expected id 'user-123', got %v", person["id"])
 	}
 }
