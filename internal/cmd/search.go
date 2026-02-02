@@ -22,8 +22,9 @@ func newSearchCmd() *cobra.Command {
 	var textQuery string
 
 	cmd := &cobra.Command{
-		Use:   "search [query]",
-		Short: "Search Notion by title",
+		Use:     "search [query]",
+		Aliases: []string{"s", "find"},
+		Short:   "Search Notion by title",
 		Long: `Search for pages and databases in Notion by title.
 
 The query argument is the text to search for (optional).

@@ -16,9 +16,10 @@ import (
 
 func newWorkspaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "workspace",
-		Short: "Manage workspaces",
-		Long:  "Manage multiple workspace configurations for different Notion accounts or integrations.",
+		Use:     "workspace",
+		Aliases: []string{"workspaces", "ws"},
+		Short:   "Manage workspaces",
+		Long:    "Manage multiple workspace configurations for different Notion accounts or integrations.",
 	}
 
 	cmd.AddCommand(newWorkspaceListCmd())

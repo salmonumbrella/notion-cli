@@ -13,9 +13,10 @@ import (
 
 func newUserCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "user",
-		Short: "Manage Notion users",
-		Long:  `Retrieve and list Notion users in the workspace.`,
+		Use:     "user",
+		Aliases: []string{"users", "u"},
+		Short:   "Manage Notion users",
+		Long:    `Retrieve and list Notion users in the workspace.`,
 	}
 
 	cmd.AddCommand(newUserGetCmd())

@@ -17,9 +17,10 @@ import (
 
 func newDBCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "db",
-		Short: "Manage Notion databases",
-		Long:  `Retrieve, query, create, and update Notion databases.`,
+		Use:     "db",
+		Aliases: []string{"database", "databases"},
+		Short:   "Manage Notion databases",
+		Long:    `Retrieve, query, create, and update Notion databases.`,
 	}
 
 	cmd.AddCommand(newDBGetCmd())

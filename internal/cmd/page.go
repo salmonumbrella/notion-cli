@@ -17,9 +17,10 @@ import (
 
 func newPageCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "page",
-		Short: "Manage Notion pages",
-		Long:  `Create, retrieve, and update Notion pages.`,
+		Use:     "page",
+		Aliases: []string{"pages", "p"},
+		Short:   "Manage Notion pages",
+		Long:    `Create, retrieve, and update Notion pages.`,
 	}
 
 	cmd.AddCommand(newPageGetCmd())
@@ -32,8 +33,53 @@ func newPageCmd() *cobra.Command {
 	cmd.AddCommand(newPageExportCmd())
 	cmd.AddCommand(newPagePropertyCmd())
 	cmd.AddCommand(newPageMoveCmd())
+	cmd.AddCommand(newPageDeleteCmd())
 
 	return cmd
+}
+
+func newPageDeleteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "delete <page-id>",
+		Aliases: []string{"archive", "rm"},
+		Short:   "Archive a page",
+		Long: `Archive a Notion page by its ID.
+
+This command archives (soft-deletes) a page. Archived pages can be restored
+from the Notion UI.
+
+Example:
+  notion page delete abc123
+  notion page archive abc123
+  notion page rm abc123`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			if err != nil {
+				return err
+			}
+
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return errors.AuthRequiredError(err)
+			}
+
+			client := NewNotionClient(ctx, token)
+
+			page, err := client.UpdatePage(ctx, pageID, &notion.UpdatePageRequest{
+				Archived: ptrBool(true),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to archive page: %w", err)
+			}
+
+			printer := printerForContext(ctx)
+			return printer.Print(ctx, page)
+		},
+	}
 }
 
 func newPageGetCmd() *cobra.Command {

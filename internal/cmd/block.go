@@ -22,7 +22,7 @@ const (
 func newBlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "block",
-		Aliases: []string{"blocks"},
+		Aliases: []string{"blocks", "b"},
 		Short:   "Manage Notion blocks",
 		Long:    `Retrieve, append, update, and delete Notion blocks.`,
 	}
@@ -88,8 +88,9 @@ func newBlockChildrenCmd() *cobra.Command {
 	var depth int
 
 	cmd := &cobra.Command{
-		Use:   "children <block-id>",
-		Short: "Get block children",
+		Use:     "children <block-id>",
+		Aliases: []string{"list", "ls"},
+		Short:   "Get block children",
 		Long: `Retrieve the children of a block.
 
 Use the --start-cursor flag to paginate through results.

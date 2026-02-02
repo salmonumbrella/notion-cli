@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,6 +16,7 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/salmonumbrella/notion-cli/internal/debug"
+	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/iocontext"
 	"github.com/salmonumbrella/notion-cli/internal/logging"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
@@ -195,6 +198,117 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.AddCommand(newAPICmd())
 	rootCmd.AddCommand(newImportCmd())
 	rootCmd.AddCommand(newSkillCmd())
+
+	// Top-level convenience commands (desire-path aliases)
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "login",
+		Short: "Authenticate with Notion (alias for 'auth login')",
+		Long: `Authenticate with Notion using OAuth.
+
+This is a convenience alias for 'notion auth login'.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runOAuthLogin(cmd.Context())
+		},
+	})
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "logout",
+		Short: "Remove stored credentials (alias for 'auth logout')",
+		Long: `Remove the stored Notion credentials from the system keyring.
+
+This is a convenience alias for 'notion auth logout'.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if err := auth.DeleteToken(); err != nil {
+				return fmt.Errorf("failed to remove token: %w", err)
+			}
+
+			printer := printerForContext(ctx)
+			return printer.Print(ctx, map[string]interface{}{
+				"status":  "success",
+				"message": "Logged out successfully",
+			})
+		},
+	})
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "whoami",
+		Short: "Show current user (alias for 'user me')",
+		Long: `Retrieve the bot user associated with the API token.
+
+This is a convenience alias for 'notion user me'.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return errors.AuthRequiredError(err)
+			}
+
+			client := NewNotionClient(ctx, token)
+			user, err := client.GetSelf(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get user info: %w", err)
+			}
+
+			printer := printerForContext(ctx)
+			return printer.Print(ctx, user)
+		},
+	})
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "open <page-id-or-alias>",
+		Short: "Open a Notion page in the browser",
+		Long: `Open a Notion page in your default web browser.
+
+Accepts a page ID or a skill file alias.
+
+Example:
+  notion open abc123
+  notion open my-page-alias`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
+
+			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			if err != nil {
+				return err
+			}
+
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return errors.AuthRequiredError(err)
+			}
+
+			client := NewNotionClient(ctx, token)
+			page, err := client.GetPage(ctx, pageID)
+			if err != nil {
+				return fmt.Errorf("failed to get page: %w", err)
+			}
+
+			// Open in browser
+			var openCmd *exec.Cmd
+			switch runtime.GOOS {
+			case "darwin":
+				openCmd = exec.Command("open", page.URL)
+			case "linux":
+				openCmd = exec.Command("xdg-open", page.URL)
+			case "windows":
+				openCmd = exec.Command("cmd", "/c", "start", page.URL)
+			default:
+				return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+			}
+			if err := openCmd.Run(); err != nil {
+				return fmt.Errorf("failed to open browser: %w", err)
+			}
+
+			_, _ = fmt.Fprintf(stderrFromContext(ctx), "Opened %s\n", page.URL)
+			return nil
+		},
+	})
 
 	return rootCmd
 }
