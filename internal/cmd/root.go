@@ -189,6 +189,7 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.AddCommand(newCompletionCmd())
 	rootCmd.AddCommand(newAPICmd())
 	rootCmd.AddCommand(newImportCmd())
+	rootCmd.AddCommand(newSkillCmd())
 
 	return rootCmd
 }
