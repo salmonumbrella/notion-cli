@@ -6,6 +6,12 @@ import (
 )
 
 func TestHasAuthorizationHeader(t *testing.T) {
+	t.Run("nil headers", func(t *testing.T) {
+		if hasAuthorizationHeader(nil) {
+			t.Fatal("expected false for nil headers")
+		}
+	})
+
 	t.Run("missing", func(t *testing.T) {
 		if hasAuthorizationHeader(http.Header{}) {
 			t.Fatal("expected false for empty headers")
