@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -319,7 +318,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 					return err
 				}
 				filterJSON = resolved
-				if err := json.Unmarshal([]byte(filterJSON), &filter); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(filterJSON, &filter); err != nil {
 					return fmt.Errorf("failed to parse filter JSON: %w", err)
 				}
 			}
@@ -341,7 +340,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 					return err
 				}
 				sortsJSON = resolved
-				if err := json.Unmarshal([]byte(sortsJSON), &sorts); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(sortsJSON, &sorts); err != nil {
 					return fmt.Errorf("failed to parse sorts JSON: %w", err)
 				}
 			}
@@ -510,7 +509,7 @@ Example - Create with description:
 				return err
 			}
 			propertiesJSON = resolved
-			if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+			if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
 				return fmt.Errorf("failed to parse properties JSON: %w", err)
 			}
 
@@ -552,7 +551,7 @@ Example - Create with description:
 					return err
 				}
 				descriptionJSON = resolved
-				if err := json.Unmarshal([]byte(descriptionJSON), &description); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(descriptionJSON, &description); err != nil {
 					return fmt.Errorf("failed to parse description JSON: %w", err)
 				}
 			}
@@ -564,7 +563,7 @@ Example - Create with description:
 					return err
 				}
 				iconJSON = resolved
-				if err := json.Unmarshal([]byte(iconJSON), &icon); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(iconJSON, &icon); err != nil {
 					return fmt.Errorf("failed to parse icon JSON: %w", err)
 				}
 			}
@@ -576,7 +575,7 @@ Example - Create with description:
 					return err
 				}
 				coverJSON = resolved
-				if err := json.Unmarshal([]byte(coverJSON), &cover); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(coverJSON, &cover); err != nil {
 					return fmt.Errorf("failed to parse cover JSON: %w", err)
 				}
 			}
@@ -697,7 +696,7 @@ Example - Archive database:
 					return err
 				}
 				propertiesJSON = resolved
-				if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
 					return fmt.Errorf("failed to parse properties JSON: %w", err)
 				}
 			}
@@ -710,7 +709,7 @@ Example - Archive database:
 					return err
 				}
 				descriptionJSON = resolved
-				if err := json.Unmarshal([]byte(descriptionJSON), &description); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(descriptionJSON, &description); err != nil {
 					return fmt.Errorf("failed to parse description JSON: %w", err)
 				}
 			}
@@ -722,7 +721,7 @@ Example - Archive database:
 					return err
 				}
 				iconJSON = resolved
-				if err := json.Unmarshal([]byte(iconJSON), &icon); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(iconJSON, &icon); err != nil {
 					return fmt.Errorf("failed to parse icon JSON: %w", err)
 				}
 			}
@@ -734,7 +733,7 @@ Example - Archive database:
 					return err
 				}
 				coverJSON = resolved
-				if err := json.Unmarshal([]byte(coverJSON), &cover); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(coverJSON, &cover); err != nil {
 					return fmt.Errorf("failed to parse cover JSON: %w", err)
 				}
 			}

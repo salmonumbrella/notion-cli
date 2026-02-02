@@ -104,6 +104,34 @@ func TestDoRequest_Success(t *testing.T) {
 	}
 }
 
+func TestDoRequest_NoAuthHeader(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			t.Errorf("expected no Authorization header, got %q", auth)
+		}
+
+		if version := r.Header.Get("Notion-Version"); version != apiVersion {
+			t.Errorf("expected Notion-Version header %q, got %q", apiVersion, version)
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient("test-token").WithBaseURL(server.URL).WithAuthHeaderDisabled()
+	ctx := context.Background()
+
+	resp, err := client.doRequest(ctx, http.MethodGet, "/test", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+}
+
 func TestDoRequest_WithBody(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]string

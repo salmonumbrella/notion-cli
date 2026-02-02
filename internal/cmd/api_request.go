@@ -23,6 +23,7 @@ func newAPIRequestCmd() *cobra.Command {
 	var raw bool
 	var includeHeaders bool
 	var headers []string
+	var noAuth bool
 
 	cmd := &cobra.Command{
 		Use:   "request <method> <path>",
@@ -33,7 +34,9 @@ Examples:
   notion api request GET /users
   notion api request POST /search --body '{"query":"project"}'
   notion api request POST /databases/<id>/query --body @query.json
-  notion api request GET /blocks/<id>/children --paginate`,
+  notion api request GET /blocks/<id>/children --paginate
+  notion api request GET /users --no-auth
+  notion api request GET /users --header "Authorization: Bearer <token>"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			method := strings.ToUpper(strings.TrimSpace(args[0]))
@@ -44,6 +47,7 @@ Examples:
 				return err
 			}
 
+			bodyStr = cmdutil.NormalizeJSONInput(bodyStr)
 			var bodyBytes []byte
 			if bodyStr != "" {
 				if !json.Valid([]byte(bodyStr)) {
@@ -58,12 +62,19 @@ Examples:
 			}
 
 			ctx := cmd.Context()
-			token, err := GetTokenFromContext(ctx)
-			if err != nil {
-				return errors.AuthRequiredError(err)
+			disableAuth := noAuth || hasAuthorizationHeader(customHeaders)
+			var token string
+			if !disableAuth {
+				token, err = GetTokenFromContext(ctx)
+				if err != nil {
+					return errors.AuthRequiredError(err)
+				}
 			}
 
 			client := NewNotionClient(ctx, token)
+			if disableAuth {
+				client.WithAuthHeaderDisabled()
+			}
 
 			if paginate {
 				return runPaginatedAPIRequest(ctx, client, method, path, bodyBytes, customHeaders, raw, includeHeaders)
@@ -84,6 +95,7 @@ Examples:
 	cmd.Flags().BoolVar(&raw, "raw", false, "Output only the response body")
 	cmd.Flags().BoolVar(&includeHeaders, "include-headers", false, "Include response headers in output")
 	cmd.Flags().StringArrayVar(&headers, "header", nil, "Custom header (repeatable, format: 'Key: Value')")
+	cmd.Flags().BoolVar(&noAuth, "no-auth", false, "Disable default Authorization header (also disabled when Authorization header is provided)")
 
 	_ = cmd.Flags().MarkHidden("body-file") // prefer @file style, keep as fallback
 
@@ -290,6 +302,14 @@ func parseHeaderFlags(values []string) (http.Header, error) {
 		headers.Add(key, val)
 	}
 	return headers, nil
+}
+
+func hasAuthorizationHeader(headers http.Header) bool {
+	if headers == nil {
+		return false
+	}
+	_, ok := headers[http.CanonicalHeaderKey("Authorization")]
+	return ok
 }
 
 func flattenHeaders(headers http.Header) map[string]string {

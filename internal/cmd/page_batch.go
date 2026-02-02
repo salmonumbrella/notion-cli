@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -89,7 +88,7 @@ Example:
 			}
 
 			var specs []batchPageSpec
-			if err := json.Unmarshal([]byte(pagesJSON), &specs); err != nil {
+			if err := cmdutil.UnmarshalJSONInput(pagesJSON, &specs); err != nil {
 				return fmt.Errorf("failed to parse pages JSON: %w", err)
 			}
 			if len(specs) == 0 {
@@ -202,7 +201,7 @@ Example:
 			}
 
 			var specs []batchPageUpdateSpec
-			if err := json.Unmarshal([]byte(pagesJSON), &specs); err != nil {
+			if err := cmdutil.UnmarshalJSONInput(pagesJSON, &specs); err != nil {
 				return fmt.Errorf("failed to parse pages JSON: %w", err)
 			}
 			if len(specs) == 0 {

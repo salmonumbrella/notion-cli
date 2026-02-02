@@ -178,6 +178,48 @@ func TestReadJSONInput(t *testing.T) {
 	}
 }
 
+func TestUnmarshalJSONInput(t *testing.T) {
+	t.Run("object", func(t *testing.T) {
+		var got map[string]interface{}
+		if err := UnmarshalJSONInput(`{"key": "value"}`, &got); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got["key"] != "value" {
+			t.Fatalf("got %v, want %v", got["key"], "value")
+		}
+	})
+
+	t.Run("double-serialized object", func(t *testing.T) {
+		var got map[string]interface{}
+		if err := UnmarshalJSONInput(`"{\"key\": \"value\"}"`, &got); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got["key"] != "value" {
+			t.Fatalf("got %v, want %v", got["key"], "value")
+		}
+	})
+
+	t.Run("double-serialized array", func(t *testing.T) {
+		var got []interface{}
+		if err := UnmarshalJSONInput(`"[1, 2, 3]"`, &got); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 3 {
+			t.Fatalf("got len %d, want 3", len(got))
+		}
+		if got[0].(float64) != 1 {
+			t.Fatalf("got %v, want 1", got[0])
+		}
+	})
+
+	t.Run("plain string does not unwrap", func(t *testing.T) {
+		var got map[string]interface{}
+		if err := UnmarshalJSONInput(`"hello"`, &got); err == nil {
+			t.Fatalf("expected error for non-object JSON")
+		}
+	})
+}
+
 func TestReadInputSource(t *testing.T) {
 	// Create temp file for file-based tests
 	tmpDir := t.TempDir()

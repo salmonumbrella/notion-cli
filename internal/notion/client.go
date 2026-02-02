@@ -121,6 +121,7 @@ type Client struct {
 	token          string
 	baseURL        string
 	version        string
+	disableAuth    bool
 	circuitBreaker *circuitBreaker
 	rateLimiter    *RateLimitTracker
 }
@@ -131,9 +132,10 @@ func NewClient(token string) *Client {
 		httpClient: &http.Client{
 			Timeout: defaultTimeout,
 		},
-		token:   token,
-		baseURL: defaultBaseURL,
-		version: apiVersion,
+		token:       token,
+		baseURL:     defaultBaseURL,
+		version:     apiVersion,
+		disableAuth: false,
 		circuitBreaker: &circuitBreaker{
 			threshold:       defaultCircuitBreakerThreshold,
 			recoveryTimeout: defaultCircuitBreakerRecoveryTimeout,
@@ -152,6 +154,12 @@ func (c *Client) WithHTTPClient(client *http.Client) *Client {
 // WithBaseURL sets a custom base URL (useful for testing)
 func (c *Client) WithBaseURL(baseURL string) *Client {
 	c.baseURL = baseURL
+	return c
+}
+
+// WithAuthHeaderDisabled disables sending the default Authorization header.
+func (c *Client) WithAuthHeaderDisabled() *Client {
+	c.disableAuth = true
 	return c
 }
 
@@ -272,7 +280,9 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body in
 	}
 
 	// Set required headers
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if !c.disableAuth && c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	req.Header.Set("Notion-Version", c.version)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -408,7 +418,9 @@ func (c *Client) doMultipartRequestOnce(ctx context.Context, url string, fieldNa
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if !c.disableAuth && c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	req.Header.Set("Notion-Version", c.version)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 

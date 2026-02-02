@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -83,7 +82,7 @@ Example - Fetch all results:
 					return err
 				}
 				sortJSON = resolved
-				if err := json.Unmarshal([]byte(sortJSON), &sort); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(sortJSON, &sort); err != nil {
 					return fmt.Errorf("failed to parse sort JSON: %w", err)
 				}
 			}

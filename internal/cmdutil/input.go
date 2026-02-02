@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -52,6 +53,36 @@ func ResolveJSONInput(raw string, file string) (string, error) {
 // ReadJSONInput resolves a single JSON value with @file and - (stdin) support.
 func ReadJSONInput(value string) (string, error) {
 	return ResolveJSONInput(value, "")
+}
+
+// NormalizeJSONInput unwraps double-serialized JSON strings when possible.
+// If the input is a JSON string containing JSON, it returns the inner JSON.
+func NormalizeJSONInput(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return raw
+	}
+
+	var inner string
+	if err := json.Unmarshal([]byte(trimmed), &inner); err != nil {
+		return raw
+	}
+
+	innerTrimmed := strings.TrimSpace(inner)
+	if innerTrimmed == "" {
+		return raw
+	}
+	if json.Valid([]byte(innerTrimmed)) {
+		return innerTrimmed
+	}
+
+	return raw
+}
+
+// UnmarshalJSONInput unmarshals JSON input, supporting double-serialized JSON strings.
+func UnmarshalJSONInput(raw string, target interface{}) error {
+	normalized := NormalizeJSONInput(raw)
+	return json.Unmarshal([]byte(normalized), target)
 }
 
 // ReadInputSource reads input from a file path or stdin when path is "-".

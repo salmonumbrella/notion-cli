@@ -287,7 +287,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 				return err
 			}
 			childrenJSON = resolved
-			if err := json.Unmarshal([]byte(childrenJSON), &children); err != nil {
+			if err := cmdutil.UnmarshalJSONInput(childrenJSON, &children); err != nil {
 				return fmt.Errorf("failed to parse children JSON: %w", err)
 			}
 
@@ -402,7 +402,7 @@ Example of updating a paragraph block:
 					return err
 				}
 				contentJSON = resolved
-				if err := json.Unmarshal([]byte(contentJSON), &content); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(contentJSON, &content); err != nil {
 					return fmt.Errorf("failed to parse content JSON: %w", err)
 				}
 			}

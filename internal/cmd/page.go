@@ -275,7 +275,7 @@ Examples:
 				return err
 			}
 			propertiesJSON = resolved
-			if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+			if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
 				return fmt.Errorf("failed to parse properties JSON: %w", err)
 			}
 
@@ -405,7 +405,7 @@ Combined example (all flags together):
 					return err
 				}
 				propertiesJSON = resolved
-				if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
 					return fmt.Errorf("failed to parse properties JSON: %w", err)
 				}
 			}

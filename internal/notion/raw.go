@@ -89,7 +89,9 @@ func (c *Client) doRawRequestOnce(ctx context.Context, method, url string, body 
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if !c.disableAuth && c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	req.Header.Set("Notion-Version", c.version)
 	for key, values := range headers {
 		for _, v := range values {

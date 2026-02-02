@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 
@@ -106,7 +105,7 @@ Example:
 				return err
 			}
 			propertiesJSON = resolved
-			if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+			if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
 				return fmt.Errorf("invalid properties JSON: %w", err)
 			}
 
@@ -169,7 +168,7 @@ Example:
 					return err
 				}
 				propertiesJSON = resolved
-				if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
 					return fmt.Errorf("invalid properties JSON: %w", err)
 				}
 			}
@@ -247,7 +246,7 @@ Example - Query with filter:
 					return err
 				}
 				filterJSON = resolved
-				if err := json.Unmarshal([]byte(filterJSON), &filter); err != nil {
+				if err := cmdutil.UnmarshalJSONInput(filterJSON, &filter); err != nil {
 					return fmt.Errorf("invalid filter JSON: %w", err)
 				}
 			}
