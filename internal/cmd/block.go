@@ -287,8 +287,16 @@ TIP: For convenience commands, see 'notion block add --help'`,
 				return err
 			}
 			childrenJSON = resolved
+
+			// Try to unmarshal as array first, then as single object
 			if err := cmdutil.UnmarshalJSONInput(childrenJSON, &children); err != nil {
-				return fmt.Errorf("failed to parse children JSON: %w", err)
+				// If array unmarshal fails, try as single object and wrap in array
+				var singleBlock map[string]interface{}
+				if singleErr := cmdutil.UnmarshalJSONInput(childrenJSON, &singleBlock); singleErr == nil {
+					children = []map[string]interface{}{singleBlock}
+				} else {
+					return fmt.Errorf("failed to parse children JSON (expected array or single block object): %w", err)
+				}
 			}
 
 			// Get token from context (respects workspace selection)

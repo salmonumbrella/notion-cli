@@ -42,8 +42,9 @@ func newRootCmd(app *App) *cobra.Command {
 		Short: "CLI for Notion API",
 		Long:  `A command-line interface for interacting with the Notion API`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Ensure Cobra doesn't emit its own error text; we handle error output centrally.
+			// Ensure Cobra doesn't emit its own error/usage text; we handle error output centrally.
 			cmd.SilenceErrors = true
+			cmd.SilenceUsage = true
 
 			// Configure slog based on debug flag
 			logging.Setup(debugMode, app.Stderr)
