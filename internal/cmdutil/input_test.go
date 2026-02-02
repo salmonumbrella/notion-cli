@@ -302,3 +302,111 @@ func TestReadInputSource_Stdin(t *testing.T) {
 	// To properly test stdin, the function would need to accept an io.Reader.
 	t.Skip("stdin tests require os.Stdin mocking")
 }
+
+func TestNormalizeJSONInput(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "empty string",
+			raw:  "",
+			want: "",
+		},
+		{
+			name: "whitespace-only",
+			raw:  "   \t\n  ",
+			want: "   \t\n  ",
+		},
+		{
+			name: "regular JSON object",
+			raw:  `{"key": "value"}`,
+			want: `{"key": "value"}`,
+		},
+		{
+			name: "regular JSON array",
+			raw:  `[1, 2, 3]`,
+			want: `[1, 2, 3]`,
+		},
+		{
+			name: "regular JSON number",
+			raw:  `42`,
+			want: `42`,
+		},
+		{
+			name: "regular JSON boolean",
+			raw:  `true`,
+			want: `true`,
+		},
+		{
+			name: "regular JSON null",
+			raw:  `null`,
+			want: `null`,
+		},
+		{
+			name: "double-serialized object",
+			raw:  `"{\"key\": \"value\"}"`,
+			want: `{"key": "value"}`,
+		},
+		{
+			name: "double-serialized array",
+			raw:  `"[1, 2, 3]"`,
+			want: `[1, 2, 3]`,
+		},
+		{
+			name: "double-serialized number",
+			raw:  `"42"`,
+			want: `42`,
+		},
+		{
+			name: "triple-serialized object unwraps one level",
+			raw:  `"\"{\\\"key\\\": \\\"value\\\"}\""`,
+			want: `"{\"key\": \"value\"}"`,
+		},
+		{
+			name: "JSON string containing non-JSON text",
+			raw:  `"hello world"`,
+			want: `"hello world"`,
+		},
+		{
+			name: "JSON string containing empty string",
+			raw:  `""`,
+			want: `""`,
+		},
+		{
+			name: "JSON string containing whitespace-only",
+			raw:  `"   "`,
+			want: `"   "`,
+		},
+		{
+			name: "JSON object with leading/trailing whitespace",
+			raw:  `  {"key": "value"}  `,
+			want: `  {"key": "value"}  `,
+		},
+		{
+			name: "double-serialized with leading whitespace",
+			raw:  `  "{\"key\": \"value\"}"`,
+			want: `{"key": "value"}`,
+		},
+		{
+			name: "invalid JSON",
+			raw:  `{invalid json}`,
+			want: `{invalid json}`,
+		},
+		{
+			name: "plain text",
+			raw:  `just some text`,
+			want: `just some text`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizeJSONInput(tt.raw)
+			if got != tt.want {
+				t.Fatalf("NormalizeJSONInput(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
