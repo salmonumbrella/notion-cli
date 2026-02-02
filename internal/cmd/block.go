@@ -25,6 +25,13 @@ func newBlockCmd() *cobra.Command {
 		Aliases: []string{"blocks", "b"},
 		Short:   "Manage Notion blocks",
 		Long:    `Retrieve, append, update, and delete Notion blocks.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// When invoked without subcommand, default to children
+			// Note: children requires a block-id argument
+			childrenCmd := newBlockChildrenCmd()
+			childrenCmd.SetContext(cmd.Context())
+			return childrenCmd.RunE(childrenCmd, args)
+		},
 	}
 
 	cmd.AddCommand(newBlockGetCmd())
@@ -43,21 +50,19 @@ func newBlockCmd() *cobra.Command {
 
 func newBlockGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <block-id>",
-		Short: "Get a block by ID",
-		Long: `Retrieve a Notion block by its ID.
+		Use:   "get <block-id-or-name>",
+		Short: "Get a block by ID or name",
+		Long: `Retrieve a Notion block by its ID or name.
+
+If you provide a name instead of an ID, the CLI will search for matching pages/blocks.
 
 Example:
-  notion block get 12345678-1234-1234-1234-123456789012`,
+  notion block get 12345678-1234-1234-1234-123456789012
+  notion block get "Meeting Notes"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
-
-			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
 
 			// Get token from context (respects workspace selection)
 			token, err := GetTokenFromContext(ctx)
@@ -67,6 +72,16 @@ Example:
 
 			// Create client
 			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback (no filter - blocks can be pages too)
+			blockID, err := resolveIDWithSearch(ctx, client, sf, args[0], "")
+			if err != nil {
+				return err
+			}
+			blockID, err = cmdutil.NormalizeNotionID(blockID)
+			if err != nil {
+				return err
+			}
 
 			// Get block
 			block, err := client.GetBlock(ctx, blockID)
@@ -88,10 +103,12 @@ func newBlockChildrenCmd() *cobra.Command {
 	var depth int
 
 	cmd := &cobra.Command{
-		Use:     "children <block-id>",
+		Use:     "children <block-id-or-name>",
 		Aliases: []string{"list", "ls"},
 		Short:   "Get block children",
 		Long: `Retrieve the children of a block.
+
+If you provide a name instead of an ID, the CLI will search for matching pages.
 
 Use the --start-cursor flag to paginate through results.
 Use the --page-size flag to control the number of results per page (max 100).
@@ -100,6 +117,7 @@ Use --depth to recursively fetch nested children (e.g., content inside toggles, 
 
 Example:
   notion block children 12345678-1234-1234-1234-123456789012
+  notion block children "Meeting Notes"
   notion block children 12345678-1234-1234-1234-123456789012 --page-size 50
   notion block children 12345678-1234-1234-1234-123456789012 --all
   notion block children 12345678-1234-1234-1234-123456789012 --depth 3 -o json`,
@@ -107,11 +125,6 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
-
-			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
 
 			// Get token from context (respects workspace selection)
 			limit := output.LimitFromContext(ctx)
@@ -129,6 +142,16 @@ Example:
 
 			// Create client
 			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback
+			blockID, err := resolveIDWithSearch(ctx, client, sf, args[0], "")
+			if err != nil {
+				return err
+			}
+			blockID, err = cmdutil.NormalizeNotionID(blockID)
+			if err != nil {
+				return err
+			}
 
 			// If --depth flag is set, use recursive fetching
 			if depth > 0 {

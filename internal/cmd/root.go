@@ -259,24 +259,20 @@ This is a convenience alias for 'notion user me'.`,
 	})
 
 	rootCmd.AddCommand(&cobra.Command{
-		Use:   "open <page-id-or-alias>",
+		Use:   "open <page-id-or-name>",
 		Short: "Open a Notion page in the browser",
 		Long: `Open a Notion page in your default web browser.
 
-Accepts a page ID or a skill file alias.
+Accepts a page ID, skill file alias, or page name.
 
 Example:
   notion open abc123
-  notion open my-page-alias`,
+  notion open my-page-alias
+  notion open "Meeting Notes"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
-
-			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
 
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
@@ -284,6 +280,17 @@ Example:
 			}
 
 			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback
+			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
+			if err != nil {
+				return err
+			}
+			pageID, err = cmdutil.NormalizeNotionID(pageID)
+			if err != nil {
+				return err
+			}
+
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
 				return fmt.Errorf("failed to get page: %w", err)
@@ -339,25 +346,22 @@ Example:
 
 	// `notion get <id>` → auto-detect entity type
 	rootCmd.AddCommand(&cobra.Command{
-		Use:   "get <id-or-alias>",
-		Short: "Get any Notion object by ID (auto-detects type)",
-		Long: `Retrieve a Notion page, database, or block by its ID.
+		Use:   "get <id-or-name>",
+		Short: "Get any Notion object by ID or name (auto-detects type)",
+		Long: `Retrieve a Notion page, database, or block by its ID or name.
 
+If you provide a name instead of an ID, the CLI will search for matching objects.
 Automatically detects the object type by trying page first, then database,
 then block. This is useful when you have an ID but don't know its type.
 
 Example:
   notion get abc123
-  notion get my-page-alias`,
+  notion get my-page-alias
+  notion get "Meeting Notes"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
-
-			id, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
 
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
@@ -366,6 +370,16 @@ Example:
 
 			client := NewNotionClient(ctx, token)
 			printer := printerForContext(ctx)
+
+			// Resolve ID with search fallback (no filter - could be page or database)
+			id, err := resolveIDWithSearch(ctx, client, sf, args[0], "")
+			if err != nil {
+				return err
+			}
+			id, err = cmdutil.NormalizeNotionID(id)
+			if err != nil {
+				return err
+			}
 
 			// Try page first (most common)
 			page, pageErr := client.GetPage(ctx, id)

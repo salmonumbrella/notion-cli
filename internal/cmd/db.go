@@ -21,6 +21,12 @@ func newDBCmd() *cobra.Command {
 		Aliases: []string{"database", "databases"},
 		Short:   "Manage Notion databases",
 		Long:    `Retrieve, query, create, and update Notion databases.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// When invoked without subcommand, default to list
+			listCmd := newDBListCmd()
+			listCmd.SetContext(cmd.Context())
+			return listCmd.RunE(listCmd, args)
+		},
 	}
 
 	cmd.AddCommand(newDBGetCmd())
@@ -187,21 +193,19 @@ func extractTitlePlainText(value interface{}) string {
 
 func newDBGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <database-id>",
-		Short: "Get a database by ID",
-		Long: `Retrieve a Notion database by its ID.
+		Use:   "get <database-id-or-name>",
+		Short: "Get a database by ID or name",
+		Long: `Retrieve a Notion database by its ID or name.
+
+If you provide a name instead of an ID, the CLI will search for matching databases.
 
 Example:
-  notion db get 12345678-1234-1234-1234-123456789012`,
+  notion db get 12345678-1234-1234-1234-123456789012
+  notion db get "Projects"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
-
-			databaseID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
 
 			// Get token from context (respects workspace selection)
 			token, err := GetTokenFromContext(ctx)
@@ -211,6 +215,16 @@ Example:
 
 			// Create client
 			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback
+			databaseID, err := resolveIDWithSearch(ctx, client, sf, args[0], "database")
+			if err != nil {
+				return err
+			}
+			databaseID, err = cmdutil.NormalizeNotionID(databaseID)
+			if err != nil {
+				return err
+			}
 
 			// Get database
 			database, err := client.GetDatabase(ctx, databaseID)
@@ -252,9 +266,11 @@ func newDBQueryCmd() *cobra.Command {
 	var resultsOnly bool
 
 	cmd := &cobra.Command{
-		Use:   "query <database-id>",
+		Use:   "query <database-id-or-name>",
 		Short: "Query a database",
 		Long: `Query a Notion database with optional filters and sorts.
+
+If you provide a name instead of an ID, the CLI will search for matching databases.
 
 The --filter flag accepts a JSON object representing the filter.
 The --filter-file flag reads filter JSON from a file (useful for complex filters).
@@ -267,6 +283,9 @@ Use --data-source to query a specific data source in a multi-source database.
 
 Example - Query all pages:
   notion db query 12345678-1234-1234-1234-123456789012
+
+Example - Query by name:
+  notion db query "Projects"
 
 Example - Query with filter (single line recommended):
   notion db query 12345678-1234-1234-1234-123456789012 --filter '{"property":"Status","select":{"equals":"Done"}}'
@@ -291,7 +310,19 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			databaseID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			// Get token early so we can use client for search resolution
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return errors.AuthRequiredError(err)
+			}
+			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback
+			databaseID, err := resolveIDWithSearch(ctx, client, sf, args[0], "database")
+			if err != nil {
+				return err
+			}
+			databaseID, err = cmdutil.NormalizeNotionID(databaseID)
 			if err != nil {
 				return err
 			}
@@ -376,15 +407,6 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
 			}
 			pageSize = capPageSize(pageSize, limit)
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
-			if err != nil {
-				return errors.AuthRequiredError(err)
-			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			resolvedDataSourceID, err := resolveDataSourceID(ctx, client, databaseID, dataSourceID)
 			if err != nil {

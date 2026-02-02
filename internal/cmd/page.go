@@ -21,6 +21,16 @@ func newPageCmd() *cobra.Command {
 		Aliases: []string{"pages", "p"},
 		Short:   "Manage Notion pages",
 		Long:    `Create, retrieve, and update Notion pages.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// When invoked without subcommand, default to search --filter page
+			searchCmd := newSearchCmd()
+			searchCmd.SetContext(cmd.Context())
+			// Set the filter flag to "page" to only show pages
+			if err := searchCmd.Flags().Set("filter", "page"); err != nil {
+				return err
+			}
+			return searchCmd.RunE(searchCmd, args)
+		},
 	}
 
 	cmd.AddCommand(newPageGetCmd())
@@ -40,16 +50,19 @@ func newPageCmd() *cobra.Command {
 
 func newPageDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete <page-id>",
+		Use:     "delete <page-id-or-name>",
 		Aliases: []string{"archive", "rm"},
 		Short:   "Archive a page",
-		Long: `Archive a Notion page by its ID.
+		Long: `Archive a Notion page by its ID or name.
 
 This command archives (soft-deletes) a page. Archived pages can be restored
 from the Notion UI.
 
+If you provide a name instead of an ID, the CLI will search for matching pages.
+
 Example:
   notion page delete abc123
+  notion page delete "Old Meeting Notes"
   notion page archive abc123
   notion page rm abc123`,
 		Args: cobra.ExactArgs(1),
@@ -57,17 +70,22 @@ Example:
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
-
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
 				return errors.AuthRequiredError(err)
 			}
 
 			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback
+			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
+			if err != nil {
+				return err
+			}
+			pageID, err = cmdutil.NormalizeNotionID(pageID)
+			if err != nil {
+				return err
+			}
 
 			page, err := client.UpdatePage(ctx, pageID, &notion.UpdatePageRequest{
 				Archived: ptrBool(true),
@@ -86,9 +104,12 @@ func newPageGetCmd() *cobra.Command {
 	var editableOnly bool
 
 	cmd := &cobra.Command{
-		Use:   "get <page-id>",
-		Short: "Get a page by ID",
-		Long: `Retrieve a Notion page by its ID.
+		Use:   "get <page-id-or-name>",
+		Short: "Get a page by ID or name",
+		Long: `Retrieve a Notion page by its ID or name.
+
+If you provide a name instead of an ID, the CLI will search for matching pages
+and return the one that matches. If multiple pages match, you'll see suggestions.
 
 Use --editable to filter out read-only computed properties (formula, rollup,
 created_by, created_time, last_edited_by, last_edited_time, unique_id, button).
@@ -96,16 +117,12 @@ This is useful when you want to copy properties to create or update a page.
 
 Example:
   notion page get 12345678-1234-1234-1234-123456789012
+  notion page get "Meeting Notes"
   notion page get 12345678-1234-1234-1234-123456789012 --editable -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
-
-			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
 
 			// Get token from context (respects workspace selection)
 			token, err := GetTokenFromContext(ctx)
@@ -115,6 +132,16 @@ Example:
 
 			// Create client
 			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback
+			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
+			if err != nil {
+				return err
+			}
+			pageID, err = cmdutil.NormalizeNotionID(pageID)
+			if err != nil {
+				return err
+			}
 
 			// Get page
 			page, err := client.GetPage(ctx, pageID)
@@ -144,22 +171,20 @@ func newPagePropertiesCmd() *cobra.Command {
 	var includeValues bool
 
 	cmd := &cobra.Command{
-		Use:   "properties <page-id>",
+		Use:   "properties <page-id-or-name>",
 		Short: "List page properties",
 		Long: `List page properties with optional filtering.
 
+If you provide a name instead of an ID, the CLI will search for matching pages.
+
 Examples:
   notion page properties 12345678-1234-1234-1234-123456789012
+  notion page properties "Meeting Notes"
   notion page properties 12345678-1234-1234-1234-123456789012 --types title,select --only-set`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
-
-			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
 
 			token, err := GetTokenFromContext(ctx)
 			if err != nil {
@@ -167,6 +192,16 @@ Examples:
 			}
 
 			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback
+			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
+			if err != nil {
+				return err
+			}
+			pageID, err = cmdutil.NormalizeNotionID(pageID)
+			if err != nil {
+				return err
+			}
 
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
@@ -384,9 +419,11 @@ func newPageUpdateCmd() *cobra.Command {
 	var richText bool
 
 	cmd := &cobra.Command{
-		Use:   "update <page-id>",
+		Use:   "update <page-id-or-name>",
 		Short: "Update a page",
 		Long: `Update a Notion page's properties.
+
+If you provide a name instead of an ID, the CLI will search for matching pages.
 
 The --properties flag accepts a JSON string with the properties to update.
 Only the properties specified will be updated; others remain unchanged.
@@ -447,7 +484,19 @@ Combined example (all flags together):
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			pageID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			// Get token early so we can use client for search resolution
+			token, err := GetTokenFromContext(ctx)
+			if err != nil {
+				return errors.AuthRequiredError(err)
+			}
+			client := NewNotionClient(ctx, token)
+
+			// Resolve ID with search fallback
+			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
+			if err != nil {
+				return err
+			}
+			pageID, err = cmdutil.NormalizeNotionID(pageID)
 			if err != nil {
 				return err
 			}
@@ -470,15 +519,6 @@ Combined example (all flags together):
 			if (len(mentions) > 0 || richText) && properties != nil {
 				properties, _ = transformPropertiesWithMentionsVerbose(stderrFromContext(ctx), properties, mentions, verbose, len(mentions) > 0)
 			}
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
-			if err != nil {
-				return errors.AuthRequiredError(err)
-			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			if dryRun {
 				// Fetch current page to show what would be updated
