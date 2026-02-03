@@ -1002,3 +1002,326 @@ func TestBuildPropertiesFromFlags_JSONOutput(t *testing.T) {
 		t.Errorf("expected id 'user-123', got %v", person["id"])
 	}
 }
+
+func TestFindTitlePropertyName(t *testing.T) {
+	tests := []struct {
+		name       string
+		properties map[string]map[string]interface{}
+		want       string
+	}{
+		{
+			name: "finds title property named Name",
+			properties: map[string]map[string]interface{}{
+				"Name":   {"type": "title"},
+				"Status": {"type": "status"},
+			},
+			want: "Name",
+		},
+		{
+			name: "finds title property named Title",
+			properties: map[string]map[string]interface{}{
+				"Title": {"type": "title"},
+				"Notes": {"type": "rich_text"},
+			},
+			want: "Title",
+		},
+		{
+			name: "finds title property with custom name",
+			properties: map[string]map[string]interface{}{
+				"Task Name": {"type": "title"},
+				"Priority":  {"type": "select"},
+			},
+			want: "Task Name",
+		},
+		{
+			name: "returns default when no title property",
+			properties: map[string]map[string]interface{}{
+				"Status": {"type": "status"},
+				"Notes":  {"type": "rich_text"},
+			},
+			want: "title",
+		},
+		{
+			name:       "returns default for empty properties",
+			properties: map[string]map[string]interface{}{},
+			want:       "title",
+		},
+		{
+			name:       "returns default for nil properties",
+			properties: nil,
+			want:       "title",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findTitlePropertyName(tt.properties)
+			if got != tt.want {
+				t.Errorf("findTitlePropertyName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindTitlePropertyNameFromPage(t *testing.T) {
+	tests := []struct {
+		name       string
+		properties map[string]interface{}
+		want       string
+	}{
+		{
+			name: "finds title property from page properties",
+			properties: map[string]interface{}{
+				"Name": map[string]interface{}{
+					"type": "title",
+					"title": []interface{}{
+						map[string]interface{}{"text": map[string]interface{}{"content": "Test"}},
+					},
+				},
+				"Status": map[string]interface{}{
+					"type":   "status",
+					"status": map[string]interface{}{"name": "Done"},
+				},
+			},
+			want: "Name",
+		},
+		{
+			name: "finds title with different property name",
+			properties: map[string]interface{}{
+				"Task": map[string]interface{}{
+					"type":  "title",
+					"title": []interface{}{},
+				},
+			},
+			want: "Task",
+		},
+		{
+			name: "returns default when no title property",
+			properties: map[string]interface{}{
+				"Status": map[string]interface{}{
+					"type": "status",
+				},
+			},
+			want: "title",
+		},
+		{
+			name:       "returns default for empty properties",
+			properties: map[string]interface{}{},
+			want:       "title",
+		},
+		{
+			name:       "returns default for nil properties",
+			properties: nil,
+			want:       "title",
+		},
+		{
+			name: "skips non-map property values",
+			properties: map[string]interface{}{
+				"BadProp": "not a map",
+				"Name": map[string]interface{}{
+					"type": "title",
+				},
+			},
+			want: "Name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findTitlePropertyNameFromPage(tt.properties)
+			if got != tt.want {
+				t.Errorf("findTitlePropertyNameFromPage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetTitleProperty(t *testing.T) {
+	tests := []struct {
+		name       string
+		properties map[string]interface{}
+		propName   string
+		title      string
+		checkFunc  func(t *testing.T, result map[string]interface{})
+	}{
+		{
+			name:       "sets title property with Name",
+			properties: make(map[string]interface{}),
+			propName:   "Name",
+			title:      "My Page Title",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				nameProp, ok := result["Name"].(map[string]interface{})
+				if !ok {
+					t.Fatal("Name property should be a map")
+				}
+				titleArr, ok := nameProp["title"].([]map[string]interface{})
+				if !ok {
+					t.Fatal("title should be an array of maps")
+				}
+				if len(titleArr) != 1 {
+					t.Fatalf("expected 1 element in title array, got %d", len(titleArr))
+				}
+				textContent := titleArr[0]["text"].(map[string]interface{})
+				if textContent["content"] != "My Page Title" {
+					t.Errorf("expected content 'My Page Title', got %v", textContent["content"])
+				}
+			},
+		},
+		{
+			name:       "sets title property with custom name",
+			properties: make(map[string]interface{}),
+			propName:   "Task Name",
+			title:      "Task Title",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				taskProp, ok := result["Task Name"].(map[string]interface{})
+				if !ok {
+					t.Fatal("Task Name property should be a map")
+				}
+				titleArr, ok := taskProp["title"].([]map[string]interface{})
+				if !ok {
+					t.Fatal("title should be an array of maps")
+				}
+				textContent := titleArr[0]["text"].(map[string]interface{})
+				if textContent["content"] != "Task Title" {
+					t.Errorf("expected content 'Task Title', got %v", textContent["content"])
+				}
+			},
+		},
+		{
+			name:       "creates properties map when nil",
+			properties: nil,
+			propName:   "Title",
+			title:      "New Title",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				if result == nil {
+					t.Fatal("expected non-nil result")
+				}
+				titleProp, ok := result["Title"].(map[string]interface{})
+				if !ok {
+					t.Fatal("Title property should be a map")
+				}
+				titleArr := titleProp["title"].([]map[string]interface{})
+				textContent := titleArr[0]["text"].(map[string]interface{})
+				if textContent["content"] != "New Title" {
+					t.Errorf("expected content 'New Title', got %v", textContent["content"])
+				}
+			},
+		},
+		{
+			name: "preserves existing properties",
+			properties: map[string]interface{}{
+				"Status": map[string]interface{}{
+					"status": map[string]interface{}{"name": "Done"},
+				},
+			},
+			propName: "Name",
+			title:    "Test",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				// Check Status is preserved
+				status, ok := result["Status"].(map[string]interface{})
+				if !ok {
+					t.Fatal("Status should be preserved")
+				}
+				statusData := status["status"].(map[string]interface{})
+				if statusData["name"] != "Done" {
+					t.Error("Status value should be preserved")
+				}
+				// Check Name was added
+				nameProp, ok := result["Name"].(map[string]interface{})
+				if !ok {
+					t.Fatal("Name property should be added")
+				}
+				titleArr := nameProp["title"].([]map[string]interface{})
+				textContent := titleArr[0]["text"].(map[string]interface{})
+				if textContent["content"] != "Test" {
+					t.Errorf("expected content 'Test', got %v", textContent["content"])
+				}
+			},
+		},
+		{
+			name: "overrides existing title property",
+			properties: map[string]interface{}{
+				"Name": map[string]interface{}{
+					"title": []map[string]interface{}{
+						{"text": map[string]interface{}{"content": "Old Title"}},
+					},
+				},
+			},
+			propName: "Name",
+			title:    "New Title",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				nameProp := result["Name"].(map[string]interface{})
+				titleArr := nameProp["title"].([]map[string]interface{})
+				textContent := titleArr[0]["text"].(map[string]interface{})
+				if textContent["content"] != "New Title" {
+					t.Errorf("expected content 'New Title', got %v", textContent["content"])
+				}
+			},
+		},
+		{
+			name:       "handles empty title",
+			properties: make(map[string]interface{}),
+			propName:   "Name",
+			title:      "",
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				nameProp := result["Name"].(map[string]interface{})
+				titleArr := nameProp["title"].([]map[string]interface{})
+				textContent := titleArr[0]["text"].(map[string]interface{})
+				if textContent["content"] != "" {
+					t.Errorf("expected empty content, got %v", textContent["content"])
+				}
+			},
+		},
+		{
+			name:       "handles title with special characters",
+			properties: make(map[string]interface{}),
+			propName:   "Name",
+			title:      `Title with "quotes" and 'apostrophes' & <special> chars`,
+			checkFunc: func(t *testing.T, result map[string]interface{}) {
+				nameProp := result["Name"].(map[string]interface{})
+				titleArr := nameProp["title"].([]map[string]interface{})
+				textContent := titleArr[0]["text"].(map[string]interface{})
+				expected := `Title with "quotes" and 'apostrophes' & <special> chars`
+				if textContent["content"] != expected {
+					t.Errorf("expected content %q, got %v", expected, textContent["content"])
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := setTitleProperty(tt.properties, tt.propName, tt.title)
+			tt.checkFunc(t, result)
+		})
+	}
+}
+
+func TestSetTitleProperty_JSONOutput(t *testing.T) {
+	// Verify the output structure matches what the Notion API expects
+	result := setTitleProperty(nil, "Name", "Test Page")
+
+	// Should be serializable to JSON
+	jsonBytes, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("failed to marshal result to JSON: %v", err)
+	}
+
+	// Verify the JSON structure matches Notion API format
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	// Check structure: {"Name":{"title":[{"text":{"content":"Test Page"}}]}}
+	nameProp := parsed["Name"].(map[string]interface{})
+	titleArr := nameProp["title"].([]interface{})
+	if len(titleArr) != 1 {
+		t.Fatalf("expected 1 element in title array, got %d", len(titleArr))
+	}
+	firstElem := titleArr[0].(map[string]interface{})
+	textContent := firstElem["text"].(map[string]interface{})
+	if textContent["content"] != "Test Page" {
+		t.Errorf("expected content 'Test Page', got %v", textContent["content"])
+	}
+}

@@ -380,6 +380,7 @@ func newPageCreateCmd() *cobra.Command {
 	var statusFlag string
 	var priorityFlag string
 	var assigneeFlag string
+	var titleFlag string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -396,6 +397,7 @@ Use --data-source to target a specific data source (overrides --parent-type data
 
 PROPERTY SHORTHAND FLAGS:
 For common properties, you can use shorthand flags instead of JSON:
+  --title <value>     Set the page title (finds title property by type)
   --status <value>    Set Status property (status type)
   --priority <value>  Set Priority property (select type)
   --assignee <value>  Set Assignee property (people type, accepts user ID or alias)
@@ -405,12 +407,12 @@ These flags merge with --properties; shorthand flags take precedence if both spe
 Examples:
   # Create page under another page
   notion page create --parent 12345678-1234-1234-1234-123456789012 \
-    --properties '{"title": [{"text": {"content": "My New Page"}}]}'
+    --title "My New Page"
 
   # Create page under a database with shorthand flags
   notion page create --parent 87654321-4321-4321-4321-210987654321 \
     --parent-type database \
-    --properties '{"Name": {"title": [{"text": {"content": "Task"}}]}}' \
+    --title "Task Name" \
     --status "In Progress" --priority High --assignee user-id-or-alias`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -421,8 +423,10 @@ Examples:
 			if parentID == "" && dataSourceID == "" {
 				return fmt.Errorf("--parent flag is required (or use --data-source)")
 			}
-			if propertiesJSON == "" && propertiesFile == "" {
-				return fmt.Errorf("--properties or --properties-file is required")
+			// Allow --title to be used without --properties
+			hasShorthandFlags := titleFlag != "" || statusFlag != "" || priorityFlag != "" || assigneeFlag != ""
+			if propertiesJSON == "" && propertiesFile == "" && !hasShorthandFlags {
+				return fmt.Errorf("--properties, --properties-file, or shorthand flags (--title, --status, etc.) required")
 			}
 
 			if parentID != "" {
@@ -440,19 +444,18 @@ Examples:
 				dataSourceID = normalized
 			}
 
-			// Resolve and parse properties JSON
+			// Resolve and parse properties JSON (may be empty if only using shorthand flags)
 			var properties map[string]interface{}
-			resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
-			if err != nil {
-				return err
+			if propertiesJSON != "" || propertiesFile != "" {
+				resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
+				if err != nil {
+					return err
+				}
+				propertiesJSON = resolved
+				if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
+					return fmt.Errorf("failed to parse properties JSON: %w", err)
+				}
 			}
-			propertiesJSON = resolved
-			if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
-				return fmt.Errorf("failed to parse properties JSON: %w", err)
-			}
-
-			// Merge shorthand flags into properties (flags take precedence)
-			properties = buildPropertiesFromFlags(sf, properties, statusFlag, priorityFlag, assigneeFlag)
 
 			// Get token from context (respects workspace selection)
 			token, err := GetTokenFromContext(ctx)
@@ -462,6 +465,29 @@ Examples:
 
 			// Create client
 			client := NewNotionClient(ctx, token)
+
+			// Merge shorthand flags into properties (flags take precedence)
+			properties = buildPropertiesFromFlags(sf, properties, statusFlag, priorityFlag, assigneeFlag)
+
+			// Handle --title flag: find title property name based on parent type
+			if titleFlag != "" {
+				titlePropName := "title" // default for page parents
+				// For database parents, look up the schema to find the title property name
+				dbID := ""
+				if dataSourceID != "" {
+					dbID = dataSourceID
+				} else if parentType == "database" || parentType == "data-source" {
+					dbID = parentID
+				}
+				if dbID != "" {
+					db, err := client.GetDatabase(ctx, dbID)
+					if err != nil {
+						return fmt.Errorf("failed to get database schema for title property: %w", err)
+					}
+					titlePropName = findTitlePropertyName(db.Properties)
+				}
+				properties = setTitleProperty(properties, titlePropName, titleFlag)
+			}
 
 			parent, err := resolvePageParent(ctx, client, parentID, parentType, dataSourceID)
 			if err != nil {
@@ -489,9 +515,10 @@ Examples:
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page or database ID (required)")
 	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'data-source'")
-	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON (required, @file or - for stdin)")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON (@file or - for stdin)")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID (optional, overrides --parent-type database)")
+	cmd.Flags().StringVar(&titleFlag, "title", "", "Set page title (finds title property by type)")
 	cmd.Flags().StringVar(&statusFlag, "status", "", "Set Status property value")
 	cmd.Flags().StringVar(&priorityFlag, "priority", "", "Set Priority property value")
 	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Set Assignee property (user ID or alias)")
@@ -511,6 +538,7 @@ func newPageUpdateCmd() *cobra.Command {
 	var statusFlag string
 	var priorityFlag string
 	var assigneeFlag string
+	var titleFlag string
 
 	cmd := &cobra.Command{
 		Use:   "update <page-id-or-name>",
@@ -525,6 +553,7 @@ You can also pass @file or - (stdin) to avoid shell-escaping JSON.
 
 PROPERTY SHORTHAND FLAGS:
 For common properties, you can use shorthand flags instead of JSON:
+  --title <value>     Set the page title (finds title property by type)
   --status <value>    Set Status property (status type)
   --priority <value>  Set Priority property (select type)
   --assignee <value>  Set Assignee property (people type, accepts user ID or alias)
@@ -532,6 +561,7 @@ For common properties, you can use shorthand flags instead of JSON:
 These flags merge with --properties; shorthand flags take precedence if both specify the same property.
 
 Example - Using shorthand flags:
+  notion page update PAGE_ID --title "New Title"
   notion page update PAGE_ID --status Done
   notion page update PAGE_ID --status "In Progress" --priority High
   notion page update PAGE_ID --assignee user-id-or-alias
@@ -624,6 +654,16 @@ Combined example (all flags together):
 			// Merge shorthand flags into properties (flags take precedence)
 			properties = buildPropertiesFromFlags(sf, properties, statusFlag, priorityFlag, assigneeFlag)
 
+			// Handle --title flag: find title property name from page's current properties
+			if titleFlag != "" {
+				page, err := client.GetPage(ctx, pageID)
+				if err != nil {
+					return fmt.Errorf("failed to get page for title property lookup: %w", err)
+				}
+				titlePropName := findTitlePropertyNameFromPage(page.Properties)
+				properties = setTitleProperty(properties, titlePropName, titleFlag)
+			}
+
 			// Transform string shorthand values to rich_text arrays with mentions
 			// Applies when --mention flags are provided OR --rich-text flag is set
 			if (len(mentions) > 0 || richText) && properties != nil {
@@ -709,6 +749,7 @@ Combined example (all flags together):
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention in rich_text properties (repeatable)")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show parsed markdown details for property transformations")
 	cmd.Flags().BoolVar(&richText, "rich-text", false, "Enable markdown parsing for string values without requiring --mention")
+	cmd.Flags().StringVar(&titleFlag, "title", "", "Set page title (finds title property by type)")
 	cmd.Flags().StringVar(&statusFlag, "status", "", "Set Status property value")
 	cmd.Flags().StringVar(&priorityFlag, "priority", "", "Set Priority property value")
 	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Set Assignee property (user ID or alias)")
@@ -872,6 +913,50 @@ func buildPropertiesFromFlags(sf *skill.SkillFile, properties map[string]interfa
 		}
 	}
 
+	return properties
+}
+
+// findTitlePropertyName finds the title property name in a database schema.
+// Returns "title" as the default if no title property is found.
+func findTitlePropertyName(properties map[string]map[string]interface{}) string {
+	for propName, propDef := range properties {
+		if propType, ok := propDef["type"].(string); ok && propType == "title" {
+			return propName
+		}
+	}
+	return "title"
+}
+
+// findTitlePropertyNameFromPage finds the title property name from a page's properties.
+// Returns "title" as the default if no title property is found.
+func findTitlePropertyNameFromPage(properties map[string]interface{}) string {
+	for propName, propVal := range properties {
+		prop, ok := propVal.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if prop["type"] == "title" {
+			return propName
+		}
+	}
+	return "title"
+}
+
+// setTitleProperty sets the title property in a properties map using the given property name.
+// The title is formatted as a rich text array with a single text element.
+func setTitleProperty(properties map[string]interface{}, propName, title string) map[string]interface{} {
+	if properties == nil {
+		properties = make(map[string]interface{})
+	}
+	properties[propName] = map[string]interface{}{
+		"title": []map[string]interface{}{
+			{
+				"text": map[string]interface{}{
+					"content": title,
+				},
+			},
+		},
+	}
 	return properties
 }
 
