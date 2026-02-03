@@ -191,8 +191,7 @@ func TestNotFoundError(t *testing.T) {
 }
 
 func TestNoDatabaseConfiguredError(t *testing.T) {
-	// Test with no databases
-	err := NoDatabaseConfiguredError(nil)
+	err := NoDatabaseConfiguredError()
 	if !IsUserError(err) {
 		t.Error("NoDatabaseConfiguredError should be a UserError")
 	}
@@ -201,12 +200,8 @@ func TestNoDatabaseConfiguredError(t *testing.T) {
 	if !strings.Contains(suggestion, "notion skill init") {
 		t.Errorf("Suggestion should include skill init, got: %s", suggestion)
 	}
-
-	// Test with available databases
-	err = NoDatabaseConfiguredError([]string{"tasks", "projects"})
-	suggestion = UserSuggestion(err)
-	if !strings.Contains(suggestion, "tasks") {
-		t.Errorf("Suggestion should list available databases, got: %s", suggestion)
+	if !strings.Contains(suggestion, "notion page create --parent") {
+		t.Errorf("Suggestion should include explicit page create command, got: %s", suggestion)
 	}
 }
 

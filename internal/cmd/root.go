@@ -431,7 +431,7 @@ Example:
 
 			// Get the first database from skill file
 			if sf == nil || len(sf.Databases) == 0 {
-				return errors.NoDatabaseConfiguredError(nil)
+				return errors.NoDatabaseConfiguredError()
 			}
 
 			// Get first database (sorted alphabetically for consistency)

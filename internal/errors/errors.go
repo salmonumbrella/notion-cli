@@ -176,15 +176,9 @@ func NotFoundWithSearchError(entityType, identifier string, suggestions []string
 }
 
 // NoDatabaseConfiguredError creates a user-friendly error when no database is configured for page creation.
-// availableDatabases is a list of database names/aliases from the skill file.
-func NoDatabaseConfiguredError(availableDatabases []string) error {
+func NoDatabaseConfiguredError() error {
 	msg := "no database configured for page creation"
-	var suggestion string
-	if len(availableDatabases) > 0 {
-		suggestion = fmt.Sprintf("Available databases in your skill file:\n%s\n\nUse one of these with:\n  notion page create --parent <alias> --parent-type database --properties '{...}'", formatSuggestionList(availableDatabases))
-	} else {
-		suggestion = "To fix this:\n  1. Run 'notion skill init' to configure your workspace\n  2. Or use 'notion page create --parent <database-id> --parent-type database --properties '{...}' explicitly"
-	}
+	suggestion := "To fix this:\n  1. Run 'notion skill init' to configure your workspace\n  2. Or use 'notion page create --parent <database-id> --parent-type database --properties '{...}' explicitly"
 	return NewUserError(msg, suggestion)
 }
 
