@@ -135,6 +135,9 @@ func newRootCmd(app *App) *cobra.Command {
 			sf, _ := skill.Load()
 			ctx = WithSkillFile(ctx, sf)
 
+			// Initialize search cache for the duration of this command
+			ctx = WithSearchCache(ctx, NewSearchCache())
+
 			cmd.SetContext(ctx)
 
 			// Check token age and warn if old (skip for auth and config commands)

@@ -6,10 +6,67 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/skill"
 )
+
+// searchCacheKey is the context key for the search result cache
+type searchCacheKey struct{}
+
+// SearchCache stores search results for the duration of a single command execution.
+// It reduces API calls when the same search is performed multiple times (e.g., batch operations).
+type SearchCache struct {
+	mu    sync.RWMutex
+	cache map[string]*notion.SearchResult
+}
+
+// NewSearchCache creates a new empty search cache.
+func NewSearchCache() *SearchCache {
+	return &SearchCache{
+		cache: make(map[string]*notion.SearchResult),
+	}
+}
+
+// cacheKey generates a cache key from query and filter type.
+func cacheKey(query, filterType string) string {
+	return query + "\x00" + filterType
+}
+
+// Get retrieves a cached search result, returning nil if not found.
+func (c *SearchCache) Get(query, filterType string) *notion.SearchResult {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.cache[cacheKey(query, filterType)]
+}
+
+// Set stores a search result in the cache.
+func (c *SearchCache) Set(query, filterType string, result *notion.SearchResult) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cache[cacheKey(query, filterType)] = result
+}
+
+// Len returns the number of cached entries.
+func (c *SearchCache) Len() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.cache)
+}
+
+// WithSearchCache adds the search cache to context.
+func WithSearchCache(ctx context.Context, cache *SearchCache) context.Context {
+	return context.WithValue(ctx, searchCacheKey{}, cache)
+}
+
+// SearchCacheFromContext retrieves the search cache from context, or nil if not present.
+func SearchCacheFromContext(ctx context.Context) *SearchCache {
+	if cache, ok := ctx.Value(searchCacheKey{}).(*SearchCache); ok {
+		return cache
+	}
+	return nil
+}
 
 // skillFileKey is the context key for the loaded skill file
 type skillFileKey struct{}
@@ -114,6 +171,9 @@ func looksLikeUUID(input string) bool {
 // If search finds exactly one match, it returns that ID.
 // If search finds multiple matches, it returns an error with suggestions.
 // If search finds no matches, it returns the original input to let API fail with clear error.
+//
+// When a SearchCache is present in the context, results are cached to avoid
+// duplicate API calls for identical queries within the same command execution.
 func resolveBySearch(ctx context.Context, client searcher, input string, filterType string) (string, error) {
 	// Skip search if input already looks like a UUID
 	if looksLikeUUID(input) {
@@ -125,17 +185,32 @@ func resolveBySearch(ctx context.Context, client searcher, input string, filterT
 		return input, nil
 	}
 
-	// Build search request
-	req := &notion.SearchRequest{
-		Query:    input,
-		PageSize: 10, // Limit results for performance
-		Filter:   buildSearchFilter(filterType),
+	// Check cache first
+	cache := SearchCacheFromContext(ctx)
+	var result *notion.SearchResult
+	if cache != nil {
+		result = cache.Get(input, filterType)
 	}
 
-	result, err := client.Search(ctx, req)
-	if err != nil {
-		// Search failed - return original input and let API fail with specific error
-		return input, nil
+	// If not in cache, perform the search
+	if result == nil {
+		req := &notion.SearchRequest{
+			Query:    input,
+			PageSize: 10, // Limit results for performance
+			Filter:   buildSearchFilter(filterType),
+		}
+
+		var err error
+		result, err = client.Search(ctx, req)
+		if err != nil {
+			// Search failed - return original input and let API fail with specific error
+			return input, nil
+		}
+
+		// Store in cache for future lookups
+		if cache != nil {
+			cache.Set(input, filterType, result)
+		}
 	}
 
 	// Filter results to exact title matches (case-insensitive)
