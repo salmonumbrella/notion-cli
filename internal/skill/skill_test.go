@@ -19,8 +19,8 @@ func TestParseSkillFile(t *testing.T) {
 
 | Alias | Name | ID |
 |-------|------|-----|
-| me | Vladimir | abc123 |
-| georges | Georges | def456 |
+| me | Alice Smith | abc123 |
+| bob | Bob Jones | def456 |
 
 ## Custom Aliases
 
@@ -151,7 +151,7 @@ func TestResolveUserAlias(t *testing.T) {
 		Users: map[string]UserAlias{
 			"me": {
 				Alias: "me",
-				Name:  "Vladimir",
+				Name:  "Alice Smith",
 				ID:    "abc123",
 			},
 		},
