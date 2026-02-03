@@ -179,7 +179,7 @@ This is useful when you want to copy properties to create or update a page.
 Use --enrich to include additional metadata:
   - parent_title: the resolved title of the parent database or page
   - child_count: the number of immediate child blocks
-Note: --enrich requires extra API calls.
+Note: --enrich requires 1-2 extra API calls per page (1 for parent title, 1 for child count).
 
 Example:
   notion page get 12345678-1234-1234-1234-123456789012
