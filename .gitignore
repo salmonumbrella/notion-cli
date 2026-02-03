@@ -26,6 +26,9 @@ docs/plans/
 .gitingest/
 /notion
 
+# Test utilities (manual testing scripts with //go:build ignore)
+internal/skill/sort_test.go
+
 # Internal docs
 CIRCUIT_BREAKER.md
 .private-journal/
