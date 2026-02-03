@@ -640,3 +640,76 @@ func TestResolveIDWithSearch_NilSkillFile(t *testing.T) {
 		t.Error("search should be called with nil skill file")
 	}
 }
+
+func TestSearchFilterValue(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"page", "page"},
+		{"database", "data_source"},
+		{"", ""},
+		{"other", "other"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := searchFilterValue(tt.input)
+			if got != tt.expected {
+				t.Errorf("searchFilterValue(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBuildSearchFilter(t *testing.T) {
+	tests := []struct {
+		name        string
+		filterType  string
+		expectNil   bool
+		expectedVal string
+	}{
+		{
+			name:       "empty filter type",
+			filterType: "",
+			expectNil:  true,
+		},
+		{
+			name:        "page filter",
+			filterType:  "page",
+			expectNil:   false,
+			expectedVal: "page",
+		},
+		{
+			name:        "database filter mapped to data_source",
+			filterType:  "database",
+			expectNil:   false,
+			expectedVal: "data_source",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildSearchFilter(tt.filterType)
+
+			if tt.expectNil {
+				if got != nil {
+					t.Errorf("buildSearchFilter(%q) = %v, want nil", tt.filterType, got)
+				}
+				return
+			}
+
+			if got == nil {
+				t.Fatalf("buildSearchFilter(%q) = nil, want non-nil", tt.filterType)
+			}
+
+			if got["property"] != "object" {
+				t.Errorf("buildSearchFilter(%q)[\"property\"] = %v, want \"object\"", tt.filterType, got["property"])
+			}
+
+			if got["value"] != tt.expectedVal {
+				t.Errorf("buildSearchFilter(%q)[\"value\"] = %v, want %q", tt.filterType, got["value"], tt.expectedVal)
+			}
+		})
+	}
+}

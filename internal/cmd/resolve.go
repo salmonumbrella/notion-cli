@@ -82,6 +82,28 @@ type searcher interface {
 // uuidPattern matches Notion UUIDs (with or without dashes)
 var uuidPattern = regexp.MustCompile(`^[a-fA-F0-9]{8}-?[a-fA-F0-9]{4}-?[a-fA-F0-9]{4}-?[a-fA-F0-9]{4}-?[a-fA-F0-9]{12}$`)
 
+// searchFilterValue converts a user-facing filter type to the Notion API value.
+// The Notion API (2025-09-03+) uses "data_source" instead of "database".
+// This function centralizes that mapping to ensure consistency.
+func searchFilterValue(filterType string) string {
+	if filterType == "database" {
+		return "data_source"
+	}
+	return filterType
+}
+
+// buildSearchFilter creates a search filter for the given object type.
+// Accepts "page" or "database" as filterType. Returns nil if filterType is empty.
+func buildSearchFilter(filterType string) map[string]interface{} {
+	if filterType == "" {
+		return nil
+	}
+	return map[string]interface{}{
+		"property": "object",
+		"value":    searchFilterValue(filterType),
+	}
+}
+
 // looksLikeUUID checks if input looks like a Notion UUID (with or without dashes)
 func looksLikeUUID(input string) bool {
 	return uuidPattern.MatchString(input)
@@ -107,20 +129,7 @@ func resolveBySearch(ctx context.Context, client searcher, input string, filterT
 	req := &notion.SearchRequest{
 		Query:    input,
 		PageSize: 10, // Limit results for performance
-	}
-
-	// Apply type filter if specified
-	switch filterType {
-	case "page":
-		req.Filter = map[string]interface{}{
-			"property": "object",
-			"value":    "page",
-		}
-	case "database":
-		req.Filter = map[string]interface{}{
-			"property": "object",
-			"value":    "data_source",
-		}
+		Filter:   buildSearchFilter(filterType),
 	}
 
 	result, err := client.Search(ctx, req)

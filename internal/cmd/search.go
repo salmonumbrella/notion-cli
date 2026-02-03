@@ -102,21 +102,10 @@ Example - Fetch all results:
 			}
 
 			// Build filter if filterType is provided
-			var filter map[string]interface{}
-			if filterType != "" {
-				if filterType != "page" && filterType != "database" {
-					return fmt.Errorf("filter must be either 'page' or 'database'")
-				}
-				// Notion API 2025-09-03+ uses "data_source" instead of "database"
-				apiFilterValue := filterType
-				if filterType == "database" {
-					apiFilterValue = "data_source"
-				}
-				filter = map[string]interface{}{
-					"property": "object",
-					"value":    apiFilterValue,
-				}
+			if filterType != "" && filterType != "page" && filterType != "database" {
+				return fmt.Errorf("filter must be either 'page' or 'database'")
 			}
+			filter := buildSearchFilter(filterType)
 
 			// Validate page size
 			if pageSize > NotionMaxPageSize {
