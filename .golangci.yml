@@ -22,6 +22,10 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
+      - path: _test\.go
+        text: SA5011
+        linters:
+          - staticcheck
 
 formatters:
   enable:
