@@ -48,3 +48,18 @@ changelog:
       - '^docs:'
       - '^test:'
 
+
+brews:
+  - name: notion-cli
+    repository:
+      owner: salmonumbrella
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/salmonumbrella/notion-cli"
+    description: "CLI for Notion API"
+    license: "MIT"
+    install: |
+      bin.install "notion"
+    test: |
+      system "#{bin}/notion", "--help"
