@@ -221,6 +221,38 @@ notion datasource query <datasource-id>            # Query data source
 notion datasource update <datasource-id> <json>    # Update data source
 ```
 
+Query with filters, sorts, and selection:
+
+```bash
+# Filter by property value
+notion ds query <datasource-id> \
+  --filter '{"property":"Status","status":{"equals":"Active"}}'
+
+# Read filter from file (avoids shell escaping)
+notion ds query <datasource-id> --filter-file filter.json
+
+# Sort by timestamp (shorthand)
+notion ds query <datasource-id> --sort-by last_edited_time --desc
+
+# Sort with full Notion sorts JSON
+notion ds query <datasource-id> \
+  --sorts '[{"property":"Priority","direction":"ascending"}]'
+
+# Client-side select filtering (match by exact name or regex)
+notion ds query <datasource-id> \
+  --select-property "Category" --select-equals "Engineering"
+notion ds query <datasource-id> \
+  --select-property "Category" --select-match "(?i)eng"
+
+# Fetch all results as a plain array
+notion ds query <datasource-id> --limit 0 --results-only
+
+# Combine: filter + sort + limit
+notion ds query <datasource-id> \
+  --filter '{"property":"Status","status":{"equals":"Active"}}' \
+  --sort-by created_time --desc --limit 20 --results-only
+```
+
 Alias: `notion ds` works as shorthand for `notion datasource`.
 
 ### Fetch
