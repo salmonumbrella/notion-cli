@@ -210,6 +210,9 @@ Example:
 
 func newDataSourceQueryCmd() *cobra.Command {
 	var filterJSON string
+	var filterFile string
+	var sortsJSON string
+	var sortsFile string
 	var pageSize int
 	var resultsOnly bool
 	var selectProperty string
@@ -219,9 +222,12 @@ func newDataSourceQueryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "query <datasource-id>",
 		Short: "Query a data source",
-		Long: `Query a Notion data source with optional filters and pagination.
+		Long: `Query a Notion data source with optional filters, sorts, and pagination.
 
 The --filter flag accepts a JSON object representing the filter.
+The --filter-file flag reads filter JSON from a file (useful for complex filters).
+The --sorts flag accepts a JSON array of sort objects.
+The --sorts-file flag reads sorts JSON from a file.
 Use --page-size to control the number of results per page.
 
 Example - Query all pages:
@@ -230,7 +236,18 @@ Example - Query all pages:
 Example - Query with filter:
   notion datasource query 12345678-1234-1234-1234-123456789012 \
     --filter '{"property":"Status","select":{"equals":"Active"}}' \
-    --page-size 10`,
+    --page-size 10
+
+Example - Query with filter from file (avoids shell escaping issues):
+  notion datasource query 12345678-1234-1234-1234-123456789012 --filter-file filter.json
+
+Example - Query with sorts:
+  notion datasource query 12345678-1234-1234-1234-123456789012 \
+    --sorts '[{"property":"Created","direction":"descending"}]'
+
+Example - Sort by created time (shorthand):
+  notion datasource query 12345678-1234-1234-1234-123456789012 \
+    --sort-by created_time --desc`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -248,8 +265,8 @@ Example - Query with filter:
 			}
 
 			var filter map[string]interface{}
-			if filterJSON != "" {
-				resolved, err := cmdutil.ReadJSONInput(filterJSON)
+			if filterJSON != "" || filterFile != "" {
+				resolved, err := cmdutil.ResolveJSONInput(filterJSON, filterFile)
 				if err != nil {
 					return err
 				}
@@ -258,6 +275,42 @@ Example - Query with filter:
 					return fmt.Errorf("invalid filter JSON: %w", err)
 				}
 			}
+
+			// Resolve and parse sorts if provided
+			sortField, sortDesc := output.SortFromContext(ctx)
+			var sorts []map[string]interface{}
+			if sortsJSON != "" || sortsFile != "" {
+				resolved, err := cmdutil.ResolveJSONInput(sortsJSON, sortsFile)
+				if err != nil {
+					return err
+				}
+				sortsJSON = resolved
+				if err := cmdutil.UnmarshalJSONInput(sortsJSON, &sorts); err != nil {
+					return fmt.Errorf("failed to parse sorts JSON: %w", err)
+				}
+			}
+			if sortsJSON == "" && sortField != "" {
+				direction := "ascending"
+				if sortDesc {
+					direction = "descending"
+				}
+				if sortField == "created_time" || sortField == "last_edited_time" {
+					sorts = []map[string]interface{}{
+						{
+							"timestamp": sortField,
+							"direction": direction,
+						},
+					}
+				} else {
+					sorts = []map[string]interface{}{
+						{
+							"property":  sortField,
+							"direction": direction,
+						},
+					}
+				}
+			}
+
 			if pageSize > NotionMaxPageSize {
 				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
 			}
@@ -273,6 +326,7 @@ Example - Query with filter:
 
 			req := &notion.QueryDataSourceRequest{
 				Filter:   filter,
+				Sorts:    sorts,
 				PageSize: pageSize,
 			}
 
@@ -298,6 +352,9 @@ Example - Query with filter:
 	}
 
 	cmd.Flags().StringVar(&filterJSON, "filter", "", "Filter JSON")
+	cmd.Flags().StringVar(&filterFile, "filter-file", "", "Read filter JSON from file")
+	cmd.Flags().StringVar(&sortsJSON, "sorts", "", "Sorts as JSON array")
+	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Results per page")
 	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select or multi_select)")
