@@ -23,3 +23,25 @@ func capPageSize(pageSize, limit int) int {
 	}
 	return pageSize
 }
+
+// buildSortFromFlags converts --sort-by and --desc flag values into
+// a Notion API sorts array. Returns nil if sortField is empty.
+// Notion timestamps (created_time, last_edited_time) use a "timestamp" key;
+// all other fields use "property".
+func buildSortFromFlags(sortField string, sortDesc bool) []map[string]interface{} {
+	if sortField == "" {
+		return nil
+	}
+	direction := "ascending"
+	if sortDesc {
+		direction = "descending"
+	}
+	if sortField == "created_time" || sortField == "last_edited_time" {
+		return []map[string]interface{}{
+			{"timestamp": sortField, "direction": direction},
+		}
+	}
+	return []map[string]interface{}{
+		{"property": sortField, "direction": direction},
+	}
+}

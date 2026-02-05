@@ -54,6 +54,8 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 			}
 
 			if len(result.Items) == 0 {
+				// Early fail-empty check before reaching Printer.Print, which has its
+				// own centralized check for non-list-helper paths (e.g., db query).
 				if output.FailEmptyFromContext(ctx) {
 					return clierrors.NewUserError("no results", "Remove --fail-empty to allow empty output")
 				}

@@ -333,12 +333,22 @@ func isEmptyResult(data interface{}) bool {
 			return true
 		}
 		results := rv.MapIndex(reflect.ValueOf("results"))
-		if results.IsValid() && (results.Kind() == reflect.Slice || results.Kind() == reflect.Array) {
-			return results.Len() == 0
+		if results.IsValid() {
+			for results.Kind() == reflect.Interface || results.Kind() == reflect.Ptr {
+				results = results.Elem()
+			}
+			if results.Kind() == reflect.Slice || results.Kind() == reflect.Array {
+				return results.Len() == 0
+			}
 		}
 		items := rv.MapIndex(reflect.ValueOf("items"))
-		if items.IsValid() && (items.Kind() == reflect.Slice || items.Kind() == reflect.Array) {
-			return items.Len() == 0
+		if items.IsValid() {
+			for items.Kind() == reflect.Interface || items.Kind() == reflect.Ptr {
+				items = items.Elem()
+			}
+			if items.Kind() == reflect.Slice || items.Kind() == reflect.Array {
+				return items.Len() == 0
+			}
 		}
 	case reflect.Struct:
 		results := rv.FieldByName("Results")

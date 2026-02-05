@@ -400,25 +400,9 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 					return fmt.Errorf("failed to parse sorts JSON: %w", err)
 				}
 			}
-			if sortsJSON == "" && sortField != "" {
-				direction := "ascending"
-				if sortDesc {
-					direction = "descending"
-				}
-				if sortField == "created_time" || sortField == "last_edited_time" {
-					sorts = []map[string]interface{}{
-						{
-							"timestamp": sortField,
-							"direction": direction,
-						},
-					}
-				} else {
-					sorts = []map[string]interface{}{
-						{
-							"property":  sortField,
-							"direction": direction,
-						},
-					}
+			if sortsJSON == "" {
+				if s := buildSortFromFlags(sortField, sortDesc); s != nil {
+					sorts = s
 				}
 			}
 
