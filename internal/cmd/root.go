@@ -30,9 +30,17 @@ func newRootCmd(app *App) *cobra.Command {
 	var (
 		debugMode     bool
 		workspaceName string
+		queryFlag     string
+		jqFlag        string
+		fieldsFlag    string
+		pickFlag      string
+		jsonPathFlag  string
 		queryFile     string
 		errorFormat   string
 		quietFlag     bool
+		failEmptyFlag bool
+		latestFlag    bool
+		recentFlag    int
 
 		// Agent-friendly flags
 		yesFlag   bool
@@ -102,10 +110,16 @@ func newRootCmd(app *App) *cobra.Command {
 			}
 
 			// Get jq query from flags
-			query, _ := cmd.Flags().GetString("query")
+			query := queryFlag
+			if jqFlag != "" && query != "" {
+				return fmt.Errorf("use only one of --query or --jq")
+			}
+			if query == "" {
+				query = jqFlag
+			}
 			queryFileFlag, _ := cmd.Flags().GetString("query-file")
 			if query != "" && queryFileFlag != "" {
-				return fmt.Errorf("use only one of --query or --query-file")
+				return fmt.Errorf("use only one of --query/--jq or --query-file")
 			}
 			if queryFileFlag != "" {
 				loaded, err := cmdutil.ReadInputSource(queryFileFlag)
@@ -113,6 +127,47 @@ func newRootCmd(app *App) *cobra.Command {
 					return err
 				}
 				query = loaded
+			}
+			normalizedQuery, queryNormalized := output.NormalizeQuery(query)
+			query = normalizedQuery
+
+			fieldsRaw := strings.TrimSpace(fieldsFlag)
+			if pickFlag != "" {
+				if fieldsRaw != "" {
+					return fmt.Errorf("use only one of --fields or --pick")
+				}
+				fieldsRaw = strings.TrimSpace(pickFlag)
+			}
+			if fieldsRaw != "" {
+				if err := output.ValidateFields(fieldsRaw); err != nil {
+					return err
+				}
+			}
+			jsonPathRaw := strings.TrimSpace(jsonPathFlag)
+
+			if query != "" && (fieldsRaw != "" || jsonPathRaw != "") {
+				return fmt.Errorf("use only one of --query/--jq/--query-file, --fields/--pick, or --jsonpath")
+			}
+			if fieldsRaw != "" && jsonPathRaw != "" {
+				return fmt.Errorf("use only one of --fields/--pick or --jsonpath")
+			}
+
+			if cmd.Flags().Changed("recent") && recentFlag <= 0 {
+				return fmt.Errorf("--recent must be >= 1")
+			}
+			if latestFlag && recentFlag > 0 {
+				return fmt.Errorf("use only one of --latest or --recent")
+			}
+			if latestFlag {
+				recentFlag = 1
+			}
+			if recentFlag > 0 {
+				if cmd.Flags().Changed("limit") || cmd.Flags().Changed("sort-by") || cmd.Flags().Changed("desc") {
+					return fmt.Errorf("--latest/--recent are shortcuts for --sort-by created_time --desc --limit N; do not combine with --sort-by/--desc/--limit")
+				}
+				limitFlag = recentFlag
+				sortBy = "created_time"
+				descFlag = true
 			}
 
 			// Inject format, debug mode, query, and workspace into context so subcommands can access them
@@ -128,8 +183,14 @@ func newRootCmd(app *App) *cobra.Command {
 			ctx = output.WithLimit(ctx, limitFlag)
 			ctx = output.WithSort(ctx, sortBy, descFlag)
 			ctx = output.WithQuiet(ctx, quietFlag)
+			ctx = output.WithFields(ctx, fieldsRaw)
+			ctx = output.WithJSONPath(ctx, jsonPathRaw)
+			ctx = output.WithFailEmpty(ctx, failEmptyFlag)
 			ctx = WithErrorFormat(ctx, errorFormat)
 			ctx = ui.WithUI(ctx, ui.New(parseColorMode(cfg.GetColor())))
+			if queryNormalized && !quietFlag {
+				ui.FromContext(ctx).Warning("Normalized --query by removing \\! (shell escape); use ! without backslash.")
+			}
 
 			// Load skill file for alias resolution (non-fatal if missing)
 			sf, _ := skill.Load()
@@ -169,12 +230,20 @@ func newRootCmd(app *App) *cobra.Command {
 	// Alias --format to --output for agent discoverability
 	rootCmd.PersistentFlags().String("format", "text", "Alias for --output")
 	_ = rootCmd.PersistentFlags().MarkHidden("format")
-	rootCmd.PersistentFlags().String("query", "", "jq expression to filter JSON output")
+	rootCmd.PersistentFlags().StringVar(&queryFlag, "query", "", "jq expression to filter JSON output")
+	// Alias --jq to --query for discoverability
+	rootCmd.PersistentFlags().StringVar(&jqFlag, "jq", "", "Alias for --query")
+	_ = rootCmd.PersistentFlags().MarkHidden("jq")
+	rootCmd.PersistentFlags().StringVar(&fieldsFlag, "fields", "", "Project fields (comma-separated paths, use key=path to rename)")
+	rootCmd.PersistentFlags().StringVar(&pickFlag, "pick", "", "Alias for --fields")
+	_ = rootCmd.PersistentFlags().MarkHidden("pick")
+	rootCmd.PersistentFlags().StringVar(&jsonPathFlag, "jsonpath", "", "Extract a value using JSONPath (e.g. $.results[0].id)")
 	rootCmd.PersistentFlags().StringVar(&queryFile, "query-file", "", "Read jq expression from file (use - for stdin)")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output (shows HTTP requests/responses)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceName, "workspace", "w", "", "Workspace to use (overrides NOTION_WORKSPACE env var)")
 	rootCmd.PersistentFlags().StringVar(&errorFormat, "error-format", "auto", "Error output format (auto|text|json)")
 	rootCmd.PersistentFlags().BoolVar(&quietFlag, "quiet", false, "Suppress non-essential output")
+	rootCmd.PersistentFlags().BoolVar(&failEmptyFlag, "fail-empty", false, "Exit with error when results are empty")
 
 	// Agent-friendly flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts (for automation)")
@@ -182,6 +251,8 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().IntVar(&limitFlag, "limit", 0, "Limit number of results (0 = unlimited)")
 	rootCmd.PersistentFlags().StringVar(&sortBy, "sort-by", "", "Sort results by field")
 	rootCmd.PersistentFlags().BoolVar(&descFlag, "desc", false, "Sort in descending order")
+	rootCmd.PersistentFlags().BoolVar(&latestFlag, "latest", false, "Shortcut for --sort-by created_time --desc --limit 1")
+	rootCmd.PersistentFlags().IntVar(&recentFlag, "recent", 0, "Shortcut for --sort-by created_time --desc --limit N")
 
 	// Register subcommands
 	rootCmd.AddCommand(newAuthCmd())

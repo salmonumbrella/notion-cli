@@ -264,6 +264,10 @@ func newDBQueryCmd() *cobra.Command {
 	var all bool
 	var dataSourceID string
 	var resultsOnly bool
+	var selectProperty string
+	var selectEquals string
+	var selectNot string
+	var selectMatch string
 
 	cmd := &cobra.Command{
 		Use:   "query <database-id-or-name>",
@@ -336,6 +340,23 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			limit := output.LimitFromContext(ctx)
 			sortField, sortDesc := output.SortFromContext(ctx)
 			format := output.FormatFromContext(ctx)
+
+			if (selectEquals != "" || selectNot != "" || selectMatch != "") && selectProperty == "" {
+				return fmt.Errorf("--select-property is required when using --select-equals, --select-not, or --select-match")
+			}
+			selectionFlags := 0
+			if selectEquals != "" {
+				selectionFlags++
+			}
+			if selectNot != "" {
+				selectionFlags++
+			}
+			if selectMatch != "" {
+				selectionFlags++
+			}
+			if selectionFlags > 1 {
+				return fmt.Errorf("use only one of --select-equals, --select-not, or --select-match")
+			}
 
 			// Read filter from file if specified
 			if filterFile != "" {
@@ -434,6 +455,14 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 					return errors.APINotFoundError(err, "database", args[0])
 				}
 
+				if selectProperty != "" && (selectEquals != "" || selectNot != "" || selectMatch != "") {
+					filtered, err := filterResultsBySelect(allPages, selectProperty, selectEquals, selectNot, selectMatch)
+					if err != nil {
+						return err
+					}
+					allPages = filtered
+				}
+
 				printer := printerForContext(ctx)
 				if resultsOnly || format == output.FormatTable {
 					return printer.Print(ctx, allPages)
@@ -459,6 +488,14 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				return errors.APINotFoundError(err, "database", args[0])
 			}
 
+			if selectProperty != "" && (selectEquals != "" || selectNot != "" || selectMatch != "") {
+				filtered, err := filterResultsBySelect(result.Results, selectProperty, selectEquals, selectNot, selectMatch)
+				if err != nil {
+					return err
+				}
+				result.Results = filtered
+			}
+
 			// Print result
 			printer := printerForContext(ctx)
 			if resultsOnly || format == output.FormatTable {
@@ -477,6 +514,10 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID to query (optional)")
 	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
+	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select, multi_select, or status)")
+	cmd.Flags().StringVar(&selectEquals, "select-equals", "", "Match select name exactly")
+	cmd.Flags().StringVar(&selectNot, "select-not", "", "Exclude items where select name matches exactly")
+	cmd.Flags().StringVar(&selectMatch, "select-match", "", "Match select name with regex (Go syntax, use (?i) for case-insensitive). Note: filtering is applied after fetching, so fewer results may be returned when combined with --limit")
 
 	return cmd
 }

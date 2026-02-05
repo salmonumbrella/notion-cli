@@ -44,6 +44,9 @@ type limitKey struct{}
 type sortFieldKey struct{}
 type sortDescKey struct{}
 type quietKey struct{}
+type fieldsKey struct{}
+type jsonPathKey struct{}
+type failEmptyKey struct{}
 
 // WithYes sets the --yes flag in context.
 func WithYes(ctx context.Context, yes bool) context.Context {
@@ -98,6 +101,45 @@ func WithQuiet(ctx context.Context, quiet bool) context.Context {
 func QuietFromContext(ctx context.Context) bool {
 	if q, ok := ctx.Value(quietKey{}).(bool); ok {
 		return q
+	}
+	return false
+}
+
+// WithFields stores raw --fields/--pick input in context.
+func WithFields(ctx context.Context, fields string) context.Context {
+	return context.WithValue(ctx, fieldsKey{}, fields)
+}
+
+// FieldsFromContext returns raw --fields/--pick input.
+func FieldsFromContext(ctx context.Context) string {
+	if f, ok := ctx.Value(fieldsKey{}).(string); ok {
+		return f
+	}
+	return ""
+}
+
+// WithJSONPath stores a JSONPath expression in context.
+func WithJSONPath(ctx context.Context, path string) context.Context {
+	return context.WithValue(ctx, jsonPathKey{}, path)
+}
+
+// JSONPathFromContext returns the JSONPath expression.
+func JSONPathFromContext(ctx context.Context) string {
+	if p, ok := ctx.Value(jsonPathKey{}).(string); ok {
+		return p
+	}
+	return ""
+}
+
+// WithFailEmpty stores the --fail-empty flag in context.
+func WithFailEmpty(ctx context.Context, fail bool) context.Context {
+	return context.WithValue(ctx, failEmptyKey{}, fail)
+}
+
+// FailEmptyFromContext returns true if --fail-empty is set.
+func FailEmptyFromContext(ctx context.Context) bool {
+	if v, ok := ctx.Value(failEmptyKey{}).(bool); ok {
+		return v
 	}
 	return false
 }

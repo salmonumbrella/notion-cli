@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	clierrors "github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
@@ -53,6 +54,9 @@ func NewListCommand[T any](config ListConfig[T]) *cobra.Command {
 			}
 
 			if len(result.Items) == 0 {
+				if output.FailEmptyFromContext(ctx) {
+					return clierrors.NewUserError("no results", "Remove --fail-empty to allow empty output")
+				}
 				if !output.QuietFromContext(ctx) {
 					msg := config.EmptyMessage
 					if msg == "" {

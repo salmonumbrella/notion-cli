@@ -238,9 +238,11 @@ notion ds query <datasource-id> --sort-by last_edited_time --desc
 notion ds query <datasource-id> \
   --sorts '[{"property":"Priority","direction":"ascending"}]'
 
-# Client-side select filtering (match by exact name or regex)
+# Client-side select/status filtering (exact, not-equals, or regex)
 notion ds query <datasource-id> \
   --select-property "Category" --select-equals "Engineering"
+notion ds query <datasource-id> \
+  --select-property "Status" --select-not "Done"
 notion ds query <datasource-id> \
   --select-property "Category" --select-match "(?i)eng"
 
@@ -379,6 +381,19 @@ notion page get <page-id> --output json --query '.properties.Status'
 
 # Use a file for longer jq expressions
 notion page get <page-id> --output json --query-file ./query.jq
+
+# Project fields without jq
+notion db query <database-id> --results-only --fields id,name,created_time
+
+# JSONPath extraction
+notion db query <database-id> --jsonpath '$.results[0].id'
+
+# Latest shortcuts
+notion search "project" --latest
+notion search "project" --recent 5
+
+# Fail if empty
+notion search "project" --fail-empty --limit 1
 ```
 
 ### JSON Input Shortcuts
@@ -416,6 +431,11 @@ notion --debug user me
 All commands support these flags:
 
 - `--output <format>` - Output format: `text`, `json`, `ndjson`, `table`, or `yaml` (default: text)
+- `--query <expr>` / `--jq <expr>` - JQ filter expression for JSON output
+- `--fields <paths>` / `--pick <paths>` - Project fields (comma-separated paths, `key=path` to rename)
+- `--jsonpath <expr>` - Extract a value using JSONPath
+- `--latest` / `--recent <n>` - Shortcut for `--sort-by created_time --desc --limit N`
+- `--fail-empty` - Exit with error when results are empty
 - `--workspace <name>`, `-w` - Workspace to use (overrides NOTION_WORKSPACE)
 - `--debug` - Enable debug output (shows API requests/responses)
 - `--query <expr>` - JQ filter expression for JSON output

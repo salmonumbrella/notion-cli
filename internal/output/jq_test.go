@@ -59,6 +59,39 @@ func TestPrinter_WithQuery_NoQuery(t *testing.T) {
 	}
 }
 
+func TestNormalizeQuery_RemovesEscapedBangOutsideStrings(t *testing.T) {
+	query := `.results[] | select(.status \!= "Done")`
+	got, changed := NormalizeQuery(query)
+	if !changed {
+		t.Fatalf("expected change for escaped bang")
+	}
+	if got != `.results[] | select(.status != "Done")` {
+		t.Errorf("normalized query = %q, want %q", got, `.results[] | select(.status != "Done")`)
+	}
+}
+
+func TestNormalizeQuery_LeavesEscapedBangInsideStrings(t *testing.T) {
+	query := `test("\\!=")`
+	got, changed := NormalizeQuery(query)
+	if changed {
+		t.Fatalf("unexpected change for escaped bang inside string")
+	}
+	if got != query {
+		t.Errorf("normalized query = %q, want %q", got, query)
+	}
+}
+
+func TestNormalizeQuery_NoChange(t *testing.T) {
+	query := `.results[] | select(.status != "Done")`
+	got, changed := NormalizeQuery(query)
+	if changed {
+		t.Fatalf("unexpected change for clean query")
+	}
+	if got != query {
+		t.Errorf("normalized query = %q, want %q", got, query)
+	}
+}
+
 func TestQueryFromContext_Empty(t *testing.T) {
 	ctx := context.Background()
 	query := QueryFromContext(ctx)

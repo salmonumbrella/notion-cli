@@ -13,6 +13,8 @@ import (
 
 	"github.com/itchyny/gojq"
 	"gopkg.in/yaml.v3"
+
+	clierrors "github.com/salmonumbrella/notion-cli/internal/errors"
 )
 
 // Format represents the output format type.
@@ -74,6 +76,14 @@ func (p *Printer) Print(ctx context.Context, data interface{}) error {
 	}
 
 	data = ApplyAgentOptions(ctx, data)
+	updated, err := applyOutputTransforms(ctx, data, p.format)
+	if err != nil {
+		return err
+	}
+	data = updated
+	if FailEmptyFromContext(ctx) && isEmptyResult(data) {
+		return clierrors.NewUserError("no results", "Remove --fail-empty to allow empty output")
+	}
 
 	switch p.format {
 	case FormatJSON:

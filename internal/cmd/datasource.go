@@ -217,6 +217,7 @@ func newDataSourceQueryCmd() *cobra.Command {
 	var resultsOnly bool
 	var selectProperty string
 	var selectEquals string
+	var selectNot string
 	var selectMatch string
 
 	cmd := &cobra.Command{
@@ -260,8 +261,21 @@ Example - Sort by created time (shorthand):
 			limit := output.LimitFromContext(ctx)
 			format := output.FormatFromContext(ctx)
 
-			if (selectEquals != "" || selectMatch != "") && selectProperty == "" {
-				return fmt.Errorf("--select-property is required when using --select-equals or --select-match")
+			if (selectEquals != "" || selectNot != "" || selectMatch != "") && selectProperty == "" {
+				return fmt.Errorf("--select-property is required when using --select-equals, --select-not, or --select-match")
+			}
+			selectionFlags := 0
+			if selectEquals != "" {
+				selectionFlags++
+			}
+			if selectNot != "" {
+				selectionFlags++
+			}
+			if selectMatch != "" {
+				selectionFlags++
+			}
+			if selectionFlags > 1 {
+				return fmt.Errorf("use only one of --select-equals, --select-not, or --select-match")
 			}
 
 			var filter map[string]interface{}
@@ -335,8 +349,8 @@ Example - Sort by created time (shorthand):
 				return fmt.Errorf("failed to query data source: %w", err)
 			}
 
-			if selectProperty != "" && (selectEquals != "" || selectMatch != "") {
-				filtered, err := filterResultsBySelect(result.Results, selectProperty, selectEquals, selectMatch)
+			if selectProperty != "" && (selectEquals != "" || selectNot != "" || selectMatch != "") {
+				filtered, err := filterResultsBySelect(result.Results, selectProperty, selectEquals, selectNot, selectMatch)
 				if err != nil {
 					return err
 				}
@@ -357,14 +371,15 @@ Example - Sort by created time (shorthand):
 	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Results per page")
 	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
-	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select or multi_select)")
+	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select, multi_select, or status)")
 	cmd.Flags().StringVar(&selectEquals, "select-equals", "", "Match select name exactly")
+	cmd.Flags().StringVar(&selectNot, "select-not", "", "Exclude items where select name matches exactly")
 	cmd.Flags().StringVar(&selectMatch, "select-match", "", "Match select name with regex (Go syntax, use (?i) for case-insensitive). Note: filtering is applied after fetching, so fewer results may be returned when combined with --limit")
 
 	return cmd
 }
 
-func filterResultsBySelect(results []notion.Page, propName, equals, match string) ([]notion.Page, error) {
+func filterResultsBySelect(results []notion.Page, propName, equals, notEquals, match string) ([]notion.Page, error) {
 	var re *regexp.Regexp
 	var err error
 	if match != "" {
@@ -383,6 +398,20 @@ func filterResultsBySelect(results []notion.Page, propName, equals, match string
 
 		names := extractSelectNames(prop)
 		if len(names) == 0 {
+			continue
+		}
+
+		if notEquals != "" {
+			excluded := false
+			for _, name := range names {
+				if name == notEquals {
+					excluded = true
+					break
+				}
+			}
+			if !excluded {
+				filtered = append(filtered, item)
+			}
 			continue
 		}
 
@@ -413,6 +442,12 @@ func extractSelectNames(prop map[string]interface{}) []string {
 
 	if sel, ok := prop["select"].(map[string]interface{}); ok {
 		if name, ok := sel["name"].(string); ok && name != "" {
+			return []string{name}
+		}
+	}
+
+	if status, ok := prop["status"].(map[string]interface{}); ok {
+		if name, ok := status["name"].(string); ok && name != "" {
 			return []string{name}
 		}
 	}

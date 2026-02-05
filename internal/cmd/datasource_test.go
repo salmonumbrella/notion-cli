@@ -57,6 +57,24 @@ func TestExtractSelectNames(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "status with name returns single-element slice",
+			prop: map[string]interface{}{
+				"status": map[string]interface{}{
+					"name": "In Progress",
+				},
+			},
+			want: []string{"In Progress"},
+		},
+		{
+			name: "status without name returns empty",
+			prop: map[string]interface{}{
+				"status": map[string]interface{}{
+					"id": "some-id",
+				},
+			},
+			want: nil,
+		},
+		{
 			name: "multi_select with multiple names returns all",
 			prop: map[string]interface{}{
 				"multi_select": []interface{}{
@@ -132,13 +150,14 @@ func TestFilterResultsBySelect(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		results  []notion.Page
-		propName string
-		equals   string
-		match    string
-		wantIDs  []string
-		wantErr  bool
+		name      string
+		results   []notion.Page
+		propName  string
+		equals    string
+		notEquals string
+		match     string
+		wantIDs   []string
+		wantErr   bool
 	}{
 		{
 			name: "exact match finds matching pages",
@@ -177,6 +196,21 @@ func TestFilterResultsBySelect(t *testing.T) {
 			match:    "^In ",
 			wantIDs:  []string{"page1", "page3"},
 			wantErr:  false,
+		},
+		{
+			name: "not equals excludes matching pages",
+			results: []notion.Page{
+				makePage("page1", "Status", map[string]interface{}{
+					"status": map[string]interface{}{"name": "已完成"},
+				}),
+				makePage("page2", "Status", map[string]interface{}{
+					"status": map[string]interface{}{"name": "未發送"},
+				}),
+			},
+			propName:  "Status",
+			notEquals: "已完成",
+			wantIDs:   []string{"page2"},
+			wantErr:   false,
 		},
 		{
 			name: "case insensitive regex match",
@@ -344,7 +378,7 @@ func TestFilterResultsBySelect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := filterResultsBySelect(tt.results, tt.propName, tt.equals, tt.match)
+			got, err := filterResultsBySelect(tt.results, tt.propName, tt.equals, tt.notEquals, tt.match)
 
 			if tt.wantErr {
 				if err == nil {
