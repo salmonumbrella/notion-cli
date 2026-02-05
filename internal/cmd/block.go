@@ -101,6 +101,7 @@ func newBlockChildrenCmd() *cobra.Command {
 	var pageSize int
 	var all bool
 	var depth int
+	var plain bool
 
 	cmd := &cobra.Command{
 		Use:     "children <block-id-or-name>",
@@ -170,6 +171,9 @@ Example:
 				}
 
 				printer := printerForContext(ctx)
+				if plain {
+					return printer.Print(ctx, simplifyBlocks(blocks))
+				}
 				return printer.Print(ctx, blocks)
 			}
 
@@ -203,6 +207,9 @@ Example:
 
 				// Print all results
 				printer := printerForContext(ctx)
+				if plain {
+					return printer.Print(ctx, simplifyBlocks(allBlocks))
+				}
 				return printer.Print(ctx, allBlocks)
 			}
 
@@ -224,6 +231,14 @@ Example:
 
 			// Print result
 			printer := printerForContext(ctx)
+			if plain {
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     simplifyBlocks(blockList.Results),
+					"has_more":    blockList.HasMore,
+					"next_cursor": blockList.NextCursor,
+				})
+			}
 			return printer.Print(ctx, blockList)
 		},
 	}
@@ -232,6 +247,7 @@ Example:
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().IntVar(&depth, "depth", 0, "Recursively fetch nested children up to this depth (0 = direct children only)")
+	cmd.Flags().BoolVar(&plain, "plain", false, "Output simplified blocks (id, type, text, children)")
 
 	return cmd
 }

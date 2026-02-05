@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
@@ -276,10 +275,10 @@ func newDBQueryCmd() *cobra.Command {
 
 If you provide a name instead of an ID, the CLI will search for matching databases.
 
-The --filter flag accepts a JSON object representing the filter.
-The --filter-file flag reads filter JSON from a file (useful for complex filters).
-The --sorts flag accepts a JSON array of sort objects.
-The --sorts-file flag reads sorts JSON from a file.
+The --filter flag accepts a JSON object representing the filter (supports @file or - for stdin).
+The --filter-file flag reads filter JSON from a file (useful for complex filters; - for stdin).
+The --sorts flag accepts a JSON array of sort objects (supports @file or - for stdin).
+The --sorts-file flag reads sorts JSON from a file (- for stdin).
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
@@ -295,7 +294,7 @@ Example - Query with filter (single line recommended):
   notion db query 12345678-1234-1234-1234-123456789012 --filter '{"property":"Status","select":{"equals":"Done"}}'
 
 Example - Query with filter from file (avoids shell escaping issues):
-  notion db query 12345678-1234-1234-1234-123456789012 --filter-file filter.json
+  notion db query 12345678-1234-1234-1234-123456789012 --filter @filter.json
 
 Example - Query with sorts:
   notion db query 12345678-1234-1234-1234-123456789012 --sorts '[{"property":"Created","direction":"descending"}]'
@@ -358,13 +357,13 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				return fmt.Errorf("use only one of --select-equals, --select-not, or --select-match")
 			}
 
-			// Read filter from file if specified
+			// Back-compat: if --filter-file is set, treat it as the source of --filter.
+			// Also enables stdin via --filter-file -.
 			if filterFile != "" {
-				data, err := os.ReadFile(filterFile)
-				if err != nil {
-					return fmt.Errorf("failed to read filter file: %w", err)
+				filterJSON = "@" + filterFile
+				if strings.TrimSpace(filterFile) == "-" {
+					filterJSON = "-"
 				}
-				filterJSON = string(data)
 			}
 
 			// Resolve and parse filter if provided
@@ -380,13 +379,13 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				}
 			}
 
-			// Read sorts from file if specified
+			// Back-compat: if --sorts-file is set, treat it as the source of --sorts.
+			// Also enables stdin via --sorts-file -.
 			if sortsFile != "" {
-				data, err := os.ReadFile(sortsFile)
-				if err != nil {
-					return fmt.Errorf("failed to read sorts file: %w", err)
+				sortsJSON = "@" + sortsFile
+				if strings.TrimSpace(sortsFile) == "-" {
+					sortsJSON = "-"
 				}
-				sortsJSON = string(data)
 			}
 
 			// Resolve and parse sorts if provided
@@ -505,10 +504,10 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&filterJSON, "filter", "", "Filter as JSON object")
-	cmd.Flags().StringVar(&filterFile, "filter-file", "", "Read filter JSON from file")
-	cmd.Flags().StringVar(&sortsJSON, "sorts", "", "Sorts as JSON array")
-	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file")
+	cmd.Flags().StringVar(&filterJSON, "filter", "", "Filter as JSON object (@file or - for stdin supported)")
+	cmd.Flags().StringVar(&filterFile, "filter-file", "", "Read filter JSON from file (- for stdin)")
+	cmd.Flags().StringVar(&sortsJSON, "sorts", "", "Sorts as JSON array (@file or - for stdin supported)")
+	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file (- for stdin)")
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")

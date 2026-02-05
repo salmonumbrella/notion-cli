@@ -143,6 +143,7 @@ notion page export <page-id> --format markdown         # Export page content
 notion page update <page-id> --properties <json>       # Update page
 notion page move <page-id> --parent <new-parent-id>    # Move page
 notion page property <page-id> <property-id>           # Get property
+notion page properties <page-id>                       # List properties (optionally simplified)
 ```
 
 ### Databases
@@ -162,6 +163,10 @@ Query with filters and sorts:
 notion db query <database-id> \
   --filter '{"property":"Status","select":{"equals":"Done"}}'
 
+# Query with filter from file/stdin (avoids shell escaping issues)
+notion db query <database-id> --filter @filter.json
+cat filter.json | notion db query <database-id> --filter -
+
 # Query with sorts
 notion db query <database-id> \
   --sorts '[{"property":"Created","direction":"descending"}]'
@@ -175,6 +180,7 @@ notion db query <database-id> --all --results-only
 ```bash
 notion block get <block-id>                        # Get block
 notion block children <block-id>                   # Get children
+notion block children <block-id> --plain           # Get children (simplified: id/type/text)
 notion block append <parent-id> --children <json>  # Append blocks
 notion block update <block-id> --content <json>    # Update block
 notion block delete <block-id>                     # Delete block

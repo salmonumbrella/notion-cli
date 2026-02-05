@@ -241,6 +241,7 @@ func newPagePropertiesCmd() *cobra.Command {
 	var typesCSV string
 	var onlySet bool
 	var includeValues bool
+	var simple bool
 
 	cmd := &cobra.Command{
 		Use:   "properties <page-id-or-name>",
@@ -316,6 +317,9 @@ Examples:
 				if includeValues {
 					entry["value"] = value
 				}
+				if simple {
+					entry["simple"] = simplifyPropertyValue(propType, value)
+				}
 				rows = append(rows, entry)
 			}
 
@@ -331,6 +335,7 @@ Examples:
 	cmd.Flags().StringVar(&typesCSV, "types", "", "Comma-separated property types to include (e.g., title,select)")
 	cmd.Flags().BoolVar(&onlySet, "only-set", false, "Include only properties with a value")
 	cmd.Flags().BoolVar(&includeValues, "with-values", false, "Include property values in output")
+	cmd.Flags().BoolVar(&simple, "simple", false, "Include a best-effort simplified value (agent-friendly)")
 
 	return cmd
 }
