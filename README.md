@@ -176,6 +176,11 @@ Query with filters and sorts:
 notion db query <database-id> \
   --filter '{"property":"Status","select":{"equals":"Done"}}'
 
+# Agent-friendly shorthand filters (server-side; combined with --filter using AND)
+notion db query <database-id> --status Done
+notion db query <database-id> --assignee me
+notion db query <database-id> --priority High
+
 # Query with filter from file/stdin (avoids shell escaping issues)
 notion db query <database-id> --filter @filter.json
 cat filter.json | notion db query <database-id> --filter -

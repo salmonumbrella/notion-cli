@@ -266,6 +266,12 @@ func newDBQueryCmd() *cobra.Command {
 	var selectEquals string
 	var selectNot string
 	var selectMatch string
+	var statusEquals string
+	var statusProperty string
+	var assigneeContains string
+	var assigneeProperty string
+	var priorityEquals string
+	var priorityProperty string
 
 	cmd := &cobra.Command{
 		Use:   "query <database-id-or-name>",
@@ -282,6 +288,16 @@ Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
 Use --data-source to query a specific data source in a multi-source database.
+Use global --results-only to output just the results array.
+
+AGENT-FRIENDLY FILTER SHORTHANDS:
+You can avoid writing JSON filters for common fields:
+  --status "In Progress"         Filter Status equals value (property type: status or select)
+  --assignee me                  Filter Assignee contains user (property type: people)
+  --priority High                Filter Priority equals value (property type: select or status)
+
+These shorthands require fetching the data source schema once to determine the
+correct filter shape. They combine with --filter using AND.
 
 Example - Query all pages:
   notion db query 12345678-1234-1234-1234-123456789012
@@ -416,6 +432,19 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				return err
 			}
 
+			// Build server-side shorthand filters (optional).
+			shorthandFilters, err := buildDBQueryShorthandFilters(ctx, client, sf, resolvedDataSourceID,
+				statusProperty, statusEquals,
+				assigneeProperty, assigneeContains,
+				priorityProperty, priorityEquals,
+			)
+			if err != nil {
+				return err
+			}
+			if len(shorthandFilters) > 0 {
+				filter = mergeNotionFilters(filter, shorthandFilters)
+			}
+
 			// If --all flag is set, fetch all pages
 			if all {
 				allPages, nextCursor, hasMore, err := fetchAllPages(ctx, startCursor, pageSize, limit, func(ctx context.Context, cursor string, pageSize int) ([]notion.Page, *string, bool, error) {
@@ -499,6 +528,14 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().StringVar(&selectEquals, "select-equals", "", "Match select name exactly")
 	cmd.Flags().StringVar(&selectNot, "select-not", "", "Exclude items where select name matches exactly")
 	cmd.Flags().StringVar(&selectMatch, "select-match", "", "Match select name with regex (Go syntax, use (?i) for case-insensitive). Note: filtering is applied after fetching, so fewer results may be returned when combined with --limit")
+	cmd.Flags().StringVar(&statusEquals, "status", "", "Shorthand: filter Status equals value (type status/select; requires schema lookup)")
+	cmd.Flags().StringVar(&statusProperty, "status-prop", "Status", "Property name to use for --status")
+	cmd.Flags().StringVar(&assigneeContains, "assignee", "", "Shorthand: filter Assignee contains user (type people; accepts skill alias)")
+	cmd.Flags().StringVar(&assigneeContains, "assigned-to", "", "Alias for --assignee")
+	_ = cmd.Flags().MarkHidden("assigned-to")
+	cmd.Flags().StringVar(&assigneeProperty, "assignee-prop", "Assignee", "Property name to use for --assignee")
+	cmd.Flags().StringVar(&priorityEquals, "priority", "", "Shorthand: filter Priority equals value (type select/status; requires schema lookup)")
+	cmd.Flags().StringVar(&priorityProperty, "priority-prop", "Priority", "Property name to use for --priority")
 
 	return cmd
 }
