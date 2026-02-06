@@ -128,6 +128,14 @@ notion search --filter database    # Search only databases
 notion search "project" --all --results-only  # Fetch all results (array only)
 ```
 
+### Resolve
+
+```bash
+notion resolve "Meeting Notes"     # Return candidate IDs (skill aliases + search)
+notion resolve "Projects" --type database
+notion resolve standup             # Skill alias
+```
+
 ### Users
 
 ```bash

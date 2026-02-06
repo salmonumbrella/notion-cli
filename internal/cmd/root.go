@@ -266,6 +266,7 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.AddCommand(newBlockCmd())
 	rootCmd.AddCommand(newDBCmd())
 	rootCmd.AddCommand(newSearchCmd())
+	rootCmd.AddCommand(newResolveCmd())
 	rootCmd.AddCommand(newCommentCmd())
 	rootCmd.AddCommand(newFileCmd())
 	rootCmd.AddCommand(newDataSourceCmd())
