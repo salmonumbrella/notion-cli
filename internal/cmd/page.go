@@ -35,6 +35,8 @@ func newPageCmd() *cobra.Command {
 		},
 	}
 
+	// Desire-path alias: agents often try `notion page list ...`
+	cmd.AddCommand(newPageListCmd())
 	cmd.AddCommand(newPageGetCmd())
 	cmd.AddCommand(newPagePropertiesCmd())
 	cmd.AddCommand(newPageCreateCmd())
@@ -48,6 +50,31 @@ func newPageCmd() *cobra.Command {
 	cmd.AddCommand(newPageDeleteCmd())
 
 	return cmd
+}
+
+func newPageListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "list [query]",
+		Aliases: []string{"ls"},
+		Short:   "List pages (alias for 'search --filter page')",
+		Long: `Search for pages in Notion.
+
+This is a convenience alias for 'notion search --filter page'.
+
+Example:
+  notion page list
+  notion page list "project"
+  notion page ls meetings`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			searchCmd := newSearchCmd()
+			searchCmd.SetContext(cmd.Context())
+			if err := searchCmd.Flags().Set("filter", "page"); err != nil {
+				return err
+			}
+			return searchCmd.RunE(searchCmd, args)
+		},
+	}
 }
 
 func newPageDeleteCmd() *cobra.Command {

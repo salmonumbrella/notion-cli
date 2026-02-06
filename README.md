@@ -219,6 +219,10 @@ notion block add-columns <parent-id> --columns 3   # Add 3-column layout (2-5)
 ```bash
 notion comment list <block-id>                     # List comments
 notion comment add <block-id> --text "Comment"     # Add comment
+
+# Desire paths (agent-friendly)
+notion comment <page-id> "Looks great!"            # Add comment (positional)
+notion comment add <page-id> "Looks great!"        # Add comment (positional)
 ```
 
 ### File Uploads

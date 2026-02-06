@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -20,11 +21,24 @@ func newCommentCmd() *cobra.Command {
 		Short:   "Manage Notion comments",
 		Long:    `List and create comments on Notion pages and blocks.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// When invoked without subcommand, default to list
-			// Note: list requires a block-id argument
-			listCmd := newCommentListCmd()
-			listCmd.SetContext(cmd.Context())
-			return listCmd.RunE(listCmd, args)
+			// Desire paths:
+			//   notion comment <page-or-block>       -> list
+			//   notion comment <page> "text..."     -> add (new discussion on page)
+			switch len(args) {
+			case 0:
+				return errors.NewUserError(
+					"missing target id",
+					"Try:\n  • notion comment <page-or-block-id>\n  • notion comment <page-id> \"Comment text\"\n  • notion comment list <page-or-block-id>\n  • notion comment add <page-id> --text \"...\"",
+				)
+			case 1:
+				listCmd := newCommentListCmd()
+				listCmd.SetContext(cmd.Context())
+				return listCmd.RunE(listCmd, args)
+			default:
+				addCmd := newCommentAddCmd()
+				addCmd.SetContext(cmd.Context())
+				return addCmd.RunE(addCmd, args)
+			}
 		},
 	}
 
@@ -41,11 +55,18 @@ func newCommentListCmd() *cobra.Command {
 	var all bool
 
 	cmd := &cobra.Command{
-		Use:   "list <block-id>",
+		Use:   "list <page-or-block-id-or-name>",
 		Short: "List comments on a page or block",
 		Long: `List un-resolved comments from a page or block.
 
-The block-id can be a page ID or block ID.
+The target can be:
+  - a page ID
+  - a block ID
+  - a Notion URL
+  - a skill file alias
+  - a page name (resolved via search)
+
+Note: Notion search only finds pages/databases; resolving by name is page-only.
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
@@ -53,6 +74,8 @@ Use global --results-only to output just the results array (useful for piping to
 
 Example - List all comments on a page:
   notion comment list abc123def456
+  notion comment list "Meeting Notes"
+  notion comment list https://www.notion.so/Meeting-Notes-abc123def456
 
 Example - List comments with pagination:
   notion comment list abc123def456 --page-size 10 --start-cursor cursor123
@@ -66,11 +89,6 @@ Example - Output only results array:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
-
-			blockID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
 
 			// Get token from context (respects workspace selection)
 			limit := output.LimitFromContext(ctx)
@@ -88,6 +106,17 @@ Example - Output only results array:
 
 			// Create client
 			client := NewNotionClient(ctx, token)
+
+			// Resolve target ID (supports skill alias, URL, and page name via search).
+			// Block IDs are UUIDs so they bypass search anyway.
+			blockID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
+			if err != nil {
+				return err
+			}
+			blockID, err = cmdutil.NormalizeNotionID(blockID)
+			if err != nil {
+				return err
+			}
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -207,7 +236,7 @@ func newCommentAddCmd() *cobra.Command {
 	var verbose bool
 
 	cmd := &cobra.Command{
-		Use:   "add",
+		Use:   "add [page-id-or-name] [text...]",
 		Short: "Create a comment",
 		Long: `Create a comment on a page or in an existing discussion thread.
 
@@ -217,6 +246,11 @@ You must specify either --parent (to create a new discussion on a page) or
 The --text flag is required and contains the comment content.
 Use --mention to @-mention users (they will receive notifications).
 Use --page-mention to @@-mention pages (link to other Notion pages).
+
+DESIRE PATHS:
+You can also use positional args instead of flags:
+  notion comment add <page-id-or-name> "Comment text..."
+  notion comment <page-id-or-name> "Comment text..."
 
 MARKDOWN FORMATTING:
 The --text flag supports markdown formatting:
@@ -232,9 +266,12 @@ MENTIONS:
 
 Example - Create a new comment on a page:
   notion comment add --parent abc123def456 --text "This is my comment"
+  notion comment add abc123def456 "This is my comment"
+  notion comment abc123def456 "This is my comment"
 
 Example - Create comment with formatting:
   notion comment add --parent abc123def456 --text "This is **bold** and *italic* and ` + "`code`" + `"
+  notion comment add abc123def456 "This is **bold** and *italic* and ` + "`code`" + `"
 
 Example - Create comment with a link:
   notion comment add --parent abc123def456 --text "Check [Notion docs](https://notion.so) for help"
@@ -258,29 +295,34 @@ Combined example (all flags together):
     --mention alice-user-id \
     --page-mention project-plan-id \
     --verbose`,
-		Args: cobra.NoArgs,
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			// Validate that text is provided
-			if text == "" {
-				return fmt.Errorf("--text is required")
+			// Positional parsing:
+			// - If neither --parent nor --discussion-id is set: args[0] is parent, args[1:] is text (if --text is empty).
+			// - If --parent/--discussion-id is set: args[:] is text (if --text is empty).
+			if parentID == "" && discussionID == "" && len(args) > 0 {
+				parentID = args[0]
+				if text == "" && len(args) > 1 {
+					text = strings.Join(args[1:], " ")
+				}
+			} else if (parentID != "" || discussionID != "") && text == "" && len(args) > 0 {
+				text = strings.Join(args, " ")
 			}
 
 			// Validate that either parent or discussion-id is provided, but not both
 			if parentID == "" && discussionID == "" {
-				return fmt.Errorf("either --parent or --discussion-id is required")
+				return fmt.Errorf("either --parent/--page or --discussion-id is required")
 			}
 			if parentID != "" && discussionID != "" {
 				return fmt.Errorf("cannot specify both --parent and --discussion-id")
 			}
-			if parentID != "" {
-				normalized, err := cmdutil.NormalizeNotionID(resolveID(sf, parentID))
-				if err != nil {
-					return err
-				}
-				parentID = normalized
+
+			// Validate that text is provided
+			if strings.TrimSpace(text) == "" {
+				return fmt.Errorf("--text is required (or provide it positionally)")
 			}
 
 			// Resolve user aliases in mentions
@@ -302,6 +344,32 @@ Combined example (all flags together):
 
 			// Create client
 			client := NewNotionClient(ctx, token)
+
+			// Resolve parent page ID (supports skill aliases, URLs, and page name via search).
+			if parentID != "" {
+				resolved, err := resolveIDWithSearch(ctx, client, sf, parentID, "page")
+				if err != nil {
+					return err
+				}
+				normalized, err := cmdutil.NormalizeNotionID(resolved)
+				if err != nil {
+					return err
+				}
+				parentID = normalized
+			}
+
+			// Normalize/resolve page mention IDs (skill aliases, URLs, page names).
+			for i, p := range resolvedPageMentions {
+				resolved, err := resolveIDWithSearch(ctx, client, sf, p, "page")
+				if err != nil {
+					return err
+				}
+				normalized, err := cmdutil.NormalizeNotionID(resolved)
+				if err != nil {
+					return err
+				}
+				resolvedPageMentions[i] = normalized
+			}
 
 			// Build rich text with inline mentions
 			// @Name patterns in text are replaced with user mention objects using provided user IDs
@@ -334,6 +402,8 @@ Combined example (all flags together):
 	}
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Page ID to create comment on (mutually exclusive with --discussion-id)")
+	cmd.Flags().StringVar(&parentID, "page", "", "Alias for --parent")
+	_ = cmd.Flags().MarkHidden("page")
 	cmd.Flags().StringVar(&discussionID, "discussion-id", "", "Discussion thread ID to add comment to (mutually exclusive with --parent)")
 	cmd.Flags().StringVar(&text, "text", "", "Comment text (required)")
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention (repeatable)")
