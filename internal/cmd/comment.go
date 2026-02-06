@@ -130,7 +130,7 @@ Example - Output only results array:
 
 					result, err := client.ListComments(ctx, blockID, opts)
 					if err != nil {
-						return fmt.Errorf("failed to list comments: %w", err)
+						return errors.APINotFoundError(err, "block", blockID)
 					}
 
 					allComments = append(allComments, result.Results...)
@@ -163,7 +163,7 @@ Example - Output only results array:
 
 			result, err := client.ListComments(ctx, blockID, opts)
 			if err != nil {
-				return fmt.Errorf("failed to list comments: %w", err)
+				return errors.APINotFoundError(err, "block", blockID)
 			}
 
 			if limit > 0 && len(result.Results) > limit {
@@ -211,7 +211,7 @@ Example:
 
 			comment, err := client.GetComment(ctx, commentID)
 			if err != nil {
-				return fmt.Errorf("failed to get comment: %w", err)
+				return errors.APINotFoundError(err, "comment", commentID)
 			}
 
 			printer := printerForContext(ctx)
@@ -229,8 +229,9 @@ func newCommentAddCmd() *cobra.Command {
 	var verbose bool
 
 	cmd := &cobra.Command{
-		Use:   "add [page-id-or-name] [text...]",
-		Short: "Create a comment",
+		Use:     "add [page-id-or-name] [text...]",
+		Aliases: []string{"create"},
+		Short:   "Create a comment",
 		Long: `Create a comment on a page or in an existing discussion thread.
 
 You must specify either --parent (to create a new discussion on a page) or
@@ -385,7 +386,11 @@ Combined example (all flags together):
 			// Create comment
 			result, err := client.CreateComment(ctx, req)
 			if err != nil {
-				return fmt.Errorf("failed to create comment: %w", err)
+				target := parentID
+				if target == "" {
+					target = discussionID
+				}
+				return errors.APINotFoundError(err, "page", target)
 			}
 
 			// Print result
