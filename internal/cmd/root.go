@@ -81,11 +81,13 @@ func newRootCmd(app *App) *cobra.Command {
 			}
 
 			// Get output format from flag or config file
-			// Priority: --format (alias) > --output > config file > default
+			// Priority: --format (alias) > --output > NOTION_OUTPUT env var > config file > default
 			formatStr, _ := cmd.Flags().GetString("output")
 			if cmd.Flags().Changed("format") {
 				// --format alias takes precedence if explicitly used
 				formatStr, _ = cmd.Flags().GetString("format")
+			} else if !cmd.Flags().Changed("output") && strings.TrimSpace(os.Getenv("NOTION_OUTPUT")) != "" {
+				formatStr = os.Getenv("NOTION_OUTPUT")
 			} else if !cmd.Flags().Changed("output") && cfg.GetOutput() != "" {
 				// Fall back to config file default
 				formatStr = cfg.GetOutput()
@@ -626,6 +628,28 @@ func checkTokenAgeAndWarn(ctx context.Context, quiet bool) {
 // NewNotionClient creates a new Notion API client with debug mode enabled if the --debug flag was set.
 func NewNotionClient(ctx context.Context, token string) *notion.Client {
 	client := notion.NewClient(token)
+
+	// Allows tests and proxies to override the Notion API base URL.
+	// Precedence:
+	// 1) NOTION_API_BASE_URL env var
+	// 2) workspace api_url in config.yaml (selected workspace or default)
+	if baseURL := strings.TrimSpace(os.Getenv("NOTION_API_BASE_URL")); baseURL != "" {
+		client.WithBaseURL(baseURL)
+	} else {
+		// Best-effort: do not fail command execution if config can't be read.
+		if cfg, err := config.Load(); err == nil && cfg != nil {
+			wsName := WorkspaceFromContext(ctx)
+			var ws *config.WorkspaceConfig
+			if wsName != "" {
+				ws, _ = cfg.GetWorkspace(wsName)
+			} else {
+				ws, _ = cfg.GetDefaultWorkspace()
+			}
+			if ws != nil && strings.TrimSpace(ws.APIURL) != "" {
+				client.WithBaseURL(ws.APIURL)
+			}
+		}
+	}
 	if debug.IsDebug(ctx) {
 		client.WithDebugOutput(stderrFromContext(ctx))
 	}

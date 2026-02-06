@@ -71,7 +71,9 @@ notion user me
 
 - `NOTION_TOKEN` - API token (alternative to keyring storage)
 - `NOTION_WORKSPACE` - Default workspace name for multi-workspace support
-- `NOTION_OUTPUT` - Output format: `text` (default), `json`, `table`, or `yaml`
+- `NOTION_OUTPUT` - Output format: `text` (default), `json`, `ndjson`, `table`, or `yaml`
+- `NOTION_API_BASE_URL` - Override Notion API base URL (useful for proxies and tests)
+- `NOTION_NO_UPDATE_CHECK` - Set to any value to disable update checks (the CLI also auto-disables update checks when stdout is not a TTY)
 - `NO_COLOR` - Set to any value to disable colors (standard convention)
 
 ### Agent-Friendly Global Flags

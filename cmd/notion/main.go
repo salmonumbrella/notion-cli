@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"golang.org/x/term"
+
 	"github.com/salmonumbrella/notion-cli/internal/cmd"
 	"github.com/salmonumbrella/notion-cli/internal/update"
 )
@@ -29,8 +31,11 @@ func main() {
 	err := app.Execute(ctx, os.Args[1:])
 
 	// Check for updates after command execution
-	if msg := update.Check(ctx, Version); msg != "" {
-		fmt.Fprintln(os.Stderr, "\n"+msg)
+	// Only do this for interactive humans, otherwise it pollutes agent output streams.
+	if err == nil && os.Getenv("NOTION_NO_UPDATE_CHECK") == "" && term.IsTerminal(int(os.Stdout.Fd())) {
+		if msg := update.Check(ctx, Version); msg != "" {
+			fmt.Fprintln(os.Stderr, "\n"+msg)
+		}
 	}
 
 	if err != nil {
