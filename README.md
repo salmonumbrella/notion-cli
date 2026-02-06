@@ -509,6 +509,18 @@ notion completion fish > ~/.config/fish/completions/notion.fish
 notion completion powershell | Out-String | Invoke-Expression
 ```
 
+## Exit Codes (Automation)
+
+When a command fails, the process exit code is stable and intended for automation:
+
+- `0` success
+- `2` user/validation error
+- `3` auth error
+- `4` not found
+- `5` rate limit
+- `6` temporary failure (circuit breaker)
+- `130` canceled (Ctrl+C / context canceled)
+
 ## Development
 
 After cloning, install git hooks:

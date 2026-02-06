@@ -34,6 +34,6 @@ func main() {
 	}
 
 	if err != nil {
-		os.Exit(1)
+		os.Exit(cmd.ExitCode(err))
 	}
 }
