@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -53,15 +56,17 @@ The generated skill file is saved to ~/.claude/skills/notion-cli/notion-cli.md`,
 }
 
 func newSkillSyncCmd() *cobra.Command {
-	return &cobra.Command{
+	var addNew bool
+
+	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Update skill file with current workspace state",
 		Long:  `Re-scans your workspace and updates the skill file, preserving existing aliases.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// TODO: Implement sync
-			return fmt.Errorf("not implemented yet")
-		},
+		RunE:  func(cmd *cobra.Command, args []string) error { return runSkillSync(cmd, addNew) },
 	}
+
+	cmd.Flags().BoolVar(&addNew, "add-new", false, "Add newly discovered databases/users with generated aliases (non-interactive)")
+	return cmd
 }
 
 func newSkillPathCmd() *cobra.Command {
@@ -80,8 +85,7 @@ func newSkillEditCmd() *cobra.Command {
 		Use:   "edit",
 		Short: "Open skill file in your editor",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// TODO: Implement edit (open in $EDITOR)
-			return fmt.Errorf("not implemented yet")
+			return runSkillEdit(cmd.Context())
 		},
 	}
 }
@@ -233,6 +237,223 @@ func scanWorkspace(ctx context.Context, client *notion.Client) (*workspaceData, 
 	}
 
 	return data, nil
+}
+
+func runSkillSync(cmd *cobra.Command, addNew bool) error {
+	ctx := cmd.Context()
+	stderr := stderrFromContext(ctx)
+
+	// Require existing file for sync (init is the wizard).
+	path := skill.DefaultPath()
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return errors.NewUserError(
+				"skill file not found",
+				"Run 'notion skill init' first to create it, then re-run 'notion skill sync'.",
+			)
+		}
+		return fmt.Errorf("failed to stat skill file: %w", err)
+	}
+
+	// Load existing skill file.
+	sf, err := skill.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load skill file: %w", err)
+	}
+
+	// Get API client.
+	token, err := GetTokenFromContext(ctx)
+	if err != nil {
+		return errors.AuthRequiredError(err)
+	}
+	client := NewNotionClient(ctx, token)
+
+	_, _ = fmt.Fprintln(stderr, "Scanning your Notion workspace...")
+	data, err := scanWorkspace(ctx, client)
+	if err != nil {
+		return fmt.Errorf("failed to scan workspace: %w", err)
+	}
+
+	// Index discovered entities by ID for quick lookup.
+	dbByID := make(map[string]string, len(data.Databases))
+	for _, db := range data.Databases {
+		name := extractDatabaseTitle(db)
+		if name == "" {
+			name = "Untitled"
+		}
+		dbByID[db.ID] = name
+	}
+	userByID := make(map[string]string, len(data.Users))
+	for _, u := range data.Users {
+		if u == nil || u.ID == "" {
+			continue
+		}
+		if u.Name == "" {
+			continue
+		}
+		userByID[u.ID] = u.Name
+	}
+
+	updatedDBs := 0
+	for alias, db := range sf.Databases {
+		if name, ok := dbByID[db.ID]; ok && name != "" && name != db.Name {
+			db.Name = name
+			sf.Databases[alias] = db
+			updatedDBs++
+		}
+	}
+	updatedUsers := 0
+	for alias, u := range sf.Users {
+		if name, ok := userByID[u.ID]; ok && name != "" && name != u.Name {
+			u.Name = name
+			sf.Users[alias] = u
+			updatedUsers++
+		}
+	}
+
+	addedDBs := 0
+	addedUsers := 0
+	if addNew {
+		seenDBIDs := make(map[string]bool, len(sf.Databases))
+		for _, db := range sf.Databases {
+			seenDBIDs[db.ID] = true
+		}
+		seenUserIDs := make(map[string]bool, len(sf.Users))
+		for _, u := range sf.Users {
+			seenUserIDs[u.ID] = true
+		}
+
+		aliasTaken := func(a string) bool {
+			if a == "" {
+				return true
+			}
+			if _, ok := sf.Databases[a]; ok {
+				return true
+			}
+			if _, ok := sf.Users[a]; ok {
+				return true
+			}
+			if _, ok := sf.Aliases[a]; ok {
+				return true
+			}
+			return false
+		}
+		uniqueAlias := func(base string) string {
+			base = strings.TrimSpace(base)
+			if base == "" {
+				base = "alias"
+			}
+			if !aliasTaken(base) {
+				return base
+			}
+			for i := 2; ; i++ {
+				cand := fmt.Sprintf("%s%d", base, i)
+				if !aliasTaken(cand) {
+					return cand
+				}
+			}
+		}
+
+		for _, db := range data.Databases {
+			if db.ID == "" || seenDBIDs[db.ID] {
+				continue
+			}
+			name := extractDatabaseTitle(db)
+			if name == "" {
+				name = "Untitled"
+			}
+			alias := uniqueAlias(suggestAlias(name))
+			sf.Databases[alias] = skill.DatabaseAlias{
+				Alias: alias,
+				Name:  name,
+				ID:    db.ID,
+				// Leave TitleProperty/DefaultStatus empty; init wizard is where
+				// those preferences are chosen. Agents can still use aliases.
+			}
+			addedDBs++
+		}
+
+		for _, u := range data.Users {
+			if u == nil || u.ID == "" || seenUserIDs[u.ID] {
+				continue
+			}
+			if u.Type == "bot" {
+				continue
+			}
+			name := strings.TrimSpace(u.Name)
+			if name == "" {
+				continue
+			}
+			alias := uniqueAlias(suggestUserAlias(name))
+			// Never override reserved "me".
+			if alias == "me" {
+				alias = uniqueAlias("me2")
+			}
+			sf.Users[alias] = skill.UserAlias{
+				Alias: alias,
+				Name:  name,
+				ID:    u.ID,
+			}
+			addedUsers++
+		}
+	}
+
+	if err := sf.Save(); err != nil {
+		return fmt.Errorf("failed to save skill file: %w", err)
+	}
+
+	_, _ = fmt.Fprintln(stderr, "")
+	_, _ = fmt.Fprintf(stderr, "Skill file updated: %s\n", path)
+	_, _ = fmt.Fprintf(stderr, "  - %d database names refreshed\n", updatedDBs)
+	_, _ = fmt.Fprintf(stderr, "  - %d user names refreshed\n", updatedUsers)
+	if addNew {
+		_, _ = fmt.Fprintf(stderr, "  - %d databases added\n", addedDBs)
+		_, _ = fmt.Fprintf(stderr, "  - %d users added\n", addedUsers)
+	} else {
+		_, _ = fmt.Fprintln(stderr, "  - new databases/users not added (use --add-new)")
+	}
+	return nil
+}
+
+func runSkillEdit(ctx context.Context) error {
+	path := skill.DefaultPath()
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return errors.NewUserError(
+				"skill file not found",
+				"Run 'notion skill init' first to create it, then re-run 'notion skill edit'.",
+			)
+		}
+		return fmt.Errorf("failed to stat skill file: %w", err)
+	}
+
+	editor := strings.TrimSpace(os.Getenv("EDITOR"))
+	if editor == "" {
+		editor = strings.TrimSpace(os.Getenv("VISUAL"))
+	}
+	if editor == "" {
+		if runtime.GOOS == "windows" {
+			editor = "notepad"
+		} else {
+			editor = "vi"
+		}
+	}
+
+	// If $EDITOR contains args (e.g. "code -w"), split conservatively.
+	parts := strings.Fields(editor)
+	if len(parts) == 0 {
+		return fmt.Errorf("invalid $EDITOR %q", editor)
+	}
+	bin := parts[0]
+	args := append(parts[1:], path)
+
+	c := exec.CommandContext(ctx, bin, args...)
+	c.Stdin = os.Stdin
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	// Ensure parent dirs exist (helpful if a user manually deleted them).
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	return c.Run()
 }
 
 // parseDataSourceResult converts a search result map to a DataSource struct
