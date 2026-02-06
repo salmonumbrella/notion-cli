@@ -400,29 +400,7 @@ Example:
 	// Action-first top-level commands (agent-friendly desire paths)
 
 	// `notion list` → search for pages
-	rootCmd.AddCommand(&cobra.Command{
-		Use:     "list [query]",
-		Aliases: []string{"ls"},
-		Short:   "List pages (alias for 'search --filter page')",
-		Long: `Search for pages in Notion.
-
-This is a convenience alias for 'notion search --filter page'.
-
-Example:
-  notion list
-  notion list "project"
-  notion ls meetings`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Delegate to search with page filter
-			searchCmd := newSearchCmd()
-			searchCmd.SetContext(cmd.Context())
-			if err := searchCmd.Flags().Set("filter", "page"); err != nil {
-				return err
-			}
-			return searchCmd.RunE(searchCmd, args)
-		},
-	})
+	rootCmd.AddCommand(newPageListCmd())
 
 	// `notion get <id>` → auto-detect entity type
 	rootCmd.AddCommand(&cobra.Command{
@@ -636,7 +614,8 @@ func NewNotionClient(ctx context.Context, token string) *notion.Client {
 	if baseURL := strings.TrimSpace(os.Getenv("NOTION_API_BASE_URL")); baseURL != "" {
 		client.WithBaseURL(baseURL)
 	} else {
-		// Best-effort: do not fail command execution if config can't be read.
+		// Best-effort: load config again for API URL override.
+		// TODO: inject config via context to avoid redundant Load() call.
 		if cfg, err := config.Load(); err == nil && cfg != nil {
 			wsName := WorkspaceFromContext(ctx)
 			var ws *config.WorkspaceConfig

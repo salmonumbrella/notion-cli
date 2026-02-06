@@ -74,17 +74,16 @@ Examples:
 			switch filterType {
 			case "", "any":
 				filterType = ""
-			case "page", "database":
+			case "page", "database", "user":
 				// ok
 			default:
 				return errors.NewUserError(
 					fmt.Sprintf("invalid --type %q", filterType),
-					"Use one of: any, page, database",
+					"Use one of: any, page, database, user",
 				)
 			}
 
 			limit := output.LimitFromContext(ctx)
-			format := output.FormatFromContext(ctx)
 			pageSize = capPageSize(pageSize, limit)
 			if pageSize > NotionMaxPageSize {
 				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
@@ -99,7 +98,7 @@ Examples:
 			}
 
 			// First: skill file matches (fast, no network).
-			candidates := resolveCandidatesFromSkill(sf, query)
+			candidates := resolveCandidatesFromSkill(sf, query, filterType)
 
 			// Then: Notion search.
 			token, err := GetTokenFromContext(ctx)
@@ -205,14 +204,11 @@ Examples:
 			}
 
 			printer := printerForContext(ctx)
-			if format == output.FormatTable {
-				return printer.Print(ctx, candidates)
-			}
 			return printer.Print(ctx, resp)
 		},
 	}
 
-	cmd.Flags().StringVar(&filterType, "type", "any", "Filter candidates by type (any|page|database)")
+	cmd.Flags().StringVar(&filterType, "type", "any", "Filter candidates by type (any|page|database|user)")
 	cmd.Flags().IntVar(&pageSize, "page-size", 10, "Number of results per page (max 100)")
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large workspaces)")
@@ -221,7 +217,7 @@ Examples:
 	return cmd
 }
 
-func resolveCandidatesFromSkill(sf *skill.SkillFile, query string) []ResolveCandidate {
+func resolveCandidatesFromSkill(sf *skill.SkillFile, query, filterType string) []ResolveCandidate {
 	if sf == nil {
 		return nil
 	}
@@ -263,6 +259,16 @@ func resolveCandidatesFromSkill(sf *skill.SkillFile, query string) []ResolveCand
 			Alias:  a.Alias,
 			Exact:  true,
 		})
+	}
+
+	if filterType != "" {
+		filtered := out[:0]
+		for _, c := range out {
+			if c.Object == filterType {
+				filtered = append(filtered, c)
+			}
+		}
+		out = filtered
 	}
 
 	return out

@@ -196,9 +196,13 @@ func findDataSourcePropertyType(props map[string]interface{}, name string) (stri
 	return "", false
 }
 
+// normalizePropName normalizes a property name for fuzzy matching.
+// Strips spaces, underscores, and lowercases so agents can write
+// "due_date", "Due Date", or "duedate" and all match the same property.
+// This is intentional for agent ergonomics — property names in Notion
+// schemas vary in casing and separator style.
 func normalizePropName(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
-	// Remove whitespace and underscores for fuzzy matching.
 	s = strings.ReplaceAll(s, " ", "")
 	s = strings.ReplaceAll(s, "_", "")
 	return s

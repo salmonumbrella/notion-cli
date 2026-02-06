@@ -353,7 +353,6 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 			}
 			limit := output.LimitFromContext(ctx)
 			sortField, sortDesc := output.SortFromContext(ctx)
-			format := output.FormatFromContext(ctx)
 
 			if (selectEquals != "" || selectNot != "" || selectMatch != "") && selectProperty == "" {
 				return fmt.Errorf("--select-property is required when using --select-equals, --select-not, or --select-match")
@@ -475,9 +474,6 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				}
 
 				printer := printerForContext(ctx)
-				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-					return printer.Print(ctx, allPages)
-				}
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
 					"results":     allPages,
@@ -509,9 +505,6 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 
 			// Print result
 			printer := printerForContext(ctx)
-			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-				return printer.Print(ctx, result.Results)
-			}
 			return printer.Print(ctx, result)
 		},
 	}

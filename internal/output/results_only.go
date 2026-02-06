@@ -6,9 +6,10 @@ import (
 )
 
 // ApplyResultsOnly extracts the "results" slice from common Notion list envelopes
-// when --results-only is enabled.
+// when --results-only is enabled OR when the output format is table (since table
+// format requires a flat slice, not a list envelope).
 func ApplyResultsOnly(ctx context.Context, data interface{}) interface{} {
-	if !ResultsOnlyFromContext(ctx) {
+	if !ResultsOnlyFromContext(ctx) && FormatFromContext(ctx) != FormatTable {
 		return data
 	}
 	results, ok := extractResults(data)

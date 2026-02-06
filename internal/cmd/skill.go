@@ -448,6 +448,8 @@ func runSkillEdit(ctx context.Context) error {
 	args := append(parts[1:], path)
 
 	c := exec.CommandContext(ctx, bin, args...)
+	// $EDITOR requires a real terminal for interactive editing.
+	// Context IO streams cannot be used here.
 	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr

@@ -95,7 +95,6 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
-			format := output.FormatFromContext(ctx)
 
 			pageSize = capPageSize(pageSize, limit)
 
@@ -148,9 +147,6 @@ Example:
 
 				// Print all results
 				printer := printerForContext(ctx)
-				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-					return printer.Print(ctx, allUsers)
-				}
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
 					"results":     allUsers,
@@ -176,9 +172,6 @@ Example:
 
 			// Print result
 			printer := printerForContext(ctx)
-			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-				return printer.Print(ctx, userList.Results)
-			}
 			return printer.Print(ctx, userList)
 		},
 	}

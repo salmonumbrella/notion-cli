@@ -123,8 +123,6 @@ Example - Fetch all results:
 			client := NewNotionClient(ctx, token)
 
 			// If --all flag is set, fetch all pages
-			format := output.FormatFromContext(ctx)
-
 			if all {
 				allResults, nextCursor, hasMore, err := fetchAllPages(ctx, startCursor, pageSize, limit, func(ctx context.Context, cursor string, pageSize int) ([]map[string]interface{}, *string, bool, error) {
 					req := &notion.SearchRequest{
@@ -147,9 +145,6 @@ Example - Fetch all results:
 				}
 
 				printer := printerForContext(ctx)
-				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-					return printer.Print(ctx, allResults)
-				}
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
 					"results":     allResults,
@@ -174,9 +169,6 @@ Example - Fetch all results:
 
 			// Print result
 			printer := printerForContext(ctx)
-			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-				return printer.Print(ctx, result.Results)
-			}
 			return printer.Print(ctx, result)
 		},
 	}

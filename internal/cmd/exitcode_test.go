@@ -23,8 +23,11 @@ func TestExitCode(t *testing.T) {
 		{"circuit_breaker", &clierrors.CircuitBreakerError{}, ExitTemp},
 		{"api_404", &notion.APIError{StatusCode: 404}, ExitNotFound},
 		{"api_429", &notion.APIError{StatusCode: 429}, ExitRateLimit},
+		{"api_401", &notion.APIError{StatusCode: 401}, ExitAuth},
+		{"api_403", &notion.APIError{StatusCode: 403}, ExitAuth},
 		{"api_400", &notion.APIError{StatusCode: 400}, ExitUser},
 		{"api_500", &notion.APIError{StatusCode: 500}, ExitSystem},
+		{"auth_required", clierrors.AuthRequiredError(nil), ExitAuth},
 	}
 
 	for _, tt := range tests {

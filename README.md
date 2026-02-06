@@ -520,6 +520,7 @@ notion completion powershell | Out-String | Invoke-Expression
 When a command fails, the process exit code is stable and intended for automation:
 
 - `0` success
+- `1` system/internal error
 - `2` user/validation error
 - `3` auth error
 - `4` not found

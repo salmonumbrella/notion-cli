@@ -92,7 +92,6 @@ Example - Output only results array:
 
 			// Get token from context (respects workspace selection)
 			limit := output.LimitFromContext(ctx)
-			format := output.FormatFromContext(ctx)
 			pageSize = capPageSize(pageSize, limit)
 
 			if pageSize > NotionMaxPageSize {
@@ -148,9 +147,6 @@ Example - Output only results array:
 
 				// Print all results
 				printer := printerForContext(ctx)
-				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-					return printer.Print(ctx, allComments)
-				}
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
 					"results":     allComments,
@@ -177,9 +173,6 @@ Example - Output only results array:
 
 			// Print result
 			printer := printerForContext(ctx)
-			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-				return printer.Print(ctx, result.Results)
-			}
 			return printer.Print(ctx, result)
 		},
 	}

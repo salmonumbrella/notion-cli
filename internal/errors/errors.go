@@ -57,16 +57,29 @@ func (e *RateLimitError) Error() string {
 
 // AuthError represents authentication failures
 type AuthError struct {
-	Reason string
+	Reason     string
+	Suggestion string
+	Err        error
 }
 
 func (e *AuthError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("authentication error: %s: %v", e.Reason, e.Err)
+	}
 	return fmt.Sprintf("authentication error: %s", e.Reason)
+}
+
+func (e *AuthError) Unwrap() error {
+	return e.Err
 }
 
 // AuthRequiredError wraps an error with authentication required message and suggestion.
 func AuthRequiredError(err error) error {
-	return WrapUserError(err, "authentication required", "Run 'notion auth login' or 'notion auth add-token' to configure")
+	return &AuthError{
+		Reason:     "authentication required",
+		Suggestion: "Run 'notion auth login' or 'notion auth add-token' to configure",
+		Err:        err,
+	}
 }
 
 // CircuitBreakerError indicates the circuit is open
@@ -102,11 +115,15 @@ func IsUserError(err error) bool {
 	return errors.As(err, &e)
 }
 
-// UserSuggestion returns a suggestion string if err is a UserError.
+// UserSuggestion returns a suggestion string if err is a UserError or AuthError.
 func UserSuggestion(err error) string {
-	var e *UserError
-	if errors.As(err, &e) {
-		return e.Suggestion
+	var ue *UserError
+	if errors.As(err, &ue) {
+		return ue.Suggestion
+	}
+	var ae *AuthError
+	if errors.As(err, &ae) {
+		return ae.Suggestion
 	}
 	return ""
 }

@@ -258,7 +258,6 @@ Example - Sort by created time (shorthand):
 				return err
 			}
 			limit := output.LimitFromContext(ctx)
-			format := output.FormatFromContext(ctx)
 
 			if (selectEquals != "" || selectNot != "" || selectMatch != "") && selectProperty == "" {
 				return fmt.Errorf("--select-property is required when using --select-equals, --select-not, or --select-match")
@@ -341,9 +340,6 @@ Example - Sort by created time (shorthand):
 			}
 
 			printer := printerForContext(ctx)
-			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-				return printer.Print(ctx, result.Results)
-			}
 			return printer.Print(ctx, result)
 		},
 	}
@@ -503,7 +499,6 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
-			format := output.FormatFromContext(ctx)
 
 			pageSize = capPageSize(pageSize, limit)
 
@@ -544,9 +539,6 @@ Example:
 				}
 
 				printer := printerForContext(ctx)
-				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-					return printer.Print(ctx, allResults)
-				}
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
 					"results":     allResults,
@@ -568,9 +560,6 @@ Example:
 			}
 
 			printer := printerForContext(ctx)
-			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
-				return printer.Print(ctx, result.Results)
-			}
 			return printer.Print(ctx, result)
 		},
 	}

@@ -37,6 +37,9 @@ func ExitCode(err error) int {
 		if apiErr.StatusCode == http.StatusTooManyRequests {
 			return ExitRateLimit
 		}
+		if apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden {
+			return ExitAuth
+		}
 		// Notion API errors caused by invalid input are still "user" in most cases.
 		// We conservatively treat them as user errors unless there is a clear server
 		// class status.
