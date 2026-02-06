@@ -39,7 +39,6 @@ func newCommentListCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
-	var resultsOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "list <block-id>",
@@ -50,7 +49,7 @@ The block-id can be a page ID or block ID.
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
-Use --results-only to output just the results array (useful for piping to jq).
+Use global --results-only to output just the results array (useful for piping to jq).
 
 Example - List all comments on a page:
   notion comment list abc123def456
@@ -120,7 +119,7 @@ Example - Output only results array:
 
 				// Print all results
 				printer := printerForContext(ctx)
-				if resultsOnly || format == output.FormatTable {
+				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 					return printer.Print(ctx, allComments)
 				}
 				return printer.Print(ctx, map[string]interface{}{
@@ -149,7 +148,7 @@ Example - Output only results array:
 
 			// Print result
 			printer := printerForContext(ctx)
-			if resultsOnly || format == output.FormatTable {
+			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}
 			return printer.Print(ctx, result)
@@ -159,7 +158,6 @@ Example - Output only results array:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
-	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 
 	return cmd
 }

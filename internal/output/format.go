@@ -76,6 +76,7 @@ func (p *Printer) Print(ctx context.Context, data interface{}) error {
 	}
 
 	data = ApplyAgentOptions(ctx, data)
+	data = ApplyResultsOnly(ctx, data)
 	updated, err := applyOutputTransforms(ctx, data, p.format)
 	if err != nil {
 		return err

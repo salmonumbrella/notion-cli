@@ -214,7 +214,6 @@ func newDataSourceQueryCmd() *cobra.Command {
 	var sortsJSON string
 	var sortsFile string
 	var pageSize int
-	var resultsOnly bool
 	var selectProperty string
 	var selectEquals string
 	var selectNot string
@@ -342,7 +341,7 @@ Example - Sort by created time (shorthand):
 			}
 
 			printer := printerForContext(ctx)
-			if resultsOnly || format == output.FormatTable {
+			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}
 			return printer.Print(ctx, result)
@@ -354,7 +353,6 @@ Example - Sort by created time (shorthand):
 	cmd.Flags().StringVar(&sortsJSON, "sorts", "", "Sorts as JSON array")
 	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Results per page")
-	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select, multi_select, or status)")
 	cmd.Flags().StringVar(&selectEquals, "select-equals", "", "Match select name exactly")
 	cmd.Flags().StringVar(&selectNot, "select-not", "", "Exclude items where select name matches exactly")
@@ -485,7 +483,6 @@ Example:
 func newDataSourceListCmd() *cobra.Command {
 	var pageSize int
 	var all bool
-	var resultsOnly bool
 	var startCursor string
 
 	cmd := &cobra.Command{
@@ -496,7 +493,7 @@ func newDataSourceListCmd() *cobra.Command {
 This command searches for all databases accessible to the integration.
 Use --page-size to control results per page (max 100).
 Use --all to fetch all pages of results automatically.
-Use --results-only to output just the results array (useful for piping to jq).
+Use global --results-only to output just the results array (useful for piping to jq).
 
 Example:
   notion datasource list
@@ -547,7 +544,7 @@ Example:
 				}
 
 				printer := printerForContext(ctx)
-				if resultsOnly || format == output.FormatTable {
+				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 					return printer.Print(ctx, allResults)
 				}
 				return printer.Print(ctx, map[string]interface{}{
@@ -571,7 +568,7 @@ Example:
 			}
 
 			printer := printerForContext(ctx)
-			if resultsOnly || format == output.FormatTable {
+			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}
 			return printer.Print(ctx, result)
@@ -580,7 +577,6 @@ Example:
 
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results")
-	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 
 	return cmd

@@ -18,7 +18,6 @@ func newSearchCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
-	var resultsOnly bool
 	var textQuery string
 
 	cmd := &cobra.Command{
@@ -33,6 +32,7 @@ Use --sort to specify sort order (JSON object with "direction" and "timestamp" k
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
+Use global --results-only to output just the results array (useful for piping to jq).
 
 Note: The global --query flag is for jq filtering, not the search term.
 Use the positional argument or --text for the search term.
@@ -147,7 +147,7 @@ Example - Fetch all results:
 				}
 
 				printer := printerForContext(ctx)
-				if resultsOnly || format == output.FormatTable {
+				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 					return printer.Print(ctx, allResults)
 				}
 				return printer.Print(ctx, map[string]interface{}{
@@ -174,7 +174,7 @@ Example - Fetch all results:
 
 			// Print result
 			printer := printerForContext(ctx)
-			if resultsOnly || format == output.FormatTable {
+			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}
 			return printer.Print(ctx, result)
@@ -186,7 +186,6 @@ Example - Fetch all results:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
-	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 	cmd.Flags().StringVarP(&textQuery, "text", "t", "", "Search text (alternative to positional argument)")
 
 	return cmd

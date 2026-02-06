@@ -43,10 +43,11 @@ func newRootCmd(app *App) *cobra.Command {
 		recentFlag    int
 
 		// Agent-friendly flags
-		yesFlag   bool
-		limitFlag int
-		sortBy    string
-		descFlag  bool
+		yesFlag         bool
+		limitFlag       int
+		sortBy          string
+		descFlag        bool
+		resultsOnlyFlag bool
 	)
 
 	rootCmd := &cobra.Command{
@@ -186,6 +187,7 @@ func newRootCmd(app *App) *cobra.Command {
 			ctx = output.WithFields(ctx, fieldsRaw)
 			ctx = output.WithJSONPath(ctx, jsonPathRaw)
 			ctx = output.WithFailEmpty(ctx, failEmptyFlag)
+			ctx = output.WithResultsOnly(ctx, resultsOnlyFlag)
 			ctx = WithErrorFormat(ctx, errorFormat)
 			ctx = ui.WithUI(ctx, ui.New(parseColorMode(cfg.GetColor())))
 			if queryNormalized && !quietFlag {
@@ -244,6 +246,7 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&errorFormat, "error-format", "auto", "Error output format (auto|text|json)")
 	rootCmd.PersistentFlags().BoolVar(&quietFlag, "quiet", false, "Suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVar(&failEmptyFlag, "fail-empty", false, "Exit with error when results are empty")
+	rootCmd.PersistentFlags().BoolVar(&resultsOnlyFlag, "results-only", false, "Output only the results array for list responses")
 
 	// Agent-friendly flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts (for automation)")

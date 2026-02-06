@@ -47,6 +47,7 @@ type quietKey struct{}
 type fieldsKey struct{}
 type jsonPathKey struct{}
 type failEmptyKey struct{}
+type resultsOnlyKey struct{}
 
 // WithYes sets the --yes flag in context.
 func WithYes(ctx context.Context, yes bool) context.Context {
@@ -139,6 +140,19 @@ func WithFailEmpty(ctx context.Context, fail bool) context.Context {
 // FailEmptyFromContext returns true if --fail-empty is set.
 func FailEmptyFromContext(ctx context.Context) bool {
 	if v, ok := ctx.Value(failEmptyKey{}).(bool); ok {
+		return v
+	}
+	return false
+}
+
+// WithResultsOnly sets the global --results-only flag in context.
+func WithResultsOnly(ctx context.Context, resultsOnly bool) context.Context {
+	return context.WithValue(ctx, resultsOnlyKey{}, resultsOnly)
+}
+
+// ResultsOnlyFromContext returns true if global --results-only is set.
+func ResultsOnlyFromContext(ctx context.Context) bool {
+	if v, ok := ctx.Value(resultsOnlyKey{}).(bool); ok {
 		return v
 	}
 	return false

@@ -74,6 +74,11 @@ notion user me
 - `NOTION_OUTPUT` - Output format: `text` (default), `json`, `table`, or `yaml`
 - `NO_COLOR` - Set to any value to disable colors (standard convention)
 
+### Agent-Friendly Global Flags
+
+- `--results-only` - For list-like responses, output just the `.results` array (useful for piping to `jq`).
+- `--limit`, `--sort-by`, `--desc`, `--latest`, `--recent` - Apply client-side sorting/limiting when possible.
+
 ### Config File (Optional)
 
 notion-cli supports a YAML configuration file at `~/.config/notion-cli/config.yaml`:

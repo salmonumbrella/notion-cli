@@ -262,7 +262,6 @@ func newDBQueryCmd() *cobra.Command {
 	var pageSize int
 	var all bool
 	var dataSourceID string
-	var resultsOnly bool
 	var selectProperty string
 	var selectEquals string
 	var selectNot string
@@ -447,7 +446,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 				}
 
 				printer := printerForContext(ctx)
-				if resultsOnly || format == output.FormatTable {
+				if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 					return printer.Print(ctx, allPages)
 				}
 				return printer.Print(ctx, map[string]interface{}{
@@ -481,7 +480,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 
 			// Print result
 			printer := printerForContext(ctx)
-			if resultsOnly || format == output.FormatTable {
+			if output.ResultsOnlyFromContext(ctx) || format == output.FormatTable {
 				return printer.Print(ctx, result.Results)
 			}
 			return printer.Print(ctx, result)
@@ -496,7 +495,6 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID to query (optional)")
-	cmd.Flags().BoolVar(&resultsOnly, "results-only", false, "Output only the results array")
 	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select, multi_select, or status)")
 	cmd.Flags().StringVar(&selectEquals, "select-equals", "", "Match select name exactly")
 	cmd.Flags().StringVar(&selectNot, "select-not", "", "Exclude items where select name matches exactly")
