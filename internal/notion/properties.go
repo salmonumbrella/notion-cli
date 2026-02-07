@@ -34,7 +34,7 @@ type RollupProperty struct {
 type RollupValue struct {
 	Type     string                   `json:"type"` // "array", "date", "incomplete", "number", "unsupported"
 	Function string                   `json:"function"`
-	Array    []map[string]interface{} `json:"array,omitempty"`
+	Array    []map[string]interface{} `json:"array"`
 	Number   *float64                 `json:"number,omitempty"`
 	Date     *Date                    `json:"date,omitempty"`
 }
@@ -71,19 +71,19 @@ type PropertyValue struct {
 	Formula *FormulaValue `json:"formula,omitempty"`
 	Rollup  *RollupValue  `json:"rollup,omitempty"`
 	// Other common property types
-	Title          []RichText               `json:"title,omitempty"`
-	RichText       []RichText               `json:"rich_text,omitempty"`
+	Title          []RichText               `json:"title"`
+	RichText       []RichText               `json:"rich_text"`
 	Number         *float64                 `json:"number,omitempty"`
 	Select         *SelectOption            `json:"select,omitempty"`
-	MultiSelect    []SelectOption           `json:"multi_select,omitempty"`
+	MultiSelect    []SelectOption           `json:"multi_select"`
 	Date           *Date                    `json:"date,omitempty"`
 	Checkbox       *bool                    `json:"checkbox,omitempty"`
 	URL            *string                  `json:"url,omitempty"`
 	Email          *string                  `json:"email,omitempty"`
 	PhoneNumber    *string                  `json:"phone_number,omitempty"`
-	Files          []FileReference          `json:"files,omitempty"`
-	Relation       []RelationReference      `json:"relation,omitempty"`
-	People         []map[string]interface{} `json:"people,omitempty"`
+	Files          []FileReference          `json:"files"`
+	Relation       []RelationReference      `json:"relation"`
+	People         []map[string]interface{} `json:"people"`
 	CreatedTime    *string                  `json:"created_time,omitempty"`
 	LastEditedTime *string                  `json:"last_edited_time,omitempty"`
 	CreatedBy      map[string]interface{}   `json:"created_by,omitempty"`

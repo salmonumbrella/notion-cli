@@ -17,7 +17,7 @@ type exportBlock struct {
 	ID       string                 `json:"id"`
 	Type     string                 `json:"type"`
 	Content  map[string]interface{} `json:"content,omitempty"`
-	Children []exportBlock          `json:"children,omitempty"`
+	Children []exportBlock          `json:"children"`
 }
 
 func newPageExportCmd() *cobra.Command {

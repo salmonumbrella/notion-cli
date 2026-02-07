@@ -26,7 +26,7 @@ type Block struct {
 	// Using map to handle different block types flexibly
 	Content map[string]interface{} `json:"-"` // Will be unmarshaled from type field
 	// Children contains nested child blocks when fetched with depth > 1
-	Children []Block `json:"children,omitempty"`
+	Children []Block `json:"children"`
 }
 
 // MarshalJSON implements custom JSON marshaling to include type-specific content.
@@ -61,9 +61,11 @@ func (b Block) MarshalJSON() ([]byte, error) {
 		m[b.Type] = b.Content
 	}
 
-	// Add children if present (from recursive fetching)
-	if len(b.Children) > 0 {
+	// Always emit children as an array (empty [] when nil) to avoid null in JSON output
+	if b.Children != nil {
 		m["children"] = b.Children
+	} else {
+		m["children"] = []Block{}
 	}
 
 	return json.Marshal(m)

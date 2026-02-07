@@ -49,7 +49,7 @@ type PageProperty struct {
 	Object  string                 `json:"object"`
 	ID      string                 `json:"id,omitempty"`
 	Type    string                 `json:"type"`
-	Results []interface{}          `json:"results,omitempty"`
+	Results []interface{}          `json:"results"`
 	Data    map[string]interface{} `json:"-"` // Catch-all for the actual property data
 }
 
