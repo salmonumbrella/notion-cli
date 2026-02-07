@@ -75,6 +75,11 @@ func (p *Printer) Print(ctx context.Context, data interface{}) error {
 		return nil
 	}
 
+	// Inject _meta for list envelopes (JSON/NDJSON/YAML only)
+	if p.format == FormatJSON || p.format == FormatNDJSON || p.format == FormatYAML {
+		data = injectMeta(data)
+	}
+
 	data = ApplyAgentOptions(ctx, data)
 	data = ApplyResultsOnly(ctx, data)
 	updated, err := applyOutputTransforms(ctx, data, p.format)
