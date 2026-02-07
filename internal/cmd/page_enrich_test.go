@@ -228,6 +228,73 @@ func TestExtractPageTitleFromProperties(t *testing.T) {
 	}
 }
 
+func TestEnrichPage_BreadcrumbPath(t *testing.T) {
+	mux := http.NewServeMux()
+
+	// Page -> parent page -> grandparent database
+	mux.HandleFunc("/pages/parent-789", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"object": "page",
+			"id":     "parent-789",
+			"parent": map[string]interface{}{
+				"type":        "database_id",
+				"database_id": "db-root",
+			},
+			"properties": map[string]interface{}{
+				"Name": map[string]interface{}{
+					"type":  "title",
+					"title": []interface{}{map[string]interface{}{"plain_text": "Parent Page"}},
+				},
+			},
+		})
+	})
+
+	mux.HandleFunc("/databases/db-root", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"object": "database",
+			"id":     "db-root",
+			"title":  []map[string]interface{}{{"plain_text": "Root DB"}},
+		})
+	})
+
+	mux.HandleFunc("/blocks/page-456/children", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"object":   "list",
+			"results":  []interface{}{},
+			"has_more": false,
+		})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := notion.NewClient("test-token").WithBaseURL(server.URL)
+	ctx := context.Background()
+
+	page := &notion.Page{
+		ID: "page-456",
+		Parent: map[string]interface{}{
+			"type":    "page_id",
+			"page_id": "parent-789",
+		},
+	}
+
+	enriched := enrichPage(ctx, client, page)
+
+	if len(enriched.Path) != 2 {
+		t.Fatalf("expected 2 path entries, got %d: %+v", len(enriched.Path), enriched.Path)
+	}
+	if enriched.Path[0].Type != "database" || enriched.Path[0].Title != "Root DB" {
+		t.Errorf("path[0] = %+v, want database 'Root DB'", enriched.Path[0])
+	}
+	if enriched.Path[1].Type != "page" || enriched.Path[1].Title != "Parent Page" {
+		t.Errorf("path[1] = %+v, want page 'Parent Page'", enriched.Path[1])
+	}
+}
+
 func TestEnrichedPage_JSONSerialization(t *testing.T) {
 	page := &notion.Page{
 		Object: "page",
@@ -257,5 +324,93 @@ func TestEnrichedPage_JSONSerialization(t *testing.T) {
 	}
 	if result["id"] != "page-123" {
 		t.Errorf("expected id 'page-123', got %v", result["id"])
+	}
+}
+
+func TestEnrichPage_BreadcrumbPath_WorkspaceRoot(t *testing.T) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/blocks/page-456/children", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"object":   "list",
+			"results":  []interface{}{},
+			"has_more": false,
+		})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := notion.NewClient("test-token").WithBaseURL(server.URL)
+	ctx := context.Background()
+
+	page := &notion.Page{
+		ID: "page-456",
+		Parent: map[string]interface{}{
+			"type":      "workspace",
+			"workspace": true,
+		},
+	}
+
+	enriched := enrichPage(ctx, client, page)
+
+	if len(enriched.Path) != 0 {
+		t.Errorf("expected empty path for workspace root page, got %d entries", len(enriched.Path))
+	}
+}
+
+func TestEnrichPage_BreadcrumbPath_SingleDatabaseParent(t *testing.T) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/databases/db-123", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"object": "database",
+			"id":     "db-123",
+			"title":  []map[string]interface{}{{"plain_text": "Tasks"}},
+		})
+	})
+
+	mux.HandleFunc("/blocks/page-456/children", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"object":   "list",
+			"results":  []interface{}{},
+			"has_more": false,
+		})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := notion.NewClient("test-token").WithBaseURL(server.URL)
+	ctx := context.Background()
+
+	page := &notion.Page{
+		ID: "page-456",
+		Parent: map[string]interface{}{
+			"type":        "database_id",
+			"database_id": "db-123",
+		},
+	}
+
+	enriched := enrichPage(ctx, client, page)
+
+	if len(enriched.Path) != 1 {
+		t.Fatalf("expected 1 path entry, got %d", len(enriched.Path))
+	}
+	if enriched.Path[0].Type != "database" || enriched.Path[0].ID != "db-123" {
+		t.Errorf("path[0] = %+v, want database db-123", enriched.Path[0])
+	}
+}
+
+func TestBuildBreadcrumbPath_NilParent(t *testing.T) {
+	client := notion.NewClient("test-token")
+	ctx := context.Background()
+
+	path := buildBreadcrumbPath(ctx, client, nil)
+	if len(path) != 0 {
+		t.Errorf("expected empty path for nil parent, got %d entries", len(path))
 	}
 }
