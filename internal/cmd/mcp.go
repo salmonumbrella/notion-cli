@@ -33,6 +33,8 @@ directly with Notion's MCP server using your personal Notion account.`,
 	cmd.AddCommand(newMCPCommentCmd())
 	cmd.AddCommand(newMCPMoveCmd())
 	cmd.AddCommand(newMCPDuplicateCmd())
+	cmd.AddCommand(newMCPTeamsCmd())
+	cmd.AddCommand(newMCPUsersCmd())
 	cmd.AddCommand(newMCPToolsCmd())
 
 	return cmd
@@ -509,6 +511,76 @@ appear in your workspace.`,
 			return nil
 		},
 	}
+}
+
+func newMCPTeamsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "teams [query]",
+		Short: "List workspace teams (teamspaces)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, cleanup, err := mcpClientFromToken(ctx)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			var query string
+			if len(args) > 0 {
+				query = args[0]
+			}
+
+			result, err := client.GetTeams(ctx, query)
+			if err != nil {
+				return err
+			}
+
+			_, _ = fmt.Fprintln(stdoutFromContext(ctx), result)
+			return nil
+		},
+	}
+}
+
+func newMCPUsersCmd() *cobra.Command {
+	var (
+		userID   string
+		cursor   string
+		pageSize int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "users [query]",
+		Short: "List workspace users",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, cleanup, err := mcpClientFromToken(ctx)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			var query string
+			if len(args) > 0 {
+				query = args[0]
+			}
+
+			result, err := client.GetUsers(ctx, query, userID, cursor, pageSize)
+			if err != nil {
+				return err
+			}
+
+			_, _ = fmt.Fprintln(stdoutFromContext(ctx), result)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&userID, "user-id", "", "Fetch a specific user (\"self\" for current)")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
+	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page")
+
+	return cmd
 }
 
 // mcpClientFromToken loads the persisted MCP token and returns a connected

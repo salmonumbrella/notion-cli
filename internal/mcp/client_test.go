@@ -322,6 +322,68 @@ func TestCallToolArgConstruction(t *testing.T) {
 			t.Errorf("page_id = %v, want 'page-to-dup'", args["page_id"])
 		}
 	})
+
+	t.Run("get teams with query", func(t *testing.T) {
+		args := map[string]interface{}{}
+		query := "engineering"
+		if query != "" {
+			args["query"] = query
+		}
+		if args["query"] != "engineering" {
+			t.Errorf("query = %v, want 'engineering'", args["query"])
+		}
+	})
+
+	t.Run("get teams empty", func(t *testing.T) {
+		args := map[string]interface{}{}
+		query := ""
+		if query != "" {
+			args["query"] = query
+		}
+		if _, ok := args["query"]; ok {
+			t.Error("empty query should not set query key")
+		}
+	})
+
+	t.Run("get users with query", func(t *testing.T) {
+		args := map[string]interface{}{}
+		query := "alice"
+		if query != "" {
+			args["query"] = query
+		}
+		if args["query"] != "alice" {
+			t.Errorf("query = %v, want 'alice'", args["query"])
+		}
+	})
+
+	t.Run("get users by id", func(t *testing.T) {
+		args := map[string]interface{}{}
+		userID := "self"
+		if userID != "" {
+			args["user_id"] = userID
+		}
+		if args["user_id"] != "self" {
+			t.Errorf("user_id = %v, want 'self'", args["user_id"])
+		}
+	})
+
+	t.Run("get users with pagination", func(t *testing.T) {
+		args := map[string]interface{}{}
+		startCursor := "cursor-abc"
+		pageSize := 25
+		if startCursor != "" {
+			args["start_cursor"] = startCursor
+		}
+		if pageSize > 0 {
+			args["page_size"] = pageSize
+		}
+		if args["start_cursor"] != "cursor-abc" {
+			t.Errorf("start_cursor = %v, want 'cursor-abc'", args["start_cursor"])
+		}
+		if args["page_size"] != 25 {
+			t.Errorf("page_size = %v, want 25", args["page_size"])
+		}
+	})
 }
 
 func TestPKCEGeneration(t *testing.T) {

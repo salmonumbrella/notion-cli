@@ -26,6 +26,8 @@ func TestMCPCommandTree(t *testing.T) {
 		"comment",
 		"move",
 		"duplicate",
+		"teams",
+		"users",
 		"tools",
 	}
 
@@ -147,6 +149,17 @@ func TestMCPDuplicateArgs(t *testing.T) {
 	cmd := newMCPDuplicateCmd()
 	if cmd.Use != "duplicate <page-id>" {
 		t.Errorf("duplicate command Use = %q", cmd.Use)
+	}
+}
+
+func TestMCPUsersFlags(t *testing.T) {
+	cmd := newMCPUsersCmd()
+
+	wantFlags := []string{"user-id", "cursor", "page-size"}
+	for _, name := range wantFlags {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("users command missing --%s flag", name)
+		}
 	}
 }
 

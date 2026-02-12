@@ -158,3 +158,30 @@ func (c *Client) DuplicatePage(ctx context.Context, pageID string) (string, erro
 	}
 	return c.CallTool(ctx, "notion-duplicate-page", args)
 }
+
+// GetTeams invokes the notion-get-teams MCP tool to list workspace teamspaces.
+func (c *Client) GetTeams(ctx context.Context, query string) (string, error) {
+	args := map[string]interface{}{}
+	if query != "" {
+		args["query"] = query
+	}
+	return c.CallTool(ctx, "notion-get-teams", args)
+}
+
+// GetUsers invokes the notion-get-users MCP tool to list workspace users.
+func (c *Client) GetUsers(ctx context.Context, query string, userID string, startCursor string, pageSize int) (string, error) {
+	args := map[string]interface{}{}
+	if query != "" {
+		args["query"] = query
+	}
+	if userID != "" {
+		args["user_id"] = userID
+	}
+	if startCursor != "" {
+		args["start_cursor"] = startCursor
+	}
+	if pageSize > 0 {
+		args["page_size"] = pageSize
+	}
+	return c.CallTool(ctx, "notion-get-users", args)
+}
