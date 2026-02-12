@@ -21,34 +21,7 @@ func (p *Printer) printJSON(ctx context.Context, data interface{}) error {
 		return enc.Encode(data)
 	}
 
-	parsed, err := gojq.Parse(query)
-	if err != nil {
-		return fmt.Errorf("invalid --query: %w", err)
-	}
-
-	code, err := gojq.Compile(parsed)
-	if err != nil {
-		return fmt.Errorf("invalid --query: %w", err)
-	}
-
-	iter := code.Run(data)
-	enc := json.NewEncoder(p.w)
-	enc.SetEscapeHTML(false)
-
-	for {
-		v, ok := iter.Next()
-		if !ok {
-			break
-		}
-		if queryErr, isErr := v.(error); isErr {
-			return fmt.Errorf("query error: %s", safeErrorMessage(queryErr))
-		}
-		if err := enc.Encode(v); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return p.runQuery(query, data, true)
 }
 
 // printNDJSON outputs data as newline-delimited JSON.
@@ -59,30 +32,7 @@ func (p *Printer) printNDJSON(ctx context.Context, data interface{}) error {
 	enc.SetEscapeHTML(false)
 
 	if query != "" {
-		parsed, err := gojq.Parse(query)
-		if err != nil {
-			return fmt.Errorf("invalid --query: %w", err)
-		}
-
-		code, err := gojq.Compile(parsed)
-		if err != nil {
-			return fmt.Errorf("invalid --query: %w", err)
-		}
-
-		iter := code.Run(data)
-		for {
-			v, ok := iter.Next()
-			if !ok {
-				break
-			}
-			if queryErr, isErr := v.(error); isErr {
-				return fmt.Errorf("query error: %s", safeErrorMessage(queryErr))
-			}
-			if err := enc.Encode(v); err != nil {
-				return err
-			}
-		}
-		return nil
+		return p.runQuery(query, data, false)
 	}
 
 	v := reflect.ValueOf(data)
@@ -103,6 +53,81 @@ func (p *Printer) printNDJSON(ctx context.Context, data interface{}) error {
 	}
 
 	return enc.Encode(data)
+}
+
+// runQuery normalizes data to map/slice form, runs a gojq query, and writes
+// results as JSON. When prettyPrint is true, output is indented.
+func (p *Printer) runQuery(query string, data interface{}, prettyPrint bool) error {
+	normalized, err := normalizeToInterface(data)
+	if err != nil {
+		return fmt.Errorf("query error: %w", err)
+	}
+
+	parsed, err := gojq.Parse(query)
+	if err != nil {
+		return fmt.Errorf("invalid --query: %w", err)
+	}
+
+	code, err := gojq.Compile(parsed)
+	if err != nil {
+		return fmt.Errorf("invalid --query: %w", err)
+	}
+
+	enc := json.NewEncoder(p.w)
+	enc.SetEscapeHTML(false)
+	if prettyPrint {
+		enc.SetIndent("", "  ")
+	}
+
+	iter := code.Run(normalized)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if queryErr, isErr := v.(error); isErr {
+			return fmt.Errorf("query error: %s", safeErrorMessage(queryErr))
+		}
+		if err := enc.Encode(v); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// runQueryRaw normalizes data, runs a gojq query, and returns the results as
+// a slice of interface{} values. Used by non-JSON formatters (text, yaml).
+func runQueryRaw(query string, data interface{}) ([]interface{}, error) {
+	normalized, err := normalizeToInterface(data)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	parsed, err := gojq.Parse(query)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --query: %w", err)
+	}
+
+	code, err := gojq.Compile(parsed)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --query: %w", err)
+	}
+
+	var results []interface{}
+	iter := code.Run(normalized)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if queryErr, isErr := v.(error); isErr {
+			return nil, fmt.Errorf("query error: %s", safeErrorMessage(queryErr))
+		}
+		results = append(results, v)
+	}
+
+	return results, nil
 }
 
 // safeErrorMessage returns a best-effort string representation for errors whose

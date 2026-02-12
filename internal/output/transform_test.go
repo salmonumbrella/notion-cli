@@ -18,6 +18,8 @@ func TestValidateFields(t *testing.T) {
 		{name: "empty is ok", input: "", wantErr: false},
 		{name: "simple fields", input: "id,name", wantErr: false},
 		{name: "alias and index", input: "first=items[0],name", wantErr: false},
+		{name: "dot notation index", input: "first=items.0,name", wantErr: false},
+		{name: "nested dot notation index", input: "val=props.Name.title.0.plain_text", wantErr: false},
 		{name: "quoted key", input: "status=props['My Status']", wantErr: false},
 		{name: "invalid path", input: "name=", wantErr: true},
 		{name: "invalid bracket", input: "name[", wantErr: true},
@@ -61,6 +63,60 @@ func TestApplyOutputTransforms_ProjectFields(t *testing.T) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("projected fields mismatch\nwant: %#v\ngot: %#v", want, got)
+	}
+}
+
+func TestApplyOutputTransforms_ProjectFields_DotNotationIndex(t *testing.T) {
+	data := []map[string]interface{}{
+		{
+			"id": "1",
+			"properties": map[string]interface{}{
+				"Name": map[string]interface{}{
+					"title": []interface{}{
+						map[string]interface{}{"plain_text": "Hello"},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := WithFields(context.Background(), "id,name=properties.Name.title.0.plain_text")
+	got, err := applyOutputTransforms(ctx, data, FormatJSON)
+	if err != nil {
+		t.Fatalf("applyOutputTransforms returned error: %v", err)
+	}
+
+	want := []interface{}{
+		map[string]interface{}{
+			"id":   "1",
+			"name": "Hello",
+		},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("dot notation index mismatch\nwant: %#v\ngot: %#v", want, got)
+	}
+}
+
+func TestApplyOutputTransforms_BracketAndDotNotationEquivalent(t *testing.T) {
+	data := map[string]interface{}{
+		"arr": []interface{}{"a", "b", "c"},
+	}
+
+	bracketCtx := WithFields(context.Background(), "val=arr[1]")
+	bracketGot, err := applyOutputTransforms(bracketCtx, data, FormatJSON)
+	if err != nil {
+		t.Fatalf("bracket notation error: %v", err)
+	}
+
+	dotCtx := WithFields(context.Background(), "val=arr.1")
+	dotGot, err := applyOutputTransforms(dotCtx, data, FormatJSON)
+	if err != nil {
+		t.Fatalf("dot notation error: %v", err)
+	}
+
+	if !reflect.DeepEqual(bracketGot, dotGot) {
+		t.Fatalf("bracket and dot notation should produce identical results\nbracket: %#v\ndot: %#v", bracketGot, dotGot)
 	}
 }
 

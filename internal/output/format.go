@@ -99,7 +99,7 @@ func (p *Printer) Print(ctx context.Context, data interface{}) error {
 	case FormatTable:
 		return p.printTable(data)
 	case FormatText:
-		return p.printText(data)
+		return p.printText(ctx, data)
 	default:
 		return fmt.Errorf("unsupported format: %s", p.format)
 	}
@@ -114,11 +114,28 @@ func (p *Printer) printYAML(data interface{}) error {
 }
 
 // printText outputs data as human-readable text.
-// For list envelopes (struct/map with Results slice): renders items as a table.
-// For bare slices of structs/maps: renders as a table.
+// If a --query jq filter is present, it applies the filter first, then renders
+// the filtered result. For list envelopes (struct/map with Results slice):
+// renders items as a table. For bare slices of structs/maps: renders as a table.
 // For single structs: key-value pairs with indented nested values.
 // For primitives: direct output.
-func (p *Printer) printText(data interface{}) error {
+func (p *Printer) printText(ctx context.Context, data interface{}) error {
+	// Apply --query filter if present
+	if query := QueryFromContext(ctx); query != "" {
+		results, err := runQueryRaw(query, data)
+		if err != nil {
+			return err
+		}
+		if len(results) == 0 {
+			return nil
+		}
+		if len(results) == 1 {
+			data = results[0]
+		} else {
+			data = results
+		}
+	}
+
 	v := reflect.ValueOf(data)
 	if !v.IsValid() {
 		return nil

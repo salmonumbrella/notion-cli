@@ -181,7 +181,13 @@ func parsePathTokens(path string) ([]pathToken, error) {
 			if key == "" {
 				return nil, fmt.Errorf("empty segment")
 			}
-			tokens = append(tokens, pathToken{Key: &key})
+			// Pure integer segments are treated as array indices,
+			// allowing dot notation (title.0) as alternative to brackets (title[0]).
+			if idx, err := strconv.Atoi(key); err == nil {
+				tokens = append(tokens, pathToken{Index: &idx})
+			} else {
+				tokens = append(tokens, pathToken{Key: &key})
+			}
 		}
 	}
 

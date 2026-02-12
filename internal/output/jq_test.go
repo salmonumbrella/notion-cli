@@ -162,3 +162,122 @@ func TestPrinter_WithQuery_RuntimeError_NoPanicFormatting_NDJSON(t *testing.T) {
 		t.Fatalf("query error leaked panic formatting: %s", msg)
 	}
 }
+
+// TestPrinter_WithQuery_TypedStruct_JSON verifies that --query works on typed Go
+// structs (like *notion.Page), not just map[string]interface{}. This was the root
+// cause of the panic: gojq received a struct it couldn't traverse.
+func TestPrinter_WithQuery_TypedStruct_JSON(t *testing.T) {
+	type page struct {
+		Object string                 `json:"object"`
+		ID     string                 `json:"id"`
+		Props  map[string]interface{} `json:"properties"`
+	}
+
+	data := &page{
+		Object: "page",
+		ID:     "abc-123",
+		Props: map[string]interface{}{
+			"Name": map[string]interface{}{"type": "title"},
+		},
+	}
+
+	var buf bytes.Buffer
+	ctx := WithQuery(context.Background(), ".id")
+	printer := NewPrinter(&buf, FormatJSON)
+
+	err := printer.Print(ctx, data)
+	if err != nil {
+		t.Fatalf("print with --query on typed struct failed: %v", err)
+	}
+
+	got := strings.TrimSpace(buf.String())
+	if got != `"abc-123"` {
+		t.Errorf("expected \"abc-123\", got: %s", got)
+	}
+}
+
+// TestPrinter_WithQuery_TypedStruct_NDJSON verifies the same fix for NDJSON output.
+func TestPrinter_WithQuery_TypedStruct_NDJSON(t *testing.T) {
+	type page struct {
+		Object string `json:"object"`
+		ID     string `json:"id"`
+	}
+
+	data := &page{Object: "page", ID: "abc-123"}
+
+	var buf bytes.Buffer
+	ctx := WithQuery(context.Background(), ".id")
+	printer := NewPrinter(&buf, FormatNDJSON)
+
+	err := printer.Print(ctx, data)
+	if err != nil {
+		t.Fatalf("print with --query on typed struct failed: %v", err)
+	}
+
+	got := strings.TrimSpace(buf.String())
+	if got != `"abc-123"` {
+		t.Errorf("expected \"abc-123\", got: %s", got)
+	}
+}
+
+// TestPrinter_WithQuery_TypedStruct_NestedAccess verifies deep property access
+// on typed structs — the exact scenario from the bug report:
+// notion page get ID -o json --query '.properties["Name"]'
+func TestPrinter_WithQuery_TypedStruct_NestedAccess(t *testing.T) {
+	type page struct {
+		Object     string                 `json:"object"`
+		ID         string                 `json:"id"`
+		Properties map[string]interface{} `json:"properties"`
+	}
+
+	data := &page{
+		Object: "page",
+		ID:     "abc-123",
+		Properties: map[string]interface{}{
+			"Name": map[string]interface{}{
+				"type": "title",
+				"title": []interface{}{
+					map[string]interface{}{"plain_text": "Hello"},
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	ctx := WithQuery(context.Background(), `.properties["Name"].type`)
+	printer := NewPrinter(&buf, FormatJSON)
+
+	err := printer.Print(ctx, data)
+	if err != nil {
+		t.Fatalf("print with --query on nested struct property failed: %v", err)
+	}
+
+	got := strings.TrimSpace(buf.String())
+	if got != `"title"` {
+		t.Errorf("expected \"title\", got: %s", got)
+	}
+}
+
+// TestPrinter_WithQuery_TextFormat verifies that --query works with text output.
+func TestPrinter_WithQuery_TextFormat(t *testing.T) {
+	type page struct {
+		Object string `json:"object"`
+		ID     string `json:"id"`
+	}
+
+	data := &page{Object: "page", ID: "abc-123"}
+
+	var buf bytes.Buffer
+	ctx := WithQuery(context.Background(), ".id")
+	printer := NewPrinter(&buf, FormatText)
+
+	err := printer.Print(ctx, data)
+	if err != nil {
+		t.Fatalf("print with --query on text format failed: %v", err)
+	}
+
+	got := strings.TrimSpace(buf.String())
+	if got != "abc-123" {
+		t.Errorf("expected abc-123, got: %s", got)
+	}
+}
