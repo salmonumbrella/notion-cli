@@ -37,6 +37,7 @@ directly with Notion's MCP server using your personal Notion account.`,
 	cmd.AddCommand(newMCPUsersCmd())
 	cmd.AddCommand(newMCPToolsCmd())
 	cmd.AddCommand(newMCPDBCmd())
+	cmd.AddCommand(newMCPQueryCmd())
 
 	return cmd
 }
@@ -731,6 +732,85 @@ Use --id to specify the data source ID (required). Optionally set --title,
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database schema properties as a JSON object")
 	cmd.Flags().BoolVar(&trash, "trash", false, "Move database to trash")
 	_ = cmd.MarkFlagRequired("id")
+
+	return cmd
+}
+
+func newMCPQueryCmd() *cobra.Command {
+	var (
+		viewURL   string
+		paramsStr string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "query <sql-or-data-source-url>...",
+		Short: "Query databases using SQL via MCP",
+		Long: `Query Notion databases using SQL or execute a database view.
+
+SQL MODE (default):
+  Pass one or more data source URLs (from 'ntn mcp fetch <db>') and a SQL query.
+  Use the data source URL as the table name in your query.
+
+  ntn mcp query 'SELECT * FROM "collection://abc123" LIMIT 10' collection://abc123
+  ntn mcp query 'SELECT * FROM "collection://abc123" WHERE Status = ?' collection://abc123 --params '["In Progress"]'
+
+VIEW MODE:
+  Execute a database view's existing filters and sorts.
+
+  ntn mcp query --view "https://www.notion.so/workspace/Tasks-abc123?v=def456"
+
+Notes:
+  - Use 'ntn mcp fetch <database-url>' first to get data source URLs
+  - Data source URLs are found in <data-source url="collection://..."> tags
+  - Checkbox values: use "__YES__" for checked, "__NO__" for unchecked
+  - Use parameterized queries (? placeholders + --params) for safety`,
+		Args: cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			client, cleanup, err := mcpClientFromToken(ctx)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			// View mode.
+			if viewURL != "" {
+				result, err := client.QueryDataSourcesView(ctx, viewURL)
+				if err != nil {
+					return err
+				}
+				_, _ = fmt.Fprintln(stdoutFromContext(ctx), result)
+				return nil
+			}
+
+			// SQL mode: first arg is the SQL query, remaining args are data source URLs.
+			if len(args) < 2 {
+				return fmt.Errorf("SQL mode requires at least 2 args: <sql-query> <data-source-url>")
+			}
+
+			sqlQuery := args[0]
+			dataSourceURLs := args[1:]
+
+			var queryParams []interface{}
+			if paramsStr != "" {
+				if err := json.Unmarshal([]byte(paramsStr), &queryParams); err != nil {
+					return fmt.Errorf("invalid --params JSON array: %w", err)
+				}
+			}
+
+			result, err := client.QueryDataSourcesSQL(ctx, dataSourceURLs, sqlQuery, queryParams)
+			if err != nil {
+				return err
+			}
+
+			_, _ = fmt.Fprintln(stdoutFromContext(ctx), result)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&viewURL, "view", "", "Execute a database view by URL (view mode)")
+	cmd.Flags().StringVar(&paramsStr, "params", "", "JSON array of query parameters for ? placeholders")
 
 	return cmd
 }

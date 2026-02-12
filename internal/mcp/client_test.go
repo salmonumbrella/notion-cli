@@ -478,6 +478,59 @@ func TestCallToolArgConstruction(t *testing.T) {
 			t.Errorf("in_trash = %v, want true", args["in_trash"])
 		}
 	})
+
+	t.Run("query data sources sql", func(t *testing.T) {
+		urls := []string{"collection://abc123"}
+		query := `SELECT * FROM "collection://abc123" WHERE Status = ?`
+		params := []interface{}{"In Progress"}
+		data := map[string]interface{}{
+			"data_source_urls": urls,
+			"query":            query,
+			"params":           params,
+		}
+		args := map[string]interface{}{"data": data}
+		d := args["data"].(map[string]interface{})
+		if d["query"] != query {
+			t.Errorf("query mismatch")
+		}
+		dsURLs := d["data_source_urls"].([]string)
+		if len(dsURLs) != 1 || dsURLs[0] != "collection://abc123" {
+			t.Errorf("data_source_urls = %v", dsURLs)
+		}
+		p := d["params"].([]interface{})
+		if len(p) != 1 || p[0] != "In Progress" {
+			t.Errorf("params = %v", p)
+		}
+	})
+
+	t.Run("query data sources sql no params", func(t *testing.T) {
+		data := map[string]interface{}{
+			"data_source_urls": []string{"collection://abc123"},
+			"query":            `SELECT * FROM "collection://abc123" LIMIT 10`,
+		}
+		args := map[string]interface{}{"data": data}
+		d := args["data"].(map[string]interface{})
+		if _, ok := d["params"]; ok {
+			t.Error("params should not be present when empty")
+		}
+	})
+
+	t.Run("query data sources view", func(t *testing.T) {
+		viewURL := "https://www.notion.so/workspace/Tasks-abc123?v=def456"
+		args := map[string]interface{}{
+			"data": map[string]interface{}{
+				"mode":     "view",
+				"view_url": viewURL,
+			},
+		}
+		d := args["data"].(map[string]interface{})
+		if d["mode"] != "view" {
+			t.Errorf("mode = %v, want 'view'", d["mode"])
+		}
+		if d["view_url"] != viewURL {
+			t.Errorf("view_url = %v", d["view_url"])
+		}
+	})
 }
 
 func TestPKCEGeneration(t *testing.T) {

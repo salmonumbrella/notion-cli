@@ -195,3 +195,29 @@ func (c *Client) CreateDatabase(ctx context.Context, args map[string]interface{}
 func (c *Client) UpdateDataSource(ctx context.Context, args map[string]interface{}) (string, error) {
 	return c.CallTool(ctx, "notion-update-data-source", args)
 }
+
+// QueryDataSourcesSQL invokes the notion-query-data-sources MCP tool in SQL mode.
+func (c *Client) QueryDataSourcesSQL(ctx context.Context, dataSourceURLs []string, query string, params []interface{}) (string, error) {
+	data := map[string]interface{}{
+		"data_source_urls": dataSourceURLs,
+		"query":            query,
+	}
+	if len(params) > 0 {
+		data["params"] = params
+	}
+	args := map[string]interface{}{
+		"data": data,
+	}
+	return c.CallTool(ctx, "notion-query-data-sources", args)
+}
+
+// QueryDataSourcesView invokes the notion-query-data-sources MCP tool in view mode.
+func (c *Client) QueryDataSourcesView(ctx context.Context, viewURL string) (string, error) {
+	args := map[string]interface{}{
+		"data": map[string]interface{}{
+			"mode":     "view",
+			"view_url": viewURL,
+		},
+	}
+	return c.CallTool(ctx, "notion-query-data-sources", args)
+}

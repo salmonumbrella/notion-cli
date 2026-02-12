@@ -30,6 +30,7 @@ func TestMCPCommandTree(t *testing.T) {
 		"users",
 		"tools",
 		"db",
+		"query",
 	}
 
 	subCmds := make(map[string]bool)
@@ -209,6 +210,17 @@ func TestMCPDBUpdateFlags(t *testing.T) {
 	for _, name := range wantFlags {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("db update command missing --%s flag", name)
+		}
+	}
+}
+
+func TestMCPQueryFlags(t *testing.T) {
+	cmd := newMCPQueryCmd()
+
+	wantFlags := []string{"view", "params"}
+	for _, name := range wantFlags {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("query command missing --%s flag", name)
 		}
 	}
 }
