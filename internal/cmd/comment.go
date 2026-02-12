@@ -127,7 +127,7 @@ Example - Output only results array:
 
 					result, err := client.ListComments(ctx, blockID, opts)
 					if err != nil {
-						return errors.APINotFoundError(err, "block", blockID)
+						return wrapAPIError(err, "list comments", "block", blockID)
 					}
 
 					allComments = append(allComments, result.Results...)
@@ -160,7 +160,7 @@ Example - Output only results array:
 
 			result, err := client.ListComments(ctx, blockID, opts)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", blockID)
+				return wrapAPIError(err, "list comments", "block", blockID)
 			}
 
 			if limit > 0 && len(result.Results) > limit {
@@ -206,7 +206,7 @@ Example:
 
 			comment, err := client.GetComment(ctx, commentID)
 			if err != nil {
-				return errors.APINotFoundError(err, "comment", commentID)
+				return wrapAPIError(err, "get comment", "comment", commentID)
 			}
 
 			printer := printerForContext(ctx)
@@ -381,7 +381,7 @@ Combined example (all flags together):
 				if target == "" {
 					target = discussionID
 				}
-				return errors.APINotFoundError(err, "page", target)
+				return wrapAPIError(err, "create comment", "page", target)
 			}
 
 			// Print result

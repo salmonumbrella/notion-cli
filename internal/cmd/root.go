@@ -272,7 +272,7 @@ Example:
 
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
-				return errors.APINotFoundError(err, "page", args[0])
+				return wrapAPIError(err, "get page", "page", args[0])
 			}
 
 			// Open in browser
@@ -447,7 +447,7 @@ Example:
 
 			page, err := client.CreatePage(ctx, req)
 			if err != nil {
-				return errors.APINotFoundError(err, "database", firstDB.Alias)
+				return wrapAPIError(err, "create page", "database", firstDB.Alias)
 			}
 
 			printer := printerForContext(ctx)
