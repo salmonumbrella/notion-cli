@@ -101,8 +101,9 @@ func newMCPSearchCmd() *cobra.Command {
 	var aiFlag bool
 
 	cmd := &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search Notion workspace via MCP",
+		Use:     "search <query>",
+		Aliases: []string{"s"},
+		Short:   "Search Notion workspace via MCP",
 		Long: `Search your Notion workspace using the MCP notion-search tool.
 
 By default uses workspace search. Use --ai for semantic search that
@@ -131,15 +132,16 @@ also searches connected apps.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&aiFlag, "ai", false, "Use AI-powered semantic search (searches connected apps too)")
+	cmd.Flags().BoolVarP(&aiFlag, "ai", "a", false, "Use AI-powered semantic search (searches connected apps too)")
 
 	return cmd
 }
 
 func newMCPFetchCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "fetch <page-id-or-url>",
-		Short: "Fetch a Notion page as markdown via MCP",
+		Use:     "fetch <page-id-or-url>",
+		Aliases: []string{"f"},
+		Short:   "Fetch a Notion page as markdown via MCP",
 		Long: `Retrieve a Notion page or database as markdown content using the
 MCP notion-fetch tool.
 
@@ -175,8 +177,9 @@ func newMCPCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a Notion page via MCP",
+		Use:     "create",
+		Aliases: []string{"c"},
+		Short:   "Create a Notion page via MCP",
 		Long: `Create a new Notion page with markdown content using the MCP
 notion-create-pages tool.
 
@@ -243,11 +246,11 @@ over page properties, use --properties with a JSON object.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page ID")
+	cmd.Flags().StringVarP(&parentID, "parent", "p", "", "Parent page ID")
 	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID for the parent")
-	cmd.Flags().StringVar(&title, "title", "", "Page title (shorthand for properties.title)")
+	cmd.Flags().StringVarP(&title, "title", "t", "", "Page title (shorthand for properties.title)")
 	cmd.Flags().StringVar(&content, "content", "", "Markdown content for the page body")
-	cmd.Flags().StringVar(&contentFile, "file", "", "Read markdown content from a file path")
+	cmd.Flags().StringVarP(&contentFile, "file", "f", "", "Read markdown content from a file path")
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as a JSON object")
 
 	return cmd
@@ -263,8 +266,9 @@ func newMCPEditCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "edit <page-id>",
-		Short: "Edit a Notion page via MCP",
+		Use:     "edit <page-id>",
+		Aliases: []string{"e"},
+		Short:   "Edit a Notion page via MCP",
 		Long: `Edit a Notion page using the MCP notion-update-page tool.
 
 Supports four operations:
@@ -355,8 +359,9 @@ Supports four operations:
 
 func newMCPCommentCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "comment",
-		Short: "Manage comments on Notion pages via MCP",
+		Use:     "comment",
+		Aliases: []string{"cm"},
+		Short:   "Manage comments on Notion pages via MCP",
 	}
 
 	cmd.AddCommand(newMCPCommentListCmd())
@@ -367,9 +372,10 @@ func newMCPCommentCmd() *cobra.Command {
 
 func newMCPCommentListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <page-id>",
-		Short: "List comments on a Notion page",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list <page-id>",
+		Aliases: []string{"ls"},
+		Short:   "List comments on a Notion page",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			client, cleanup, err := mcpClientFromToken(ctx)
@@ -391,9 +397,10 @@ func newMCPCommentListCmd() *cobra.Command {
 
 func newMCPCommentAddCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "add <page-id> <text>",
-		Short: "Add a comment to a Notion page",
-		Args:  cobra.ExactArgs(2),
+		Use:     "add <page-id> <text>",
+		Aliases: []string{"a"},
+		Short:   "Add a comment to a Notion page",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			client, cleanup, err := mcpClientFromToken(ctx)
@@ -457,8 +464,9 @@ func newMCPMoveCmd() *cobra.Command {
 	var parentID string
 
 	cmd := &cobra.Command{
-		Use:   "move <page-id>...",
-		Short: "Move pages to a new parent",
+		Use:     "move <page-id>...",
+		Aliases: []string{"mv"},
+		Short:   "Move pages to a new parent",
 		Long: `Move one or more Notion pages or databases to a new parent page
 using the MCP notion-move-pages tool.`,
 		Args: cobra.MinimumNArgs(1),
@@ -480,7 +488,7 @@ using the MCP notion-move-pages tool.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&parentID, "parent", "", "Destination parent page ID")
+	cmd.Flags().StringVarP(&parentID, "parent", "p", "", "Destination parent page ID")
 	_ = cmd.MarkFlagRequired("parent")
 
 	return cmd
@@ -488,8 +496,9 @@ using the MCP notion-move-pages tool.`,
 
 func newMCPDuplicateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "duplicate <page-id>",
-		Short: "Duplicate a Notion page",
+		Use:     "duplicate <page-id>",
+		Aliases: []string{"dup"},
+		Short:   "Duplicate a Notion page",
 		Long: `Duplicate a Notion page using the MCP notion-duplicate-page tool.
 
 The duplication is performed asynchronously by Notion. The command returns
@@ -517,9 +526,10 @@ appear in your workspace.`,
 
 func newMCPTeamsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "teams [query]",
-		Short: "List workspace teams (teamspaces)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "teams [query]",
+		Aliases: []string{"tm"},
+		Short:   "List workspace teams (teamspaces)",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			client, cleanup, err := mcpClientFromToken(ctx)
@@ -552,9 +562,10 @@ func newMCPUsersCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "users [query]",
-		Short: "List workspace users",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "users [query]",
+		Aliases: []string{"u"},
+		Short:   "List workspace users",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			client, cleanup, err := mcpClientFromToken(ctx)
@@ -605,8 +616,9 @@ func newMCPDBCreateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new database via MCP",
+		Use:     "create",
+		Aliases: []string{"c"},
+		Short:   "Create a new database via MCP",
 		Long: `Create a new Notion database using the MCP notion-create-database tool.
 
 Use --parent to specify the parent page ID. Use --title for the database title.
@@ -659,8 +671,8 @@ Use --properties to define the database schema as a JSON object.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page ID")
-	cmd.Flags().StringVar(&title, "title", "", "Database title")
+	cmd.Flags().StringVarP(&parentID, "parent", "p", "", "Parent page ID")
+	cmd.Flags().StringVarP(&title, "title", "t", "", "Database title")
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database schema properties as a JSON object")
 
 	return cmd
@@ -675,8 +687,9 @@ func newMCPDBUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update a database schema via MCP",
+		Use:     "update",
+		Aliases: []string{"u"},
+		Short:   "Update a database schema via MCP",
 		Long: `Update a Notion database schema using the MCP notion-update-data-source tool.
 
 Use --id to specify the data source ID (required). Optionally set --title,
@@ -728,7 +741,7 @@ Use --id to specify the data source ID (required). Optionally set --title,
 	}
 
 	cmd.Flags().StringVar(&dataSourceID, "id", "", "Data source ID (required)")
-	cmd.Flags().StringVar(&title, "title", "", "New database title")
+	cmd.Flags().StringVarP(&title, "title", "t", "", "New database title")
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database schema properties as a JSON object")
 	cmd.Flags().BoolVar(&trash, "trash", false, "Move database to trash")
 	_ = cmd.MarkFlagRequired("id")
@@ -743,8 +756,9 @@ func newMCPQueryCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "query <sql-or-data-source-url>...",
-		Short: "Query databases using SQL via MCP",
+		Use:     "query <sql-or-data-source-url>...",
+		Aliases: []string{"q"},
+		Short:   "Query databases using SQL via MCP",
 		Long: `Query Notion databases using SQL or execute a database view.
 
 SQL MODE (default):
@@ -809,8 +823,8 @@ Notes:
 		},
 	}
 
-	cmd.Flags().StringVar(&viewURL, "view", "", "Execute a database view by URL (view mode)")
-	cmd.Flags().StringVar(&paramsStr, "params", "", "JSON array of query parameters for ? placeholders")
+	cmd.Flags().StringVarP(&viewURL, "view", "v", "", "Execute a database view by URL (view mode)")
+	cmd.Flags().StringVarP(&paramsStr, "params", "P", "", "JSON array of query parameters for ? placeholders")
 
 	return cmd
 }

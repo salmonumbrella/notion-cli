@@ -35,25 +35,26 @@ ntn mcp status
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `ntn mcp login` | OAuth login to Notion MCP server |
-| `ntn mcp status` | Check MCP authentication status |
-| `ntn mcp search <query>` | Search workspace (add `--ai` for AI-powered search) |
-| `ntn mcp fetch <url-or-id>` | Fetch page/database as markdown |
-| `ntn mcp create` | Create pages with markdown content |
-| `ntn mcp edit <page-id>` | Edit page content or properties |
-| `ntn mcp query '<sql>' <url>...` | Query databases using SQL |
-| `ntn mcp query --view <url>` | Execute a database view |
-| `ntn mcp move <id>... --parent <id>` | Move pages to new parent |
-| `ntn mcp duplicate <page-id>` | Duplicate a page with content |
-| `ntn mcp comment list <id>` | List comments |
-| `ntn mcp comment add <id>` | Add a comment |
-| `ntn mcp teams` | List workspace teamspaces |
-| `ntn mcp users` | List workspace users |
-| `ntn mcp db create` | Create a database |
-| `ntn mcp db update` | Update database schema |
-| `ntn mcp tools` | List all available MCP tools |
+Every MCP command has a short alias for quick scripting:
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `ntn mcp login` | | OAuth login to Notion MCP server |
+| `ntn mcp status` | | Check MCP authentication status |
+| `ntn mcp search <query>` | `s` | Search workspace (add `-a` for AI search) |
+| `ntn mcp fetch <url-or-id>` | `f` | Fetch page/database as markdown |
+| `ntn mcp create` | `c` | Create pages with markdown content |
+| `ntn mcp edit <page-id>` | `e` | Edit page content or properties |
+| `ntn mcp query '<sql>' <url>...` | `q` | Query databases using SQL |
+| `ntn mcp move <id>... -p <id>` | `mv` | Move pages to new parent |
+| `ntn mcp duplicate <page-id>` | `dup` | Duplicate a page with content |
+| `ntn mcp comment list <id>` | `cm ls` | List comments |
+| `ntn mcp comment add <id>` | `cm a` | Add a comment |
+| `ntn mcp teams` | `tm` | List workspace teamspaces |
+| `ntn mcp users` | `u` | List workspace users |
+| `ntn mcp db create` | `db c` | Create a database |
+| `ntn mcp db update` | `db u` | Update database schema |
+| `ntn mcp tools` | | List all available MCP tools |
 
 ### Unique MCP Features
 
@@ -69,10 +70,16 @@ These capabilities are only available through the MCP backend:
 
 ```bash
 # Fetch a database to get its data source URL
-ntn mcp fetch https://notion.so/workspace/Tasks-abc123
+ntn mcp f https://notion.so/workspace/Tasks-abc123
 
-# Query it with SQL
-ntn mcp query 'SELECT * FROM "collection://abc123" WHERE Status = ?' collection://abc123 --params '["In Progress"]'
+# Query it with SQL (using aliases and short flags)
+ntn mcp q 'SELECT * FROM "collection://abc123" WHERE Status = ?' collection://abc123 -P '["In Progress"]'
+
+# Execute a saved database view
+ntn mcp q -v "https://www.notion.so/workspace/Tasks-abc123?v=def456"
+
+# AI-powered semantic search
+ntn mcp s -a "action items from last week"
 ```
 
 ## Installation
@@ -185,7 +192,7 @@ Every command has a short alias for quick scripting:
 | `skill` | `sk` | |
 | `import` | `im` | |
 | `webhook` | `wh` | |
-| `mcp` | | `login`, `logout`, `status`, `search`, `fetch`, `create`, `edit`, `comment`, `move`, `duplicate`, `query`, `teams`, `users`, `db`, `tools` |
+| `mcp` | | `login`, `logout`, `status`, `s`earch, `f`etch, `c`reate, `e`dit, `cm` comment, `mv` move, `dup`licate, `q`uery, `tm` teams, `u`sers, `db`, `tools` |
 
 ### Authentication
 
