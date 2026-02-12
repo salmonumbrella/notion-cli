@@ -18,7 +18,12 @@ func newDBCmd() *cobra.Command {
 		Use:     "db",
 		Aliases: []string{"database", "databases"},
 		Short:   "Manage Notion databases",
-		Long:    `Retrieve, query, create, and update Notion databases.`,
+		Long: `Retrieve, query, create, and update Notion databases.
+
+Use 'db' when you need database-level metadata (title, icon, cover, archived) or
+when querying by database name. 'db query' resolves the database to its primary
+data source automatically. Use 'datasource' instead when you have a data source ID
+directly, need to manage templates, or work with multi-source databases.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// When invoked without subcommand, default to list
 			listCmd := newDBListCmd()

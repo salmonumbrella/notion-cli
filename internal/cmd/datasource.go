@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -17,7 +18,12 @@ func newDataSourceCmd() *cobra.Command {
 		Use:     "datasource",
 		Aliases: []string{"ds"},
 		Short:   "Manage Notion data sources",
-		Long:    `Create, retrieve, query, and update Notion data sources (API v2025-09-03).`,
+		Long: `Create, retrieve, query, and update Notion data sources (API v2025-09-03).
+
+Use 'datasource' when you have a data source ID directly, need to manage templates,
+or work with multi-source databases. For single-source databases, 'datasource query'
+is equivalent to 'db query'. Use 'db' instead when you need database-level metadata
+(title, icon, cover, archived) or when querying by database name.`,
 	}
 
 	cmd.AddCommand(newDataSourceGetCmd())
@@ -200,22 +206,42 @@ func newDataSourceQueryCmd() *cobra.Command {
 	var filterFile string
 	var sortsJSON string
 	var sortsFile string
+	var startCursor string
 	var pageSize int
+	var all bool
 	var selectProperty string
 	var selectEquals string
 	var selectNot string
 	var selectMatch string
+	var statusEquals string
+	var statusProperty string
+	var assigneeContains string
+	var assigneeProperty string
+	var priorityEquals string
+	var priorityProperty string
 
 	cmd := &cobra.Command{
 		Use:   "query <datasource-id>",
 		Short: "Query a data source",
 		Long: `Query a Notion data source with optional filters, sorts, and pagination.
 
-The --filter flag accepts a JSON object representing the filter.
-The --filter-file flag reads filter JSON from a file (useful for complex filters).
-The --sorts flag accepts a JSON array of sort objects.
-The --sorts-file flag reads sorts JSON from a file.
-Use --page-size to control the number of results per page.
+The --filter flag accepts a JSON object representing the filter (supports @file or - for stdin).
+The --filter-file flag reads filter JSON from a file (useful for complex filters; - for stdin).
+The --sorts flag accepts a JSON array of sort objects (supports @file or - for stdin).
+The --sorts-file flag reads sorts JSON from a file (- for stdin).
+Use --page-size to control the number of results per page (max 100).
+Use --start-cursor for pagination.
+Use --all to fetch all pages of results automatically.
+Use global --results-only to output just the results array.
+
+AGENT-FRIENDLY FILTER SHORTHANDS:
+You can avoid writing JSON filters for common fields:
+  --status "In Progress"         Filter Status equals value (property type: status or select)
+  --assignee me                  Filter Assignee contains user (property type: people)
+  --priority High                Filter Priority equals value (property type: select or status)
+
+These shorthands require fetching the data source schema once to determine the
+correct filter shape. They combine with --filter using AND.
 
 Example - Query all pages:
   notion datasource query 12345678-1234-1234-1234-123456789012
@@ -226,7 +252,7 @@ Example - Query with filter:
     --page-size 10
 
 Example - Query with filter from file (avoids shell escaping issues):
-  notion datasource query 12345678-1234-1234-1234-123456789012 --filter-file filter.json
+  notion datasource query 12345678-1234-1234-1234-123456789012 --filter @filter.json
 
 Example - Query with sorts:
   notion datasource query 12345678-1234-1234-1234-123456789012 \
@@ -234,7 +260,17 @@ Example - Query with sorts:
 
 Example - Sort by created time (shorthand):
   notion datasource query 12345678-1234-1234-1234-123456789012 \
-    --sort-by created_time --desc`,
+    --sort-by created_time --desc
+
+Example - Fetch all results:
+  notion datasource query 12345678-1234-1234-1234-123456789012 --all
+
+Example - Query with pagination:
+  notion datasource query 12345678-1234-1234-1234-123456789012 --page-size 10 --start-cursor abc123
+
+Note: When using multi-line commands with backslash (\), ensure there are no
+trailing spaces after the backslash. Otherwise the shell may split the command
+incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -245,6 +281,7 @@ Example - Sort by created time (shorthand):
 				return err
 			}
 			limit := output.LimitFromContext(ctx)
+			sortField, sortDesc := output.SortFromContext(ctx)
 
 			if (selectEquals != "" || selectNot != "" || selectMatch != "") && selectProperty == "" {
 				return fmt.Errorf("--select-property is required when using --select-equals, --select-not, or --select-match")
@@ -263,26 +300,42 @@ Example - Sort by created time (shorthand):
 				return fmt.Errorf("use only one of --select-equals, --select-not, or --select-match")
 			}
 
+			// Back-compat: if --filter-file is set, treat it as the source of --filter.
+			// Also enables stdin via --filter-file -.
+			if filterFile != "" {
+				filterJSON = "@" + filterFile
+				if strings.TrimSpace(filterFile) == "-" {
+					filterJSON = "-"
+				}
+			}
+
 			var filter map[string]interface{}
-			if hasJSONInput(filterJSON, filterFile) {
-				parsed, resolved, err := resolveAndDecodeJSON[map[string]interface{}](filterJSON, filterFile, "invalid filter JSON")
+			if filterJSON != "" {
+				parsedFilter, resolved, err := readAndDecodeJSON[map[string]interface{}](filterJSON, "failed to parse filter JSON")
 				if err != nil {
 					return err
 				}
 				filterJSON = resolved
-				filter = parsed
+				filter = parsedFilter
 			}
 
-			// Resolve and parse sorts if provided
-			sortField, sortDesc := output.SortFromContext(ctx)
+			// Back-compat: if --sorts-file is set, treat it as the source of --sorts.
+			// Also enables stdin via --sorts-file -.
+			if sortsFile != "" {
+				sortsJSON = "@" + sortsFile
+				if strings.TrimSpace(sortsFile) == "-" {
+					sortsJSON = "-"
+				}
+			}
+
 			var sorts []map[string]interface{}
-			if hasJSONInput(sortsJSON, sortsFile) {
-				parsed, resolved, err := resolveAndDecodeJSON[[]map[string]interface{}](sortsJSON, sortsFile, "failed to parse sorts JSON")
+			if sortsJSON != "" {
+				parsedSorts, resolved, err := readAndDecodeJSON[[]map[string]interface{}](sortsJSON, "failed to parse sorts JSON")
 				if err != nil {
 					return err
 				}
 				sortsJSON = resolved
-				sorts = parsed
+				sorts = parsedSorts
 			}
 			if sortsJSON == "" {
 				if s := buildSortFromFlags(sortField, sortDesc); s != nil {
@@ -301,10 +354,63 @@ Example - Sort by created time (shorthand):
 				return err
 			}
 
+			// Build server-side shorthand filters (optional).
+			shorthandFilters, err := buildDBQueryShorthandFilters(ctx, client, sf, dataSourceID,
+				statusProperty, statusEquals,
+				assigneeProperty, assigneeContains,
+				priorityProperty, priorityEquals,
+			)
+			if err != nil {
+				return err
+			}
+			if len(shorthandFilters) > 0 {
+				filter = mergeNotionFilters(filter, shorthandFilters)
+			}
+
+			// If --all flag is set, fetch all pages
+			if all {
+				allPages, nextCursor, hasMore, err := fetchAllPages(ctx, startCursor, pageSize, limit, func(ctx context.Context, cursor string, pageSize int) ([]notion.Page, *string, bool, error) {
+					req := &notion.QueryDataSourceRequest{
+						Filter:      filter,
+						Sorts:       sorts,
+						StartCursor: cursor,
+						PageSize:    pageSize,
+					}
+
+					result, err := client.QueryDataSource(ctx, dataSourceID, req)
+					if err != nil {
+						return nil, nil, false, err
+					}
+
+					return result.Results, result.NextCursor, result.HasMore, nil
+				})
+				if err != nil {
+					return wrapAPIError(err, "query data source", "data source", args[0])
+				}
+
+				if selectProperty != "" && (selectEquals != "" || selectNot != "" || selectMatch != "") {
+					filtered, err := filterResultsBySelect(allPages, selectProperty, selectEquals, selectNot, selectMatch)
+					if err != nil {
+						return err
+					}
+					allPages = filtered
+				}
+
+				printer := printerForContext(ctx)
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     allPages,
+					"has_more":    hasMore,
+					"next_cursor": nextCursor,
+				})
+			}
+
+			// Single page request
 			req := &notion.QueryDataSourceRequest{
-				Filter:   filter,
-				Sorts:    sorts,
-				PageSize: pageSize,
+				Filter:      filter,
+				Sorts:       sorts,
+				StartCursor: startCursor,
+				PageSize:    pageSize,
 			}
 
 			result, err := client.QueryDataSource(ctx, dataSourceID, req)
@@ -325,15 +431,25 @@ Example - Sort by created time (shorthand):
 		},
 	}
 
-	cmd.Flags().StringVar(&filterJSON, "filter", "", "Filter JSON")
-	cmd.Flags().StringVar(&filterFile, "filter-file", "", "Read filter JSON from file")
-	cmd.Flags().StringVar(&sortsJSON, "sorts", "", "Sorts as JSON array")
-	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file")
-	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Results per page")
+	cmd.Flags().StringVar(&filterJSON, "filter", "", "Filter as JSON object (@file or - for stdin supported)")
+	cmd.Flags().StringVar(&filterFile, "filter-file", "", "Read filter JSON from file (- for stdin)")
+	cmd.Flags().StringVar(&sortsJSON, "sorts", "", "Sorts as JSON array (@file or - for stdin supported)")
+	cmd.Flags().StringVar(&sortsFile, "sorts-file", "", "Read sorts JSON from file (- for stdin)")
+	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
+	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
+	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select, multi_select, or status)")
 	cmd.Flags().StringVar(&selectEquals, "select-equals", "", "Match select name exactly")
 	cmd.Flags().StringVar(&selectNot, "select-not", "", "Exclude items where select name matches exactly")
 	cmd.Flags().StringVar(&selectMatch, "select-match", "", "Match select name with regex (Go syntax, use (?i) for case-insensitive). Note: filtering is applied after fetching, so fewer results may be returned when combined with --limit")
+	cmd.Flags().StringVar(&statusEquals, "status", "", "Shorthand: filter Status equals value (type status/select; requires schema lookup)")
+	cmd.Flags().StringVar(&statusProperty, "status-prop", "Status", "Property name to use for --status")
+	cmd.Flags().StringVar(&assigneeContains, "assignee", "", "Shorthand: filter Assignee contains user (type people; accepts skill alias)")
+	cmd.Flags().StringVar(&assigneeContains, "assigned-to", "", "Alias for --assignee")
+	_ = cmd.Flags().MarkHidden("assigned-to")
+	cmd.Flags().StringVar(&assigneeProperty, "assignee-prop", "Assignee", "Property name to use for --assignee")
+	cmd.Flags().StringVar(&priorityEquals, "priority", "", "Shorthand: filter Priority equals value (type select/status; requires schema lookup)")
+	cmd.Flags().StringVar(&priorityProperty, "priority-prop", "Priority", "Property name to use for --priority")
 
 	return cmd
 }
