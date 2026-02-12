@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
-	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
@@ -107,12 +106,10 @@ Examples:
 
 			// Get token from context
 			ctx := cmd.Context()
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			// Append blocks in batches (Notion API limit is 100 blocks per request)
 			if batchSize <= 0 || batchSize > 100 {

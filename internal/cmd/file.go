@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
-	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -83,12 +82,10 @@ Example - Upload and attach to page property:
 				}
 				pageID = normalized
 			}
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			// Step 1: Create file upload
 			createReq := &notion.CreateFileUploadRequest{
@@ -168,12 +165,10 @@ Example:
 
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			upload, err := client.GetFileUpload(ctx, fileUploadID)
 			if err != nil {
@@ -203,12 +198,10 @@ Example:
 			ctx := cmd.Context()
 			limit := output.LimitFromContext(ctx)
 			pageSize = capPageSize(pageSize, limit)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			opts := &notion.ListFileUploadsOptions{
 				StartCursor: startCursor,

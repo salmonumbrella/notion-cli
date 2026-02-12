@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
-	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -51,16 +50,14 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			ds, err := client.GetDataSource(ctx, dataSourceID)
 			if err != nil {
-				return fmt.Errorf("failed to get data source: %w", err)
+				return wrapAPIError(err, "get data source", "data source", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -104,23 +101,17 @@ Example:
 			}
 			parentID = normalizedParent
 
-			var properties map[string]interface{}
-			resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
+			properties, resolved, err := resolveAndDecodeJSON[map[string]interface{}](propertiesJSON, propertiesFile, "invalid properties JSON")
 			if err != nil {
 				return err
 			}
 			propertiesJSON = resolved
-			if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
-				return fmt.Errorf("invalid properties JSON: %w", err)
-			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			req := &notion.CreateDataSourceRequest{
 				Parent:     map[string]interface{}{"database_id": parentID},
@@ -129,7 +120,7 @@ Example:
 
 			ds, err := client.CreateDataSource(ctx, req)
 			if err != nil {
-				return fmt.Errorf("failed to create data source: %w", err)
+				return wrapAPIError(err, "create data source", "data source", parentID)
 			}
 
 			printer := printerForContext(ctx)
@@ -169,24 +160,20 @@ Example:
 			}
 
 			var properties map[string]interface{}
-			if propertiesJSON != "" || propertiesFile != "" {
-				resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
+			if hasJSONInput(propertiesJSON, propertiesFile) {
+				parsed, resolved, err := resolveAndDecodeJSON[map[string]interface{}](propertiesJSON, propertiesFile, "invalid properties JSON")
 				if err != nil {
 					return err
 				}
 				propertiesJSON = resolved
-				if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
-					return fmt.Errorf("invalid properties JSON: %w", err)
-				}
+				properties = parsed
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			req := &notion.UpdateDataSourceRequest{
 				Properties: properties,
@@ -194,7 +181,7 @@ Example:
 
 			ds, err := client.UpdateDataSource(ctx, dataSourceID, req)
 			if err != nil {
-				return fmt.Errorf("failed to update data source: %w", err)
+				return wrapAPIError(err, "update data source", "data source", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -277,29 +264,25 @@ Example - Sort by created time (shorthand):
 			}
 
 			var filter map[string]interface{}
-			if filterJSON != "" || filterFile != "" {
-				resolved, err := cmdutil.ResolveJSONInput(filterJSON, filterFile)
+			if hasJSONInput(filterJSON, filterFile) {
+				parsed, resolved, err := resolveAndDecodeJSON[map[string]interface{}](filterJSON, filterFile, "invalid filter JSON")
 				if err != nil {
 					return err
 				}
 				filterJSON = resolved
-				if err := cmdutil.UnmarshalJSONInput(filterJSON, &filter); err != nil {
-					return fmt.Errorf("invalid filter JSON: %w", err)
-				}
+				filter = parsed
 			}
 
 			// Resolve and parse sorts if provided
 			sortField, sortDesc := output.SortFromContext(ctx)
 			var sorts []map[string]interface{}
-			if sortsJSON != "" || sortsFile != "" {
-				resolved, err := cmdutil.ResolveJSONInput(sortsJSON, sortsFile)
+			if hasJSONInput(sortsJSON, sortsFile) {
+				parsed, resolved, err := resolveAndDecodeJSON[[]map[string]interface{}](sortsJSON, sortsFile, "failed to parse sorts JSON")
 				if err != nil {
 					return err
 				}
 				sortsJSON = resolved
-				if err := cmdutil.UnmarshalJSONInput(sortsJSON, &sorts); err != nil {
-					return fmt.Errorf("failed to parse sorts JSON: %w", err)
-				}
+				sorts = parsed
 			}
 			if sortsJSON == "" {
 				if s := buildSortFromFlags(sortField, sortDesc); s != nil {
@@ -313,12 +296,10 @@ Example - Sort by created time (shorthand):
 			pageSize = capPageSize(pageSize, limit)
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			req := &notion.QueryDataSourceRequest{
 				Filter:   filter,
@@ -328,7 +309,7 @@ Example - Sort by created time (shorthand):
 
 			result, err := client.QueryDataSource(ctx, dataSourceID, req)
 			if err != nil {
-				return fmt.Errorf("failed to query data source: %w", err)
+				return wrapAPIError(err, "query data source", "data source", args[0])
 			}
 
 			if selectProperty != "" && (selectEquals != "" || selectNot != "" || selectMatch != "") {
@@ -458,16 +439,14 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			list, err := client.ListDataSourceTemplates(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to list templates: %w", err)
+				return wrapAPIError(err, "list data source templates", "data source", "templates")
 			}
 
 			printer := printerForContext(ctx)
@@ -506,12 +485,10 @@ Example:
 				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
 			}
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			// Use search with database filter
 			filter := map[string]interface{}{
@@ -535,7 +512,7 @@ Example:
 					return result.Results, result.NextCursor, result.HasMore, nil
 				})
 				if err != nil {
-					return fmt.Errorf("failed to list data sources: %w", err)
+					return wrapAPIError(err, "list data sources", "data source", "workspace")
 				}
 
 				printer := printerForContext(ctx)
@@ -556,7 +533,7 @@ Example:
 
 			result, err := client.Search(ctx, req)
 			if err != nil {
-				return fmt.Errorf("failed to list data sources: %w", err)
+				return wrapAPIError(err, "list data sources", "data source", "workspace")
 			}
 
 			printer := printerForContext(ctx)

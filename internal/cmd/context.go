@@ -1,9 +1,14 @@
 package cmd
 
-import "context"
+import (
+	"context"
+
+	"github.com/salmonumbrella/notion-cli/internal/config"
+)
 
 type workspaceKey struct{}
 type errorFormatKey struct{}
+type configKey struct{}
 
 // WithWorkspace stores a workspace name in the context
 func WithWorkspace(ctx context.Context, workspace string) context.Context {
@@ -29,4 +34,17 @@ func ErrorFormatFromContext(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// WithConfig stores loaded CLI config in context for downstream helpers.
+func WithConfig(ctx context.Context, cfg *config.Config) context.Context {
+	return context.WithValue(ctx, configKey{}, cfg)
+}
+
+// ConfigFromContext retrieves CLI config from context.
+func ConfigFromContext(ctx context.Context) *config.Config {
+	if v, ok := ctx.Value(configKey{}).(*config.Config); ok {
+		return v
+	}
+	return nil
 }

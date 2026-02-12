@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,9 +10,16 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
-	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
+
+type blockTextCommandSpec struct {
+	Use    string
+	Short  string
+	Long   string
+	Action string
+	Build  func(text string) map[string]interface{}
+}
 
 func newBlockAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -20,12 +28,79 @@ func newBlockAddCmd() *cobra.Command {
 		Long:  `Convenience commands for adding common block types like paragraphs, headings, lists, etc.`,
 	}
 
-	cmd.AddCommand(newBlockAddParagraphCmd())
+	simpleTextSpecs := []blockTextCommandSpec{
+		{
+			Use:   "paragraph <parent-id> <text>",
+			Short: "Add a paragraph block",
+			Long: `Add a paragraph block with text content.
+
+Example:
+  notion block add paragraph abc123 "This is a paragraph"`,
+			Action: "add paragraph",
+			Build:  notion.NewParagraph,
+		},
+		{
+			Use:   "bullet <parent-id> <text>",
+			Short: "Add a bulleted list item",
+			Long: `Add a bulleted list item block.
+
+Example:
+  notion block add bullet abc123 "First item"`,
+			Action: "add bulleted list item",
+			Build:  notion.NewBulletedListItem,
+		},
+		{
+			Use:   "number <parent-id> <text>",
+			Short: "Add a numbered list item",
+			Long: `Add a numbered list item block.
+
+Example:
+  notion block add number abc123 "First item"`,
+			Action: "add numbered list item",
+			Build:  notion.NewNumberedListItem,
+		},
+		{
+			Use:   "toggle <parent-id> <text>",
+			Short: "Add a toggle block",
+			Long: `Add a toggle block (collapsible section).
+
+Note: Toggle blocks in Notion are implemented as bulleted list items with children.
+You can add children to the created toggle block using its block ID.
+
+Example:
+  notion block add toggle abc123 "Click to expand"`,
+			Action: "add toggle",
+			Build: func(text string) map[string]interface{} {
+				return map[string]interface{}{
+					"type": "toggle",
+					"toggle": map[string]interface{}{
+						"rich_text": []map[string]interface{}{
+							{
+								"type": "text",
+								"text": map[string]interface{}{"content": text},
+							},
+						},
+					},
+				}
+			},
+		},
+		{
+			Use:   "quote <parent-id> <text>",
+			Short: "Add a quote block",
+			Long: `Add a quote block.
+
+Example:
+  notion block add quote abc123 "To be or not to be"`,
+			Action: "add quote",
+			Build:  notion.NewQuote,
+		},
+	}
+
+	for _, spec := range simpleTextSpecs {
+		cmd.AddCommand(newSimpleTextBlockAddCmd(spec))
+	}
+
 	cmd.AddCommand(newBlockAddHeadingCmd())
-	cmd.AddCommand(newBlockAddBulletCmd())
-	cmd.AddCommand(newBlockAddNumberCmd())
-	cmd.AddCommand(newBlockAddToggleCmd())
-	cmd.AddCommand(newBlockAddQuoteCmd())
 	cmd.AddCommand(newBlockAddCalloutCmd())
 	cmd.AddCommand(newBlockAddCodeCmd())
 	cmd.AddCommand(newBlockAddToDoCmd())
@@ -34,47 +109,47 @@ func newBlockAddCmd() *cobra.Command {
 	return cmd
 }
 
-func newBlockAddParagraphCmd() *cobra.Command {
+func newSimpleTextBlockAddCmd(spec blockTextCommandSpec) *cobra.Command {
 	return &cobra.Command{
-		Use:   "paragraph <parent-id> <text>",
-		Short: "Add a paragraph block",
-		Long: `Add a paragraph block with text content.
-
-Example:
-  notion block add paragraph abc123 "This is a paragraph"`,
-		Args: cobra.ExactArgs(2),
+		Use:   spec.Use,
+		Short: spec.Short,
+		Long:  spec.Long,
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
 
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			parentID, err := resolveBlockAddParentID(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			text := args[1]
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
 
-			client := NewNotionClient(ctx, token)
-
-			block := notion.NewParagraph(text)
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
+			result, err := appendSingleBlock(ctx, client, parentID, spec.Build(args[1]), spec.Action, args[0])
 			if err != nil {
-				return fmt.Errorf("failed to add paragraph: %w", err)
+				return err
 			}
 
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
+			return printerForContext(ctx).Print(ctx, result)
 		},
 	}
+}
+
+func resolveBlockAddParentID(ctx context.Context, raw string) (string, error) {
+	sf := SkillFileFromContext(ctx)
+	return cmdutil.NormalizeNotionID(resolveID(sf, raw))
+}
+
+func appendSingleBlock(ctx context.Context, client *notion.Client, parentID string, block map[string]interface{}, action, identifier string) (*notion.BlockList, error) {
+	req := &notion.AppendBlockChildrenRequest{Children: []map[string]interface{}{block}}
+	result, err := client.AppendBlockChildren(ctx, parentID, req)
+	if err != nil {
+		return nil, wrapAPIError(err, action, "block", identifier)
+	}
+	return result, nil
 }
 
 func newBlockAddHeadingCmd() *cobra.Command {
@@ -92,241 +167,40 @@ Examples:
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			parentID, err := resolveBlockAddParentID(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			text := args[1]
-
 			if level < 1 || level > 3 {
 				return fmt.Errorf("heading level must be between 1 and 3, got %d", level)
 			}
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
 
-			client := NewNotionClient(ctx, token)
-
+			text := args[1]
 			var block map[string]interface{}
 			switch level {
 			case 1:
 				block = notion.NewHeading1(text)
 			case 2:
 				block = notion.NewHeading2(text)
-			case 3:
+			default:
 				block = notion.NewHeading3(text)
 			}
 
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
+			result, err := appendSingleBlock(ctx, client, parentID, block, "add heading", args[0])
 			if err != nil {
-				return fmt.Errorf("failed to add heading: %w", err)
+				return err
 			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
+			return printerForContext(ctx).Print(ctx, result)
 		},
 	}
 
 	cmd.Flags().IntVar(&level, "level", 2, "Heading level (1-3)")
 	return cmd
-}
-
-func newBlockAddBulletCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "bullet <parent-id> <text>",
-		Short: "Add a bulleted list item",
-		Long: `Add a bulleted list item block.
-
-Example:
-  notion block add bullet abc123 "First item"`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
-			text := args[1]
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
-			if err != nil {
-				return errors.AuthRequiredError(err)
-			}
-
-			client := NewNotionClient(ctx, token)
-
-			block := notion.NewBulletedListItem(text)
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
-			if err != nil {
-				return fmt.Errorf("failed to add bulleted list item: %w", err)
-			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
-		},
-	}
-}
-
-func newBlockAddNumberCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "number <parent-id> <text>",
-		Short: "Add a numbered list item",
-		Long: `Add a numbered list item block.
-
-Example:
-  notion block add number abc123 "First item"`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
-			text := args[1]
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
-			if err != nil {
-				return errors.AuthRequiredError(err)
-			}
-
-			client := NewNotionClient(ctx, token)
-
-			block := notion.NewNumberedListItem(text)
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
-			if err != nil {
-				return fmt.Errorf("failed to add numbered list item: %w", err)
-			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
-		},
-	}
-}
-
-func newBlockAddToggleCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "toggle <parent-id> <text>",
-		Short: "Add a toggle block",
-		Long: `Add a toggle block (collapsible section).
-
-Note: Toggle blocks in Notion are implemented as bulleted list items with children.
-You can add children to the created toggle block using its block ID.
-
-Example:
-  notion block add toggle abc123 "Click to expand"`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
-			text := args[1]
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
-			if err != nil {
-				return errors.AuthRequiredError(err)
-			}
-
-			client := NewNotionClient(ctx, token)
-
-			// Note: Toggle blocks in Notion API are toggle_list_item blocks
-			block := map[string]interface{}{
-				"type": "toggle",
-				"toggle": map[string]interface{}{
-					"rich_text": []map[string]interface{}{
-						{
-							"type": "text",
-							"text": map[string]interface{}{
-								"content": text,
-							},
-						},
-					},
-				},
-			}
-
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
-			if err != nil {
-				return fmt.Errorf("failed to add toggle: %w", err)
-			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
-		},
-	}
-}
-
-func newBlockAddQuoteCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "quote <parent-id> <text>",
-		Short: "Add a quote block",
-		Long: `Add a quote block.
-
-Example:
-  notion block add quote abc123 "To be or not to be"`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
-			if err != nil {
-				return err
-			}
-			text := args[1]
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
-			if err != nil {
-				return errors.AuthRequiredError(err)
-			}
-
-			client := NewNotionClient(ctx, token)
-
-			block := notion.NewQuote(text)
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
-			if err != nil {
-				return fmt.Errorf("failed to add quote: %w", err)
-			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
-		},
-	}
 }
 
 func newBlockAddCalloutCmd() *cobra.Command {
@@ -343,34 +217,20 @@ Examples:
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			parentID, err := resolveBlockAddParentID(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			text := args[1]
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
 
-			client := NewNotionClient(ctx, token)
-
-			block := notion.NewCallout(text, emoji)
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
+			result, err := appendSingleBlock(ctx, client, parentID, notion.NewCallout(args[1], emoji), "add callout", args[0])
 			if err != nil {
-				return fmt.Errorf("failed to add callout: %w", err)
+				return err
 			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
+			return printerForContext(ctx).Print(ctx, result)
 		},
 	}
 
@@ -393,34 +253,20 @@ Examples:
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			parentID, err := resolveBlockAddParentID(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			code := args[1]
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
 
-			client := NewNotionClient(ctx, token)
-
-			block := notion.NewCode(code, language)
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
+			result, err := appendSingleBlock(ctx, client, parentID, notion.NewCode(args[1], language), "add code block", args[0])
 			if err != nil {
-				return fmt.Errorf("failed to add code block: %w", err)
+				return err
 			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
+			return printerForContext(ctx).Print(ctx, result)
 		},
 	}
 
@@ -442,34 +288,20 @@ Examples:
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
-
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			parentID, err := resolveBlockAddParentID(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			text := args[1]
-
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
 
-			client := NewNotionClient(ctx, token)
-
-			block := notion.NewToDo(text, checked)
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{block},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
+			result, err := appendSingleBlock(ctx, client, parentID, notion.NewToDo(args[1], checked), "add to-do", args[0])
 			if err != nil {
-				return fmt.Errorf("failed to add to-do: %w", err)
+				return err
 			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
+			return printerForContext(ctx).Print(ctx, result)
 		},
 	}
 
@@ -494,13 +326,12 @@ Example with caption:
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			sf := SkillFileFromContext(ctx)
 
 			if filePath == "" {
 				return fmt.Errorf("--file is required")
 			}
 
-			parentID, err := cmdutil.NormalizeNotionID(resolveID(sf, args[0]))
+			parentID, err := resolveBlockAddParentID(ctx, args[0])
 			if err != nil {
 				return err
 			}
@@ -512,7 +343,6 @@ Example with caption:
 			defer func() { _ = file.Close() }()
 
 			filename := filepath.Base(filePath)
-
 			buffer := make([]byte, 512)
 			n, _ := file.Read(buffer)
 			contentType := http.DetectContentType(buffer[:n])
@@ -520,18 +350,15 @@ Example with caption:
 				return fmt.Errorf("failed to reset file position: %w", err)
 			}
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
 
-			client := NewNotionClient(ctx, token)
-
-			createReq := &notion.CreateFileUploadRequest{
+			upload, err := client.CreateFileUpload(ctx, &notion.CreateFileUploadRequest{
 				FileName:    filename,
 				ContentType: contentType,
-			}
-			upload, err := client.CreateFileUpload(ctx, createReq)
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create file upload: %w", err)
 			}
@@ -544,41 +371,29 @@ Example with caption:
 			image := map[string]interface{}{
 				"type": "image",
 				"image": map[string]interface{}{
-					"type": "file_upload",
-					"file_upload": map[string]interface{}{
-						"id": upload.ID,
-					},
+					"type":        "file_upload",
+					"file_upload": map[string]interface{}{"id": upload.ID},
 				},
 			}
-
 			if caption != "" {
 				imageProps := image["image"].(map[string]interface{})
 				imageProps["caption"] = []map[string]interface{}{
 					{
 						"type": "text",
-						"text": map[string]interface{}{
-							"content": caption,
-						},
+						"text": map[string]interface{}{"content": caption},
 					},
 				}
 			}
 
-			req := &notion.AppendBlockChildrenRequest{
-				Children: []map[string]interface{}{image},
-			}
-
-			result, err := client.AppendBlockChildren(ctx, parentID, req)
+			result, err := appendSingleBlock(ctx, client, parentID, image, "add image", args[0])
 			if err != nil {
-				return fmt.Errorf("failed to add image: %w", err)
+				return err
 			}
-
-			printer := printerForContext(ctx)
-			return printer.Print(ctx, result)
+			return printerForContext(ctx).Print(ctx, result)
 		},
 	}
 
 	cmd.Flags().StringVar(&filePath, "file", "", "Local image file path")
 	cmd.Flags().StringVar(&caption, "caption", "", "Caption text for the image")
-
 	return cmd
 }

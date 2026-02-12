@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
-	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -50,14 +49,10 @@ Example:
 				return err
 			}
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Get user
 			user, err := client.GetUser(ctx, userID)
@@ -103,14 +98,10 @@ Example:
 				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
 			}
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// If --all flag is set, fetch all pages
 			if all {
@@ -196,15 +187,11 @@ Example:
   notion user me`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Get token from context (respects workspace selection)
 			ctx := cmd.Context()
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Get self
 			user, err := client.GetSelf(ctx)

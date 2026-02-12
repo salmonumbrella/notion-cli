@@ -17,10 +17,8 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/config"
 	"github.com/salmonumbrella/notion-cli/internal/debug"
 	"github.com/salmonumbrella/notion-cli/internal/errors"
-	"github.com/salmonumbrella/notion-cli/internal/iocontext"
 	"github.com/salmonumbrella/notion-cli/internal/logging"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/output"
 	"github.com/salmonumbrella/notion-cli/internal/skill"
 	"github.com/salmonumbrella/notion-cli/internal/ui"
 )
@@ -74,125 +72,34 @@ func newRootCmd(app *App) *cobra.Command {
 				cfg = &config.Config{}
 			}
 
-			// Determine workspace: flag > env var > config default
-			ws := workspaceName
-			if ws == "" {
-				ws = os.Getenv("NOTION_WORKSPACE")
-			}
-
-			// Get output format from flag or config file
-			// Priority: --format (alias) > --output > NOTION_OUTPUT env var > config file > default
-			formatStr, _ := cmd.Flags().GetString("output")
-			if cmd.Flags().Changed("format") {
-				// --format alias takes precedence if explicitly used
-				formatStr, _ = cmd.Flags().GetString("format")
-			} else if !cmd.Flags().Changed("output") && strings.TrimSpace(os.Getenv("NOTION_OUTPUT")) != "" {
-				formatStr = os.Getenv("NOTION_OUTPUT")
-			} else if !cmd.Flags().Changed("output") && cfg.GetOutput() != "" {
-				// Fall back to config file default
-				formatStr = cfg.GetOutput()
-			} else if !cmd.Flags().Changed("output") {
-				// Default to JSON when stdout is not a TTY (agent-friendly)
-				if !isTerminal(app.Stdout) {
-					formatStr = string(output.FormatJSON)
-				}
-			}
-
-			// Parse and validate output format
-			format, err := output.ParseFormat(formatStr)
+			opts, err := parseGlobalOptions(cmd, cfg, app.Stdout, globalFlagInput{
+				workspaceName:   workspaceName,
+				queryFlag:       queryFlag,
+				jqFlag:          jqFlag,
+				fieldsFlag:      fieldsFlag,
+				pickFlag:        pickFlag,
+				jsonPathFlag:    jsonPathFlag,
+				quietFlag:       quietFlag,
+				failEmptyFlag:   failEmptyFlag,
+				latestFlag:      latestFlag,
+				recentFlag:      recentFlag,
+				yesFlag:         yesFlag,
+				limitFlag:       limitFlag,
+				sortBy:          sortBy,
+				descFlag:        descFlag,
+				resultsOnlyFlag: resultsOnlyFlag,
+				errorFormat:     errorFormat,
+			})
 			if err != nil {
 				return err
 			}
-
-			// In non-interactive JSON/YAML output, suppress non-essential warnings by default.
-			if !cmd.Flags().Changed("quiet") && !isTerminal(app.Stdout) {
-				switch format {
-				case output.FormatJSON, output.FormatNDJSON, output.FormatYAML:
-					quietFlag = true
-				}
+			if err := validateGlobalOptions(&opts); err != nil {
+				return err
 			}
 
-			// Get jq query from flags
-			query := queryFlag
-			if jqFlag != "" && query != "" {
-				return fmt.Errorf("use only one of --query or --jq")
-			}
-			if query == "" {
-				query = jqFlag
-			}
-			queryFileFlag, _ := cmd.Flags().GetString("query-file")
-			if query != "" && queryFileFlag != "" {
-				return fmt.Errorf("use only one of --query/--jq or --query-file")
-			}
-			if queryFileFlag != "" {
-				loaded, err := cmdutil.ReadInputSource(queryFileFlag)
-				if err != nil {
-					return err
-				}
-				query = loaded
-			}
-			normalizedQuery, queryNormalized := output.NormalizeQuery(query)
-			query = normalizedQuery
-
-			fieldsRaw := strings.TrimSpace(fieldsFlag)
-			if pickFlag != "" {
-				if fieldsRaw != "" {
-					return fmt.Errorf("use only one of --fields or --pick")
-				}
-				fieldsRaw = strings.TrimSpace(pickFlag)
-			}
-			if fieldsRaw != "" {
-				if err := output.ValidateFields(fieldsRaw); err != nil {
-					return err
-				}
-			}
-			jsonPathRaw := strings.TrimSpace(jsonPathFlag)
-
-			if query != "" && (fieldsRaw != "" || jsonPathRaw != "") {
-				return fmt.Errorf("use only one of --query/--jq/--query-file, --fields/--pick, or --jsonpath")
-			}
-			if fieldsRaw != "" && jsonPathRaw != "" {
-				return fmt.Errorf("use only one of --fields/--pick or --jsonpath")
-			}
-
-			if cmd.Flags().Changed("recent") && recentFlag <= 0 {
-				return fmt.Errorf("--recent must be >= 1")
-			}
-			if latestFlag && recentFlag > 0 {
-				return fmt.Errorf("use only one of --latest or --recent")
-			}
-			if latestFlag {
-				recentFlag = 1
-			}
-			if recentFlag > 0 {
-				if cmd.Flags().Changed("limit") || cmd.Flags().Changed("sort-by") || cmd.Flags().Changed("desc") {
-					return fmt.Errorf("--latest/--recent are shortcuts for --sort-by created_time --desc --limit N; do not combine with --sort-by/--desc/--limit")
-				}
-				limitFlag = recentFlag
-				sortBy = "created_time"
-				descFlag = true
-			}
-
-			// Inject format, debug mode, query, and workspace into context so subcommands can access them
-			ctx := cmd.Context()
-			ctx = iocontext.WithIO(ctx, app.Stdout, app.Stderr)
-			ctx = output.WithFormat(ctx, format)
-			ctx = output.WithQuery(ctx, query)
-			ctx = debug.WithDebug(ctx, debugMode)
-			ctx = WithWorkspace(ctx, ws)
-
-			// Inject agent-friendly flags into context
-			ctx = output.WithYes(ctx, yesFlag)
-			ctx = output.WithLimit(ctx, limitFlag)
-			ctx = output.WithSort(ctx, sortBy, descFlag)
-			ctx = output.WithQuiet(ctx, quietFlag)
-			ctx = output.WithFields(ctx, fieldsRaw)
-			ctx = output.WithJSONPath(ctx, jsonPathRaw)
-			ctx = output.WithFailEmpty(ctx, failEmptyFlag)
-			ctx = output.WithResultsOnly(ctx, resultsOnlyFlag)
-			ctx = WithErrorFormat(ctx, errorFormat)
-			ctx = ui.WithUI(ctx, ui.New(parseColorMode(cfg.GetColor())))
-			if queryNormalized && !quietFlag {
+			// Inject parsed global options into context so subcommands can access them.
+			ctx := buildRootContext(cmd.Context(), app, cfg, debugMode, opts)
+			if opts.queryNormalized && !opts.quiet {
 				ui.FromContext(ctx).Warning("Normalized --query by removing \\! (shell escape); use ! without backslash.")
 			}
 
@@ -208,11 +115,7 @@ func newRootCmd(app *App) *cobra.Command {
 			// Check token age and warn if old (skip for auth and config commands)
 			skipCommands := map[string]bool{"auth": true, "config": true}
 			if !skipCommands[cmd.Name()] && (cmd.Parent() == nil || !skipCommands[cmd.Parent().Name()]) {
-				checkTokenAgeAndWarn(ctx, quietFlag)
-			}
-
-			if err := validateErrorFormat(errorFormat); err != nil {
-				return err
+				checkTokenAgeAndWarn(ctx, opts.quiet)
 			}
 
 			// Suppress Cobra's default usage output when emitting structured errors.
@@ -322,12 +225,10 @@ This is a convenience alias for 'notion user me'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 			user, err := client.GetSelf(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get user info: %w", err)
@@ -354,12 +255,10 @@ Example:
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			// Resolve ID with search fallback
 			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
@@ -421,12 +320,10 @@ Example:
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 			printer := printerForContext(ctx)
 
 			// Resolve ID with search fallback (no filter - could be page or database)
@@ -501,12 +398,10 @@ Example:
 				}
 			}
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			// Build properties based on database config
 			titleProp := "Name"
@@ -614,9 +509,12 @@ func NewNotionClient(ctx context.Context, token string) *notion.Client {
 	if baseURL := strings.TrimSpace(os.Getenv("NOTION_API_BASE_URL")); baseURL != "" {
 		client.WithBaseURL(baseURL)
 	} else {
-		// Best-effort: load config again for API URL override.
-		// TODO: inject config via context to avoid redundant Load() call.
-		if cfg, err := config.Load(); err == nil && cfg != nil {
+		cfg := ConfigFromContext(ctx)
+		if cfg == nil {
+			// Backward compatibility for tests/direct calls that bypass root pre-run.
+			cfg, _ = config.Load()
+		}
+		if cfg != nil {
 			wsName := WorkspaceFromContext(ctx)
 			var ws *config.WorkspaceConfig
 			if wsName != "" {

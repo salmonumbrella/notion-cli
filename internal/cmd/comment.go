@@ -98,13 +98,10 @@ Example - Output only results array:
 				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
 			}
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Resolve target ID (supports skill alias, URL, and page name via search).
 			// Block IDs are UUIDs so they bypass search anyway.
@@ -202,12 +199,10 @@ Example:
 				return err
 			}
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			comment, err := client.GetComment(ctx, commentID)
 			if err != nil {
@@ -330,14 +325,10 @@ Combined example (all flags together):
 				resolvedPageMentions[i] = resolveID(sf, p)
 			}
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Resolve parent page ID (supports skill aliases, URLs, and page name via search).
 			if parentID != "" {

@@ -1,20 +1,15 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
-	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
-	"github.com/salmonumbrella/notion-cli/internal/richtext"
-	"github.com/salmonumbrella/notion-cli/internal/skill"
 )
 
 func newPageCmd() *cobra.Command {
@@ -99,12 +94,10 @@ Example:
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			// Resolve ID with search fallback
 			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
@@ -120,122 +113,13 @@ Example:
 				Archived: ptrBool(true),
 			})
 			if err != nil {
-				return errors.APINotFoundError(err, "page", args[0])
+				return wrapAPIError(err, "archive page", "page", args[0])
 			}
 
 			printer := printerForContext(ctx)
 			return printer.Print(ctx, page)
 		},
 	}
-}
-
-// PathEntry represents one ancestor in a page's breadcrumb path.
-type PathEntry struct {
-	Type  string `json:"type"` // "page" or "database"
-	ID    string `json:"id"`
-	Title string `json:"title,omitempty"`
-}
-
-// EnrichedPage wraps a Page with additional metadata resolved via extra API calls.
-// parent_title is the resolved title of the parent database or page.
-// child_count is the number of immediate child blocks.
-// path is the breadcrumb path from root to immediate parent.
-type EnrichedPage struct {
-	*notion.Page
-	ParentTitle string      `json:"parent_title,omitempty"`
-	ChildCount  int         `json:"child_count"`
-	Path        []PathEntry `json:"path,omitempty"`
-}
-
-// enrichPage fetches additional metadata for a page: parent title and child count.
-// This requires extra API calls, so it's opt-in via the --enrich flag.
-func enrichPage(ctx context.Context, client *notion.Client, page *notion.Page) *EnrichedPage {
-	enriched := &EnrichedPage{Page: page}
-
-	// Build breadcrumb path (root-first) and derive parent title from it.
-	// The last entry in the path is the immediate parent, so we extract
-	// ParentTitle from there instead of making a separate API call.
-	if page.Parent != nil {
-		enriched.Path = buildBreadcrumbPath(ctx, client, page.Parent)
-		if len(enriched.Path) > 0 {
-			enriched.ParentTitle = enriched.Path[len(enriched.Path)-1].Title
-		}
-	}
-
-	// Get child count (immediate children only)
-	children, err := client.GetBlockChildren(ctx, page.ID, nil)
-	if err == nil && children != nil {
-		enriched.ChildCount = len(children.Results)
-	}
-
-	return enriched
-}
-
-// buildBreadcrumbPath walks the parent chain and returns the path from root to
-// the immediate parent. Stops at workspace root or after maxDepth hops to avoid
-// runaway chains. Returns entries in root-first order.
-func buildBreadcrumbPath(ctx context.Context, client *notion.Client, parent map[string]interface{}) []PathEntry {
-	const maxDepth = 10
-	var entries []PathEntry
-
-	current := parent
-	for i := 0; i < maxDepth && current != nil; i++ {
-		if dbID, ok := current["database_id"].(string); ok && dbID != "" {
-			db, err := client.GetDatabase(ctx, dbID)
-			if err != nil {
-				break
-			}
-			entries = append(entries, PathEntry{
-				Type:  "database",
-				ID:    dbID,
-				Title: extractDatabaseTitle(*db),
-			})
-			break // Stop at database boundary to limit API calls
-		}
-
-		if pageID, ok := current["page_id"].(string); ok && pageID != "" {
-			parentPage, err := client.GetPage(ctx, pageID)
-			if err != nil {
-				break
-			}
-			entries = append(entries, PathEntry{
-				Type:  "page",
-				ID:    pageID,
-				Title: extractPageTitleFromProperties(parentPage.Properties),
-			})
-			current = parentPage.Parent
-			continue
-		}
-
-		break // workspace or unknown parent type
-	}
-
-	// Reverse: we collected child-first, but want root-first
-	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
-		entries[i], entries[j] = entries[j], entries[i]
-	}
-
-	return entries
-}
-
-// extractPageTitleFromProperties extracts the plain text title from a page's properties.
-func extractPageTitleFromProperties(properties map[string]interface{}) string {
-	if properties == nil {
-		return ""
-	}
-	// Look for the title property (type: "title")
-	for _, v := range properties {
-		prop, ok := v.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if prop["type"] == "title" {
-			if titleArr, ok := prop["title"].([]interface{}); ok {
-				return extractTitlePlainText(titleArr)
-			}
-		}
-	}
-	return ""
 }
 
 func newPageGetCmd() *cobra.Command {
@@ -269,14 +153,10 @@ Example:
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Resolve ID with search fallback
 			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
@@ -288,10 +168,9 @@ Example:
 				return err
 			}
 
-			// Get page
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
-				return errors.APINotFoundError(err, "page", args[0])
+				return wrapAPIError(err, "get page", "page", args[0])
 			}
 
 			// Filter out read-only properties if requested
@@ -337,12 +216,10 @@ Examples:
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			// Resolve ID with search fallback
 			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
@@ -356,7 +233,7 @@ Examples:
 
 			page, err := client.GetPage(ctx, pageID)
 			if err != nil {
-				return errors.APINotFoundError(err, "page", args[0])
+				return wrapAPIError(err, "get page", "page", args[0])
 			}
 
 			typeFilter := make(map[string]bool)
@@ -416,25 +293,6 @@ Examples:
 	cmd.Flags().BoolVar(&simple, "simple", false, "Include a best-effort simplified value (agent-friendly)")
 
 	return cmd
-}
-
-// propertyHasValue checks if a property has any value set. Note that false and 0
-// intentionally return true because a checkbox set to unchecked or a number set
-// to zero is still explicitly set (as opposed to being empty/unset).
-func propertyHasValue(value interface{}) bool {
-	if value == nil {
-		return false
-	}
-	switch v := value.(type) {
-	case string:
-		return v != ""
-	case []interface{}:
-		return len(v) > 0
-	case map[string]interface{}:
-		return len(v) > 0
-	default:
-		return true
-	}
 }
 
 // filterEditableProperties removes read-only computed property types from properties map.
@@ -527,27 +385,20 @@ Examples:
 				dataSourceID = normalized
 			}
 
-			// Resolve and parse properties JSON (may be empty if only using shorthand flags)
 			var properties map[string]interface{}
-			if propertiesJSON != "" || propertiesFile != "" {
-				resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
+			if hasJSONInput(propertiesJSON, propertiesFile) {
+				parsed, resolved, err := resolveAndDecodeJSON[map[string]interface{}](propertiesJSON, propertiesFile, "failed to parse properties JSON")
 				if err != nil {
 					return err
 				}
 				propertiesJSON = resolved
-				if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
-					return fmt.Errorf("failed to parse properties JSON: %w", err)
-				}
+				properties = parsed
 			}
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Merge shorthand flags into properties (flags take precedence)
 			properties = buildPropertiesFromFlags(sf, properties, statusFlag, priorityFlag, assigneeFlag)
@@ -565,7 +416,7 @@ Examples:
 				if dbID != "" {
 					db, err := client.GetDatabase(ctx, dbID)
 					if err != nil {
-						return fmt.Errorf("failed to get database schema for title property: %w", err)
+						return wrapAPIError(err, "get database schema for title property", "database", dbID)
 					}
 					titlePropName = findTitlePropertyName(db.Properties)
 				}
@@ -586,8 +437,7 @@ Examples:
 			// Create page
 			page, err := client.CreatePage(ctx, req)
 			if err != nil {
-				// Provide better error for parent not found
-				return errors.APINotFoundError(err, "parent", parentID)
+				return wrapAPIError(err, "create page", "parent", parentID)
 			}
 
 			// Print result
@@ -704,12 +554,10 @@ Combined example (all flags together):
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			// Get token early so we can use client for search resolution
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-			client := NewNotionClient(ctx, token)
 
 			// Resolve ID with search fallback
 			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
@@ -721,17 +569,14 @@ Combined example (all flags together):
 				return err
 			}
 
-			// Resolve and parse properties JSON if provided
 			var properties map[string]interface{}
-			if propertiesJSON != "" || propertiesFile != "" {
-				resolved, err := cmdutil.ResolveJSONInput(propertiesJSON, propertiesFile)
+			if hasJSONInput(propertiesJSON, propertiesFile) {
+				parsed, resolved, err := resolveAndDecodeJSON[map[string]interface{}](propertiesJSON, propertiesFile, "failed to parse properties JSON")
 				if err != nil {
 					return err
 				}
 				propertiesJSON = resolved
-				if err := cmdutil.UnmarshalJSONInput(propertiesJSON, &properties); err != nil {
-					return fmt.Errorf("failed to parse properties JSON: %w", err)
-				}
+				properties = parsed
 			}
 
 			// Merge shorthand flags into properties (flags take precedence)
@@ -741,7 +586,7 @@ Combined example (all flags together):
 			if titleFlag != "" {
 				page, err := client.GetPage(ctx, pageID)
 				if err != nil {
-					return fmt.Errorf("failed to get page for title property lookup: %w", err)
+					return wrapAPIError(err, "get page for title property lookup", "page", args[0])
 				}
 				titlePropName := findTitlePropertyNameFromPage(page.Properties)
 				properties = setTitleProperty(properties, titlePropName, titleFlag)
@@ -757,7 +602,7 @@ Combined example (all flags together):
 				// Fetch current page to show what would be updated
 				currentPage, err := client.GetPage(ctx, pageID)
 				if err != nil {
-					return fmt.Errorf("failed to fetch page: %w", err)
+					return wrapAPIError(err, "get page", "page", args[0])
 				}
 
 				printer := NewDryRunPrinter(stderrFromContext(ctx))
@@ -814,9 +659,8 @@ Combined example (all flags together):
 			// Update page
 			page, err := client.UpdatePage(ctx, pageID, req)
 			if err != nil {
-				// Try to enhance status validation errors with valid options
 				enhanced := notion.EnhanceStatusError(ctx, client, pageID, err)
-				return fmt.Errorf("failed to update page: %w", enhanced)
+				return wrapAPIError(enhanced, "update page", "page", args[0])
 			}
 
 			// Print result
@@ -845,204 +689,6 @@ Combined example (all flags together):
 	return cmd
 }
 
-// transformPropertiesWithMentions transforms string shorthand values in properties
-// to rich_text arrays with mentions. Only string values are transformed; other
-// property types (arrays, objects) are passed through unchanged.
-// Properties are processed in alphabetical order by name for deterministic
-// user ID assignment when multiple properties contain @Name patterns.
-// Returns the transformed properties and the number of user IDs that were actually used.
-func transformPropertiesWithMentions(properties map[string]interface{}, userIDs []string) (map[string]interface{}, int) {
-	return transformPropertiesWithMentionsVerbose(io.Discard, properties, userIDs, false, false)
-}
-
-// transformPropertiesWithMentionsVerbose is like transformPropertiesWithMentions but
-// optionally prints verbose output about markdown parsing and mention matching.
-// The w parameter specifies where verbose and warning output is written (typically os.Stderr in production).
-// When emitWarnings is true, warnings about unused --mention flags are also written to w.
-func transformPropertiesWithMentionsVerbose(w io.Writer, properties map[string]interface{}, userIDs []string, verbose bool, emitWarnings bool) (map[string]interface{}, int) {
-	result := make(map[string]interface{}, len(properties))
-	userIDIndex := 0
-
-	// Sort property names for deterministic iteration order
-	names := make([]string, 0, len(properties))
-	for name := range properties {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		value := properties[name]
-		// Only transform string values (shorthand for rich_text)
-		if strVal, ok := value.(string); ok {
-			// Parse markdown once - used for both verbose output and building rich text
-			tokens := richtext.ParseMarkdown(strVal)
-
-			if verbose {
-				_, _ = fmt.Fprintf(w, "Property %q:\n", name)
-				summary := richtext.SummarizeTokens(tokens)
-				_, _ = fmt.Fprintf(w, "  %s\n", richtext.FormatSummary(summary))
-			}
-
-			// Count @Name patterns in this string to consume the right number of user IDs
-			mentionsNeeded := richtext.CountMentions(strVal)
-
-			// Allocate user IDs for this property
-			var propertyUserIDs []string
-			if userIDIndex < len(userIDs) {
-				end := userIDIndex + mentionsNeeded
-				if end > len(userIDs) {
-					end = len(userIDs)
-				}
-				propertyUserIDs = userIDs[userIDIndex:end]
-				userIDIndex = end
-			}
-
-			if verbose && mentionsNeeded > 0 {
-				richtext.FormatMentionMappingsIndented(w, strVal, propertyUserIDs, "  ")
-			}
-
-			// Build rich text array from pre-parsed tokens (avoids redundant parsing)
-			richTextContent := richtext.BuildWithMentionsFromTokens(tokens, propertyUserIDs, nil)
-
-			// Convert to the format expected by Notion API
-			richTextArray := make([]interface{}, len(richTextContent))
-			for i, rt := range richTextContent {
-				rtMap := map[string]interface{}{
-					"type": rt.Type,
-				}
-				if rt.Text != nil {
-					rtMap["text"] = map[string]interface{}{
-						"content": rt.Text.Content,
-					}
-				}
-				if rt.Mention != nil {
-					mentionMap := map[string]interface{}{
-						"type": rt.Mention.Type,
-					}
-					if rt.Mention.User != nil {
-						mentionMap["user"] = map[string]interface{}{
-							"id": rt.Mention.User.ID,
-						}
-					}
-					rtMap["mention"] = mentionMap
-				}
-				if rt.Annotations != nil {
-					rtMap["annotations"] = map[string]interface{}{
-						"bold":          rt.Annotations.Bold,
-						"italic":        rt.Annotations.Italic,
-						"strikethrough": rt.Annotations.Strikethrough,
-						"underline":     rt.Annotations.Underline,
-						"code":          rt.Annotations.Code,
-						"color":         rt.Annotations.Color,
-					}
-				}
-				richTextArray[i] = rtMap
-			}
-
-			// Wrap in rich_text property structure
-			result[name] = map[string]interface{}{
-				"rich_text": richTextArray,
-			}
-		} else {
-			// Pass through non-string values unchanged
-			result[name] = value
-		}
-	}
-
-	// Emit warnings about unused --mention flags if requested
-	if emitWarnings && len(userIDs) > 0 {
-		if userIDIndex == 0 {
-			_, _ = fmt.Fprintf(w, "warning: %d --mention flag(s) provided but no @Name patterns found in property values\n", len(userIDs))
-		} else if userIDIndex < len(userIDs) {
-			_, _ = fmt.Fprintf(w, "warning: %d of %d --mention flag(s) unused (not enough @Name patterns)\n", len(userIDs)-userIDIndex, len(userIDs))
-		}
-	}
-
-	return result, userIDIndex
-}
-
-// buildPropertiesFromFlags merges shorthand property flags into a properties map.
-// The shorthand flags take precedence over properties already in the map.
-// If properties is nil, a new map is created.
-// Supports: --status (status property), --priority (select property), --assignee (people property).
-func buildPropertiesFromFlags(sf *skill.SkillFile, properties map[string]interface{}, status, priority, assignee string) map[string]interface{} {
-	if properties == nil {
-		properties = make(map[string]interface{})
-	}
-
-	if status != "" {
-		properties["Status"] = map[string]interface{}{
-			"status": map[string]interface{}{
-				"name": status,
-			},
-		}
-	}
-
-	if priority != "" {
-		properties["Priority"] = map[string]interface{}{
-			"select": map[string]interface{}{
-				"name": priority,
-			},
-		}
-	}
-
-	if assignee != "" {
-		// Resolve user ID from skill file or use as-is
-		resolvedID := resolveUserID(sf, assignee)
-		properties["Assignee"] = map[string]interface{}{
-			"people": []map[string]interface{}{
-				{"object": "user", "id": resolvedID},
-			},
-		}
-	}
-
-	return properties
-}
-
-// findTitlePropertyName finds the title property name in a database schema.
-// Returns "title" as the default if no title property is found.
-func findTitlePropertyName(properties map[string]map[string]interface{}) string {
-	for propName, propDef := range properties {
-		if propType, ok := propDef["type"].(string); ok && propType == "title" {
-			return propName
-		}
-	}
-	return "title"
-}
-
-// findTitlePropertyNameFromPage finds the title property name from a page's properties.
-// Returns "title" as the default if no title property is found.
-func findTitlePropertyNameFromPage(properties map[string]interface{}) string {
-	for propName, propVal := range properties {
-		prop, ok := propVal.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if prop["type"] == "title" {
-			return propName
-		}
-	}
-	return "title"
-}
-
-// setTitleProperty sets the title property in a properties map using the given property name.
-// The title is formatted as a rich text array with a single text element.
-func setTitleProperty(properties map[string]interface{}, propName, title string) map[string]interface{} {
-	if properties == nil {
-		properties = make(map[string]interface{})
-	}
-	properties[propName] = map[string]interface{}{
-		"title": []map[string]interface{}{
-			{
-				"text": map[string]interface{}{
-					"content": title,
-				},
-			},
-		},
-	}
-	return properties
-}
-
 func newPagePropertyCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "property <page-id> <property-id>",
@@ -1065,19 +711,15 @@ Example:
 			}
 			propertyID := args[1]
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Get property
 			property, err := client.GetPageProperty(ctx, pageID, propertyID)
 			if err != nil {
-				return fmt.Errorf("failed to get page property: %w", err)
+				return wrapAPIError(err, "get page property", "page", args[0])
 			}
 
 			// Print result
@@ -1141,12 +783,10 @@ Example - Move page to database:
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			req := &notion.MovePageRequest{
 				Parent: map[string]interface{}{parentKey: parentID},
@@ -1155,7 +795,7 @@ Example - Move page to database:
 
 			page, err := client.MovePage(ctx, pageID, req)
 			if err != nil {
-				return errors.APINotFoundError(err, "page", args[0])
+				return wrapAPIError(err, "move page", "page", args[0])
 			}
 
 			printer := printerForContext(ctx)

@@ -101,11 +101,10 @@ Examples:
 			candidates := resolveCandidatesFromSkill(sf, query, filterType)
 
 			// Then: Notion search.
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-			client := NewNotionClient(ctx, token)
 
 			filter := buildSearchFilter(filterType)
 

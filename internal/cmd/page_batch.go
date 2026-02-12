@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
-	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
@@ -98,12 +97,10 @@ Example:
 				return fmt.Errorf("no pages provided")
 			}
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 			parent, err := resolvePageParent(ctx, client, parentID, parentType, dataSourceID)
 			if err != nil {
 				return err
@@ -211,12 +208,10 @@ Example:
 			}
 
 			ctx := cmd.Context()
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			var updated []*notion.Page
 			var errors []map[string]interface{}

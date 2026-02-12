@@ -103,12 +103,10 @@ func runSkillInit(cmd *cobra.Command, args []string) error {
 	stderr := stderrFromContext(ctx)
 
 	// Get API client
-	token, err := GetTokenFromContext(ctx)
+	client, err := clientFromContext(ctx)
 	if err != nil {
-		return errors.AuthRequiredError(err)
+		return err
 	}
-
-	client := NewNotionClient(ctx, token)
 
 	_, _ = fmt.Fprintln(stderr, "Scanning your Notion workspace...")
 	_, _ = fmt.Fprintln(stderr, "")
@@ -261,12 +259,10 @@ func runSkillSync(cmd *cobra.Command, addNew bool) error {
 		return fmt.Errorf("failed to load skill file: %w", err)
 	}
 
-	// Get API client.
-	token, err := GetTokenFromContext(ctx)
+	client, err := clientFromContext(ctx)
 	if err != nil {
-		return errors.AuthRequiredError(err)
+		return err
 	}
-	client := NewNotionClient(ctx, token)
 
 	_, _ = fmt.Fprintln(stderr, "Scanning your Notion workspace...")
 	data, err := scanWorkspace(ctx, client)

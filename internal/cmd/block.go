@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
-	"github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -64,14 +63,10 @@ Example:
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
 
-			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Resolve ID with search fallback (no filter - blocks can be pages too)
 			blockID, err := resolveIDWithSearch(ctx, client, sf, args[0], "")
@@ -86,7 +81,7 @@ Example:
 			// Get block
 			block, err := client.GetBlock(ctx, blockID)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", args[0])
+				return wrapAPIError(err, "access block", "block", args[0])
 			}
 
 			// Print result
@@ -136,13 +131,10 @@ Example:
 				return fmt.Errorf("page-size must be between 1 and %d", NotionMaxPageSize)
 			}
 
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Resolve ID with search fallback
 			blockID, err := resolveIDWithSearch(ctx, client, sf, args[0], "")
@@ -163,7 +155,7 @@ Example:
 
 				blocks, err := client.GetBlockChildrenRecursive(ctx, blockID, depth, opts)
 				if err != nil {
-					return errors.APINotFoundError(err, "block", args[0])
+					return wrapAPIError(err, "access block", "block", args[0])
 				}
 
 				if limit > 0 && len(blocks) > limit {
@@ -190,7 +182,7 @@ Example:
 
 					blockList, err := client.GetBlockChildren(ctx, blockID, opts)
 					if err != nil {
-						return errors.APINotFoundError(err, "block", args[0])
+						return wrapAPIError(err, "access block", "block", args[0])
 					}
 
 					allBlocks = append(allBlocks, blockList.Results...)
@@ -221,7 +213,7 @@ Example:
 
 			blockList, err := client.GetBlockChildren(ctx, blockID, opts)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", args[0])
+				return wrapAPIError(err, "access block", "block", args[0])
 			}
 
 			if limit > 0 && len(blockList.Results) > limit {
@@ -298,12 +290,20 @@ TIP: For convenience commands, see 'notion block add --help'`,
 				if block == nil {
 					return fmt.Errorf("unsupported block type %q for simple mode\nSupported: paragraph, heading_1, heading_2, heading_3, bulleted_list_item, numbered_list_item, quote, callout, code, to_do, toggle, divider", blockType)
 				}
-				childrenJSON = mustMarshalJSON([]map[string]interface{}{block})
+				marshaled, err := marshalJSON([]map[string]interface{}{block})
+				if err != nil {
+					return err
+				}
+				childrenJSON = marshaled
 			} else if blockType != "" && content == "" {
 				// Special case for content-less blocks
 				if blockType == "divider" {
 					block := notion.NewDivider()
-					childrenJSON = mustMarshalJSON([]map[string]interface{}{block})
+					marshaled, err := marshalJSON([]map[string]interface{}{block})
+					if err != nil {
+						return err
+					}
+					childrenJSON = marshaled
 				} else {
 					return fmt.Errorf("--content is required when using --type (except for divider)")
 				}
@@ -348,13 +348,10 @@ TIP: For convenience commands, see 'notion block add --help'`,
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			// Build request
 			req := &notion.AppendBlockChildrenRequest{
@@ -365,7 +362,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 			// Append children
 			blockList, err := client.AppendBlockChildren(ctx, blockID, req)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", args[0])
+				return wrapAPIError(err, "access block", "block", args[0])
 			}
 
 			// Print result
@@ -417,13 +414,12 @@ func buildSimpleBlock(blockType, content string) map[string]interface{} {
 	}
 }
 
-// mustMarshalJSON marshals to JSON or panics (for internal use only)
-func mustMarshalJSON(v interface{}) string {
+func marshalJSON(v interface{}) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to encode children JSON: %w", err)
 	}
-	return string(b)
+	return string(b), nil
 }
 
 func newBlockUpdateCmd() *cobra.Command {
@@ -466,19 +462,16 @@ Example of updating a paragraph block:
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			if dryRun {
 				// Fetch current block to show what would be updated
 				currentBlock, err := client.GetBlock(ctx, blockID)
 				if err != nil {
-					return fmt.Errorf("failed to fetch block: %w", err)
+					return wrapAPIError(err, "get block", "block", args[0])
 				}
 
 				printer := NewDryRunPrinter(stderrFromContext(ctx))
@@ -527,17 +520,17 @@ Example of updating a paragraph block:
 					}
 					_, unarchiveErr := client.UpdateBlock(ctx, blockID, unarchiveReq)
 					if unarchiveErr != nil {
-						return fmt.Errorf("failed to update block (block is archived and auto-unarchive failed): %w", unarchiveErr)
+						return wrapAPIError(unarchiveErr, "unarchive block", "block", args[0])
 					}
 					_, _ = fmt.Fprintf(stderrFromContext(ctx), "Block was archived, auto-unarchived to apply update\n")
 
 					// Retry the original update
 					block, err = client.UpdateBlock(ctx, blockID, req)
 					if err != nil {
-						return fmt.Errorf("failed to update block after unarchiving: %w", err)
+						return wrapAPIError(err, "update block", "block", args[0])
 					}
 				} else {
-					return fmt.Errorf("failed to update block: %w", err)
+					return wrapAPIError(err, "update block", "block", args[0])
 				}
 			}
 
@@ -580,19 +573,16 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			// Create client
-			client := NewNotionClient(ctx, token)
 
 			if dryRun {
 				// Fetch current block to show what would be deleted
 				block, err := client.GetBlock(ctx, blockID)
 				if err != nil {
-					return fmt.Errorf("failed to fetch block: %w", err)
+					return wrapAPIError(err, "get block", "block", args[0])
 				}
 
 				printer := NewDryRunPrinter(stderrFromContext(ctx))
@@ -629,7 +619,7 @@ Example:
 			// Delete block
 			block, err := client.DeleteBlock(ctx, blockID)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", args[0])
+				return wrapAPIError(err, "access block", "block", args[0])
 			}
 
 			// Print result
@@ -680,12 +670,10 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			block := notion.NewTableOfContents(color)
 
@@ -695,7 +683,7 @@ Example:
 
 			result, err := client.AppendBlockChildren(ctx, parentID, req)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", args[0])
+				return wrapAPIError(err, "access block", "block", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -728,12 +716,10 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			block := notion.NewBreadcrumb()
 
@@ -743,7 +729,7 @@ Example:
 
 			result, err := client.AppendBlockChildren(ctx, parentID, req)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", args[0])
+				return wrapAPIError(err, "access block", "block", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -771,12 +757,10 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			block := notion.NewDivider()
 
@@ -786,7 +770,7 @@ Example:
 
 			result, err := client.AppendBlockChildren(ctx, parentID, req)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", args[0])
+				return wrapAPIError(err, "access block", "block", args[0])
 			}
 
 			printer := printerForContext(ctx)
@@ -823,12 +807,10 @@ Example:
 			}
 
 			// Get token from context (respects workspace selection)
-			token, err := GetTokenFromContext(ctx)
+			client, err := clientFromContext(ctx)
 			if err != nil {
-				return errors.AuthRequiredError(err)
+				return err
 			}
-
-			client := NewNotionClient(ctx, token)
 
 			// Create columns with placeholder content
 			columns := make([][]map[string]interface{}, columnCount)
@@ -846,7 +828,7 @@ Example:
 
 			result, err := client.AppendBlockChildren(ctx, parentID, req)
 			if err != nil {
-				return errors.APINotFoundError(err, "block", args[0])
+				return wrapAPIError(err, "access block", "block", args[0])
 			}
 
 			printer := printerForContext(ctx)
