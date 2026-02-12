@@ -57,8 +57,8 @@ func newBlockGetCmd() *cobra.Command {
 If you provide a name instead of an ID, the CLI will search for matching pages/blocks.
 
 Example:
-  notion block get 12345678-1234-1234-1234-123456789012
-  notion block get "Meeting Notes"`,
+  ntn block get 12345678-1234-1234-1234-123456789012
+  ntn block get "Meeting Notes"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -113,11 +113,11 @@ Use --all to fetch all pages of results automatically.
 Use --depth to recursively fetch nested children (e.g., content inside toggles, columns).
 
 Example:
-  notion block children 12345678-1234-1234-1234-123456789012
-  notion block children "Meeting Notes"
-  notion block children 12345678-1234-1234-1234-123456789012 --page-size 50
-  notion block children 12345678-1234-1234-1234-123456789012 --all
-  notion block children 12345678-1234-1234-1234-123456789012 --depth 3 -o json`,
+  ntn block children 12345678-1234-1234-1234-123456789012
+  ntn block children "Meeting Notes"
+  ntn block children 12345678-1234-1234-1234-123456789012 --page-size 50
+  ntn block children 12345678-1234-1234-1234-123456789012 --all
+  ntn block children 12345678-1234-1234-1234-123456789012 --depth 3 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -259,23 +259,23 @@ func newBlockAppendCmd() *cobra.Command {
 		Long: `Append child blocks to a parent block.
 
 SIMPLE USAGE (--type and --content):
-  notion block append PAGE_ID --type paragraph --content "Hello world"
-  notion block append PAGE_ID --type heading_2 --content "Section Title"
-  notion block append PAGE_ID --type bulleted_list_item --content "List item"
+  ntn block append PAGE_ID --type paragraph --content "Hello world"
+  ntn block append PAGE_ID --type heading_2 --content "Section Title"
+  ntn block append PAGE_ID --type bulleted_list_item --content "List item"
 
 Supported types: paragraph, heading_1, heading_2, heading_3, bulleted_list_item,
 numbered_list_item, quote, callout, code, to_do, toggle, divider
 
 ADVANCED USAGE (--children JSON):
-  notion block append PAGE_ID \
+  ntn block append PAGE_ID \
     --children '[{"type":"paragraph","paragraph":{"rich_text":[{"type":"text","text":{"content":"Hello"}}]}}]'
 
 ADVANCED USAGE (--children-file):
-  notion block append PAGE_ID --children-file /tmp/blocks.json
+  ntn block append PAGE_ID --children-file /tmp/blocks.json
 
 Use --after to insert blocks after a specific block instead of at the end.
 
-TIP: For convenience commands, see 'notion block add --help'`,
+TIP: For convenience commands, see 'ntn block add --help'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -319,7 +319,7 @@ TIP: For convenience commands, see 'notion block add --help'`,
 
 			// Validate required flag
 			if childrenJSON == "" && childrenFile == "" {
-				return fmt.Errorf("either --children/--children-file or both --type and --content are required\n\nSimple usage:\n  notion block append PAGE_ID --type paragraph --content \"Your text\"\n\nAdvanced usage:\n  notion block append PAGE_ID --children '[{\"type\":\"paragraph\",...}]'\n  notion block append PAGE_ID --children-file /tmp/blocks.json")
+				return fmt.Errorf("either --children/--children-file or both --type and --content are required\n\nSimple usage:\n  ntn block append PAGE_ID --type paragraph --content \"Your text\"\n\nAdvanced usage:\n  ntn block append PAGE_ID --children '[{\"type\":\"paragraph\",...}]'\n  ntn block append PAGE_ID --children-file /tmp/blocks.json")
 			}
 
 			// Normalize after block ID if provided
@@ -443,7 +443,7 @@ func newBlockUpdateCmd() *cobra.Command {
 The --content flag accepts a JSON object with the block type and its content.
 
 Example of updating a paragraph block:
-  notion block update 12345678-1234-1234-1234-123456789012 \
+  ntn block update 12345678-1234-1234-1234-123456789012 \
     --content '{"paragraph":{"rich_text":[{"type":"text","text":{"content":"Updated text"}}]}}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -572,7 +572,7 @@ func newBlockDeleteCmd() *cobra.Command {
 		Long: `Delete (archive) a block by its ID.
 
 Example:
-  notion block delete 12345678-1234-1234-1234-123456789012`,
+  ntn block delete 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -664,7 +664,7 @@ func newBlockAddTOCCmd() *cobra.Command {
 The table of contents automatically shows all headings in the page.
 
 Example:
-  notion block add-toc abc123 --color blue`,
+  ntn block add-toc abc123 --color blue`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -715,7 +715,7 @@ func newBlockAddBreadcrumbCmd() *cobra.Command {
 The breadcrumb automatically shows the page hierarchy.
 
 Example:
-  notion block add-breadcrumb abc123`,
+  ntn block add-breadcrumb abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -756,7 +756,7 @@ func newBlockAddDividerCmd() *cobra.Command {
 		Long: `Add a horizontal divider block.
 
 Example:
-  notion block add-divider abc123`,
+  ntn block add-divider abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -802,7 +802,7 @@ The columns will be created with placeholder paragraph blocks.
 You can then add content to each column using its block ID.
 
 Example:
-  notion block add-columns abc123 --columns 3`,
+  ntn block add-columns abc123 --columns 3`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

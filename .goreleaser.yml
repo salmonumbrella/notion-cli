@@ -2,8 +2,8 @@ version: 2
 project_name: notion
 builds:
   - id: darwin
-    main: ./cmd/notion
-    binary: notion
+    main: ./cmd/ntn
+    binary: ntn
     env:
       - CGO_ENABLED=1
     goos:
@@ -18,8 +18,8 @@ builds:
       - -X main.BuildTime={{.Date}}
 
   - id: linux-windows
-    main: ./cmd/notion
-    binary: notion
+    main: ./cmd/ntn
+    binary: ntn
     env:
       - CGO_ENABLED=0
     goos:
@@ -60,6 +60,6 @@ brews:
     description: "CLI for Notion API"
     license: "MIT"
     install: |
-      bin.install "notion"
+      bin.install "ntn"
     test: |
-      system "#{bin}/notion", "--help"
+      system "#{bin}/ntn", "--help"

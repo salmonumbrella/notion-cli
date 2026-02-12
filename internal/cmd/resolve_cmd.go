@@ -57,10 +57,10 @@ Resolution sources:
 Use global --results-only to output just the candidates array.
 
 Examples:
-  notion resolve "Meeting Notes"
-  notion resolve "Projects" --type database
-  notion resolve standup        # skill alias
-  notion resolve "Meeting Notes" --exact`,
+  ntn resolve "Meeting Notes"
+  ntn resolve "Projects" --type database
+  ntn resolve standup        # skill alias
+  ntn resolve "Meeting Notes" --exact`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

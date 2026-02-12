@@ -55,7 +55,7 @@ func newAuthLoginCmd() *cobra.Command {
 This will open your browser to authorize notion-cli with your Notion account.
 The authorization uses OAuth, allowing you to act as yourself (not as a bot).
 
-If browser-based authentication fails, you can use 'notion auth add-token'
+If browser-based authentication fails, you can use 'ntn auth add-token'
 to manually enter an integration token.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -267,7 +267,7 @@ func newAuthAddTokenCmd() *cobra.Command {
 		Long: `Store a Notion internal integration token in the system keyring.
 
 Use this command for internal integrations (bot tokens). For personal OAuth
-authentication, use 'notion auth login' instead.
+authentication, use 'ntn auth login' instead.
 
 The token will be stored securely using your operating system's keyring:
   - macOS: Keychain

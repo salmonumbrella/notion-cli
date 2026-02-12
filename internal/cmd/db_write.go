@@ -32,13 +32,13 @@ The --properties flag accepts a JSON object defining the database schema (requir
 The --datasource-title flag sets the title of the initial data source (optional).
 
 Example - Create a simple task database:
-  notion db create \
+  ntn db create \
     --parent 12345678-1234-1234-1234-123456789012 \
     --title "Tasks" \
     --properties '{"Name":{"title":{}},"Status":{"select":{"options":[{"name":"Todo","color":"red"},{"name":"Done","color":"green"}]}}}'
 
 Example - Create with description:
-  notion db create \
+  ntn db create \
     --parent 12345678-1234-1234-1234-123456789012 \
     --title "Projects" \
     --description '[{"type":"text","text":{"content":"My projects database"}}]' \
@@ -190,14 +190,14 @@ The --description flag updates the database description.
 The --archived flag archives or unarchives the database.
 
 Example - Update title:
-  notion db update 12345678-1234-1234-1234-123456789012 --title "Updated Tasks"
+  ntn db update 12345678-1234-1234-1234-123456789012 --title "Updated Tasks"
 
 Example - Add a new property (data source schema):
-  notion db update 12345678-1234-1234-1234-123456789012 \
+  ntn db update 12345678-1234-1234-1234-123456789012 \
     --properties '{"Priority":{"select":{"options":[{"name":"High","color":"red"},{"name":"Low","color":"blue"}]}}}'
 
 Example - Archive database:
-  notion db update 12345678-1234-1234-1234-123456789012 --archived true`,
+  ntn db update 12345678-1234-1234-1234-123456789012 --archived true`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

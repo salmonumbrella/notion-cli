@@ -31,12 +31,12 @@ func newAPIRequestCmd() *cobra.Command {
 		Long: `Make a raw Notion API request (useful for new endpoints and debugging).
 
 Examples:
-  notion api request GET /users
-  notion api request POST /search --body '{"query":"project"}'
-  notion api request POST /databases/<id>/query --body @query.json
-  notion api request GET /blocks/<id>/children --paginate
-  notion api request GET /users --no-auth
-  notion api request GET /users --header "Authorization: Bearer <token>"`,
+  ntn api request GET /users
+  ntn api request POST /search --body '{"query":"project"}'
+  ntn api request POST /databases/<id>/query --body @query.json
+  ntn api request GET /blocks/<id>/children --paginate
+  ntn api request GET /users --no-auth
+  ntn api request GET /users --header "Authorization: Bearer <token>"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			method := strings.ToUpper(strings.TrimSpace(args[0]))

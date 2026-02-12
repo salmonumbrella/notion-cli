@@ -6,7 +6,7 @@ setup:
 	@command -v lefthook >/dev/null || (echo "Install lefthook: brew install lefthook" && exit 1)
 	lefthook install
 
-BINARY_NAME := notion
+BINARY_NAME := ntn
 BUILD_DIR := bin
 TOOLS_DIR := $(CURDIR)/.tools
 GOFUMPT := $(TOOLS_DIR)/gofumpt
@@ -26,7 +26,7 @@ LDFLAGS := -ldflags="-s -w \
 # Build the binary
 build:
 	@mkdir -p $(BUILD_DIR)
-	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/notion
+	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/ntn
 
 # Run tests
 test:

@@ -35,7 +35,7 @@ func newBlockAddCmd() *cobra.Command {
 			Long: `Add a paragraph block with text content.
 
 Example:
-  notion block add paragraph abc123 "This is a paragraph"`,
+  ntn block add paragraph abc123 "This is a paragraph"`,
 			Action: "add paragraph",
 			Build:  notion.NewParagraph,
 		},
@@ -45,7 +45,7 @@ Example:
 			Long: `Add a bulleted list item block.
 
 Example:
-  notion block add bullet abc123 "First item"`,
+  ntn block add bullet abc123 "First item"`,
 			Action: "add bulleted list item",
 			Build:  notion.NewBulletedListItem,
 		},
@@ -55,7 +55,7 @@ Example:
 			Long: `Add a numbered list item block.
 
 Example:
-  notion block add number abc123 "First item"`,
+  ntn block add number abc123 "First item"`,
 			Action: "add numbered list item",
 			Build:  notion.NewNumberedListItem,
 		},
@@ -68,7 +68,7 @@ Note: Toggle blocks in Notion are implemented as bulleted list items with childr
 You can add children to the created toggle block using its block ID.
 
 Example:
-  notion block add toggle abc123 "Click to expand"`,
+  ntn block add toggle abc123 "Click to expand"`,
 			Action: "add toggle",
 			Build: func(text string) map[string]interface{} {
 				return map[string]interface{}{
@@ -90,7 +90,7 @@ Example:
 			Long: `Add a quote block.
 
 Example:
-  notion block add quote abc123 "To be or not to be"`,
+  ntn block add quote abc123 "To be or not to be"`,
 			Action: "add quote",
 			Build:  notion.NewQuote,
 		},
@@ -161,9 +161,9 @@ func newBlockAddHeadingCmd() *cobra.Command {
 		Long: `Add a heading block with specified level (1-3).
 
 Examples:
-  notion block add heading abc123 "Main Title" --level 1
-  notion block add heading abc123 "Subtitle" --level 2
-  notion block add heading abc123 "Section" --level 3`,
+  ntn block add heading abc123 "Main Title" --level 1
+  ntn block add heading abc123 "Subtitle" --level 2
+  ntn block add heading abc123 "Section" --level 3`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -212,8 +212,8 @@ func newBlockAddCalloutCmd() *cobra.Command {
 		Long: `Add a callout block with an emoji icon.
 
 Examples:
-  notion block add callout abc123 "Important note" --emoji "💡"
-  notion block add callout abc123 "Warning!" --emoji "⚠️"`,
+  ntn block add callout abc123 "Important note" --emoji "💡"
+  ntn block add callout abc123 "Warning!" --emoji "⚠️"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -247,9 +247,9 @@ func newBlockAddCodeCmd() *cobra.Command {
 		Long: `Add a code block with syntax highlighting.
 
 Examples:
-  notion block add code abc123 'func main() {}' --language go
-  notion block add code abc123 'console.log("hello")' --language javascript
-  notion block add code abc123 'def hello():\n    print("hello")' --language python`,
+  ntn block add code abc123 'func main() {}' --language go
+  ntn block add code abc123 'console.log("hello")' --language javascript
+  ntn block add code abc123 'def hello():\n    print("hello")' --language python`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -283,8 +283,8 @@ func newBlockAddToDoCmd() *cobra.Command {
 		Long: `Add a to-do (checkbox) item.
 
 Examples:
-  notion block add todo abc123 "Buy milk"
-  notion block add todo abc123 "Completed task" --checked`,
+  ntn block add todo abc123 "Buy milk"
+  ntn block add todo abc123 "Completed task" --checked`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -319,10 +319,10 @@ func newBlockAddImageCmd() *cobra.Command {
 		Long: `Add an image block by uploading a local file.
 
 Example:
-  notion block add image abc123 --file ./photo.jpg
+  ntn block add image abc123 --file ./photo.jpg
 
 Example with caption:
-  notion block add image abc123 --file ./photo.jpg --caption "Team offsite"`,
+  ntn block add image abc123 --file ./photo.jpg --caption "Team offsite"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

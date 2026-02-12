@@ -49,7 +49,7 @@ func newRootCmd(app *App) *cobra.Command {
 	)
 
 	rootCmd := &cobra.Command{
-		Use:   "notion",
+		Use:   "ntn",
 		Short: "CLI for Notion API",
 		Long:  `A command-line interface for interacting with the Notion API`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -130,14 +130,17 @@ func newRootCmd(app *App) *cobra.Command {
 
 	// Set version info
 	rootCmd.Version = app.Version
-	rootCmd.SetVersionTemplate(fmt.Sprintf("notion-cli %s (commit: %s, built: %s)\n", app.Version, app.Commit, app.BuildTime))
+	rootCmd.SetVersionTemplate(fmt.Sprintf("ntn %s (commit: %s, built: %s)\n", app.Version, app.Commit, app.BuildTime))
 
 	// Global flags
 	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format (text|json|ndjson|table|yaml)")
 	// Alias --format to --output for agent discoverability
 	rootCmd.PersistentFlags().String("format", "text", "Alias for --output")
 	_ = rootCmd.PersistentFlags().MarkHidden("format")
-	rootCmd.PersistentFlags().StringVar(&queryFlag, "query", "", "jq expression to filter JSON output")
+	// Shorthand: --json is equivalent to -o json
+	rootCmd.PersistentFlags().Bool("json", false, "Shorthand for --output json")
+	_ = rootCmd.PersistentFlags().MarkHidden("json")
+	rootCmd.PersistentFlags().StringVarP(&queryFlag, "query", "q", "", "jq expression to filter JSON output")
 	// Alias --jq to --query for discoverability
 	rootCmd.PersistentFlags().StringVar(&jqFlag, "jq", "", "Alias for --query")
 	_ = rootCmd.PersistentFlags().MarkHidden("jq")
@@ -187,6 +190,8 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.AddCommand(newCompletionCmd())
 	rootCmd.AddCommand(newAPICmd())
 	rootCmd.AddCommand(newImportCmd())
+	rootCmd.AddCommand(newMCPCmd())
+	rootCmd.AddCommand(newBulkCmd())
 	rootCmd.AddCommand(newSkillCmd())
 
 	// Top-level convenience commands (desire-path aliases)
@@ -195,7 +200,7 @@ func newRootCmd(app *App) *cobra.Command {
 		Short: "Authenticate with Notion (alias for 'auth login')",
 		Long: `Authenticate with Notion using OAuth.
 
-This is a convenience alias for 'notion auth login'.`,
+This is a convenience alias for 'ntn auth login'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runOAuthLogin(cmd.Context())
@@ -207,7 +212,7 @@ This is a convenience alias for 'notion auth login'.`,
 		Short: "Remove stored credentials (alias for 'auth logout')",
 		Long: `Remove the stored Notion credentials from the system keyring.
 
-This is a convenience alias for 'notion auth logout'.`,
+This is a convenience alias for 'ntn auth logout'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -228,7 +233,7 @@ This is a convenience alias for 'notion auth logout'.`,
 		Short: "Show current user (alias for 'user me')",
 		Long: `Retrieve the bot user associated with the API token.
 
-This is a convenience alias for 'notion user me'.`,
+This is a convenience alias for 'ntn user me'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -255,9 +260,9 @@ This is a convenience alias for 'notion user me'.`,
 Accepts a page ID, skill file alias, or page name.
 
 Example:
-  notion open abc123
-  notion open my-page-alias
-  notion open "Meeting Notes"`,
+  ntn open abc123
+  ntn open my-page-alias
+  ntn open "Meeting Notes"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -306,10 +311,10 @@ Example:
 
 	// Action-first top-level commands (agent-friendly desire paths)
 
-	// `notion list` → search for pages
+	// `ntn list` → search for pages
 	rootCmd.AddCommand(newPageListCmd())
 
-	// `notion get <id>` → auto-detect entity type
+	// `ntn get <id>` → auto-detect entity type
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "get <id-or-name>",
 		Short: "Get any Notion object by ID or name (auto-detects type)",
@@ -320,9 +325,9 @@ Automatically detects the object type by trying page first, then database,
 then block. This is useful when you have an ID but don't know its type.
 
 Example:
-  notion get abc123
-  notion get my-page-alias
-  notion get "Meeting Notes"`,
+  ntn get abc123
+  ntn get my-page-alias
+  ntn get "Meeting Notes"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -366,12 +371,12 @@ Example:
 			return errors.WrapUserError(
 				fmt.Errorf("tried page, database, and block APIs"),
 				fmt.Sprintf("could not find object %q", args[0]),
-				fmt.Sprintf("Suggestions:\n  • Run 'notion search %s' to find matching pages or databases\n  • Check the ID or name is correct\n  • Verify your integration has access to this object", args[0]),
+				fmt.Sprintf("Suggestions:\n  • Run 'ntn search %s' to find matching pages or databases\n  • Check the ID or name is correct\n  • Verify your integration has access to this object", args[0]),
 			)
 		},
 	})
 
-	// `notion create <title>` → create page with smart defaults
+	// `ntn create <title>` → create page with smart defaults
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "create <title>",
 		Short: "Create a page with smart defaults",
@@ -380,11 +385,11 @@ Example:
 This is a convenience command for quick page creation. It uses the first
 database configured in your skill file (~/.claude/skills/notion-cli/notion-cli.md).
 
-If no databases are configured, run 'notion skill init' first.
+If no databases are configured, run 'ntn skill init' first.
 
 Example:
-  notion create "My new page"
-  notion create "Meeting notes for today"`,
+  ntn create "My new page"
+  ntn create "Meeting notes for today"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -463,14 +468,14 @@ Example:
 		},
 	})
 
-	// `notion delete <id>` → delete (archive) a page
+	// `ntn delete <id>` → delete (archive) a page
 	rootCmd.AddCommand(&cobra.Command{
 		Use:     "delete <page-id-or-alias>",
 		Aliases: []string{"rm", "d"},
 		Short:   "Archive a page (alias for 'page delete')",
 		Long: `Archive a Notion page by its ID or skill file alias.
 
-This is a convenience alias for 'notion page delete'.`,
+This is a convenience alias for 'ntn page delete'.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			deleteCmd := newPageDeleteCmd()

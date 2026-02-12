@@ -77,7 +77,7 @@ func (e *AuthError) Unwrap() error {
 func AuthRequiredError(err error) error {
 	return &AuthError{
 		Reason:     "authentication required",
-		Suggestion: "Run 'notion auth login' or 'notion auth add-token' to configure",
+		Suggestion: "Run 'ntn auth login' or 'ntn auth add-token' to configure",
 		Err:        err,
 	}
 }
@@ -172,7 +172,7 @@ func IsContextualError(err error) bool {
 // entityType is the type of entity (e.g., "page", "database", "block").
 // identifier is the ID or name that was searched for.
 func NotFoundError(entityType, identifier string) error {
-	suggestion := fmt.Sprintf("Run 'notion search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s", identifier, entityType, entityType)
+	suggestion := fmt.Sprintf("Run 'ntn search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s", identifier, entityType, entityType)
 	return NewUserError(
 		fmt.Sprintf("%s %q not found", entityType, identifier),
 		suggestion,
@@ -185,9 +185,9 @@ func NotFoundWithSearchError(entityType, identifier string, suggestions []string
 	msg := fmt.Sprintf("%s %q not found", entityType, identifier)
 	var suggestion string
 	if len(suggestions) > 0 {
-		suggestion = fmt.Sprintf("Did you mean one of these?\n%s\n\nOr run 'notion search %s' to find more matches", formatSuggestionList(suggestions), identifier)
+		suggestion = fmt.Sprintf("Did you mean one of these?\n%s\n\nOr run 'ntn search %s' to find more matches", formatSuggestionList(suggestions), identifier)
 	} else {
-		suggestion = fmt.Sprintf("Run 'notion search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s", identifier, entityType, entityType)
+		suggestion = fmt.Sprintf("Run 'ntn search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s", identifier, entityType, entityType)
 	}
 	return NewUserError(msg, suggestion)
 }
@@ -195,7 +195,7 @@ func NotFoundWithSearchError(entityType, identifier string, suggestions []string
 // NoDatabaseConfiguredError creates a user-friendly error when no database is configured for page creation.
 func NoDatabaseConfiguredError() error {
 	msg := "no database configured for page creation"
-	suggestion := "To fix this:\n  1. Run 'notion skill init' to configure your workspace\n  2. Or use 'notion page create --parent <database-id> --parent-type database --properties '{...}' explicitly"
+	suggestion := "To fix this:\n  1. Run 'ntn skill init' to configure your workspace\n  2. Or use 'ntn page create --parent <database-id> --parent-type database --properties '{...}' explicitly"
 	return NewUserError(msg, suggestion)
 }
 
@@ -218,7 +218,7 @@ func APINotFoundError(err error, entityType, identifier string) error {
 	errStr := err.Error()
 	if contains404Indicators(errStr) {
 		return WrapUserError(err, fmt.Sprintf("failed to get %s", entityType),
-			fmt.Sprintf("The %s %q was not found.\n\nSuggestions:\n  • Run 'notion search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s",
+			fmt.Sprintf("The %s %q was not found.\n\nSuggestions:\n  • Run 'ntn search %s' to find matching %ss\n  • Check the ID or name is correct\n  • Verify your integration has access to this %s",
 				entityType, identifier, identifier, entityType, entityType))
 	}
 	return err

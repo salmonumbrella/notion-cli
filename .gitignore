@@ -25,6 +25,7 @@ docs/
 # Generated
 .gitingest/
 /notion
+/ntn
 
 # Test utilities (manual testing scripts with //go:build ignore)
 internal/skill/sort_test.go

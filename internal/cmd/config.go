@@ -47,7 +47,7 @@ func newConfigShowCmd() *cobra.Command {
 				path, _ := config.DefaultConfigPath()
 				_, _ = fmt.Fprintf(out, "No configuration file found at %s\n", path)
 				_, _ = fmt.Fprintln(out, "\nTo create a config file, use:")
-				_, _ = fmt.Fprintln(out, "  notion config set output json")
+				_, _ = fmt.Fprintln(out, "  ntn config set output json")
 				return nil
 			}
 
@@ -69,9 +69,9 @@ Supported keys:
   default_workspace - Default workspace name
 
 Examples:
-  notion config set output json
-  notion config set color always
-  notion config set default_workspace personal`,
+  ntn config set output json
+  ntn config set color always
+  ntn config set default_workspace personal`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := stdoutFromContext(cmd.Context())

@@ -39,7 +39,7 @@ func newUserGetCmd() *cobra.Command {
 		Long: `Retrieve a Notion user by their ID.
 
 Example:
-  notion user get 12345678-1234-1234-1234-123456789012`,
+  ntn user get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -84,10 +84,10 @@ Use --all to fetch all pages of results automatically.
 Use global --results-only to output just the results array (useful for piping to jq).
 
 Example:
-  notion user list
-  notion user list --page-size 50
-  notion user list --start-cursor abc123
-  notion user list --all --results-only`,
+  ntn user list
+  ntn user list --page-size 50
+  ntn user list --start-cursor abc123
+  ntn user list --all --results-only`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -186,7 +186,7 @@ This is useful for verifying your authentication and seeing
 which bot user is associated with your token.
 
 Example:
-  notion user me`,
+  ntn user me`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

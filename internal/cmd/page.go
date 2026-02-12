@@ -43,6 +43,7 @@ func newPageCmd() *cobra.Command {
 	cmd.AddCommand(newPagePropertyCmd())
 	cmd.AddCommand(newPageMoveCmd())
 	cmd.AddCommand(newPageDeleteCmd())
+	cmd.AddCommand(newPageSyncCmd())
 
 	return cmd
 }
@@ -54,12 +55,12 @@ func newPageListCmd() *cobra.Command {
 		Short:   "List pages (alias for 'search --filter page')",
 		Long: `Search for pages in Notion.
 
-This is a convenience alias for 'notion search --filter page'.
+This is a convenience alias for 'ntn search --filter page'.
 
 Example:
-  notion page list
-  notion page list "project"
-  notion page ls meetings`,
+  ntn page list
+  ntn page list "project"
+  ntn page ls meetings`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			searchCmd := newSearchCmd()

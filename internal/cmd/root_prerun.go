@@ -94,7 +94,10 @@ func parseGlobalOptions(cmd *cobra.Command, cfg *config.Config, stdout io.Writer
 	}
 
 	formatStr, _ := cmd.Flags().GetString("output")
-	if cmd.Flags().Changed("format") {
+	jsonFlag, _ := cmd.Flags().GetBool("json")
+	if jsonFlag {
+		formatStr = "json"
+	} else if cmd.Flags().Changed("format") {
 		formatStr, _ = cmd.Flags().GetString("format")
 	} else if !cmd.Flags().Changed("output") && strings.TrimSpace(os.Getenv("NOTION_OUTPUT")) != "" {
 		formatStr = os.Getenv("NOTION_OUTPUT")

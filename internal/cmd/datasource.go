@@ -44,8 +44,8 @@ func newDataSourceGetCmd() *cobra.Command {
 		Long: `Retrieve a Notion data source by its ID.
 
 Example:
-  notion datasource get 12345678-1234-1234-1234-123456789012
-  notion ds get 12345678-1234-1234-1234-123456789012`,
+  ntn datasource get 12345678-1234-1234-1234-123456789012
+  ntn ds get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -88,7 +88,7 @@ The --parent flag specifies the parent database ID (required).
 The --properties flag accepts a JSON object defining the data source schema (required).
 
 Example:
-  notion datasource create \
+  ntn datasource create \
     --parent 12345678-1234-1234-1234-123456789012 \
     --properties '{"Name":{"title":{}},"Status":{"select":{}}}'`,
 		Args: cobra.NoArgs,
@@ -161,7 +161,7 @@ func newDataSourceUpdateCmd() *cobra.Command {
 The --properties flag accepts a JSON object to update the data source schema.
 
 Example:
-  notion datasource update 12345678-1234-1234-1234-123456789012 \
+  ntn datasource update 12345678-1234-1234-1234-123456789012 \
     --properties '{"Priority":{"select":{}}}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -257,29 +257,29 @@ These shorthands require fetching the data source schema once to determine the
 correct filter shape. They combine with --filter using AND.
 
 Example - Query all pages:
-  notion datasource query 12345678-1234-1234-1234-123456789012
+  ntn datasource query 12345678-1234-1234-1234-123456789012
 
 Example - Query with filter:
-  notion datasource query 12345678-1234-1234-1234-123456789012 \
+  ntn datasource query 12345678-1234-1234-1234-123456789012 \
     --filter '{"property":"Status","select":{"equals":"Active"}}' \
     --page-size 10
 
 Example - Query with filter from file (avoids shell escaping issues):
-  notion datasource query 12345678-1234-1234-1234-123456789012 --filter @filter.json
+  ntn datasource query 12345678-1234-1234-1234-123456789012 --filter @filter.json
 
 Example - Query with sorts:
-  notion datasource query 12345678-1234-1234-1234-123456789012 \
+  ntn datasource query 12345678-1234-1234-1234-123456789012 \
     --sorts '[{"property":"Created","direction":"descending"}]'
 
 Example - Sort by created time (shorthand):
-  notion datasource query 12345678-1234-1234-1234-123456789012 \
+  ntn datasource query 12345678-1234-1234-1234-123456789012 \
     --sort-by created_time --desc
 
 Example - Fetch all results:
-  notion datasource query 12345678-1234-1234-1234-123456789012 --all
+  ntn datasource query 12345678-1234-1234-1234-123456789012 --all
 
 Example - Query with pagination:
-  notion datasource query 12345678-1234-1234-1234-123456789012 --page-size 10 --start-cursor abc123
+  ntn datasource query 12345678-1234-1234-1234-123456789012 --page-size 10 --start-cursor abc123
 
 Note: When using multi-line commands with backslash (\), ensure there are no
 trailing spaces after the backslash. Otherwise the shell may split the command
@@ -568,8 +568,8 @@ func newDataSourceTemplatesCmd() *cobra.Command {
 		Long: `List available Notion data source templates.
 
 Example:
-  notion datasource templates
-  notion ds templates`,
+  ntn datasource templates
+  ntn ds templates`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get token from context (respects workspace selection)
@@ -607,9 +607,9 @@ Use --all to fetch all pages of results automatically.
 Use global --results-only to output just the results array (useful for piping to jq).
 
 Example:
-  notion datasource list
-  notion ds list --all --results-only
-  notion ds list -o json | jq '.results[].id'`,
+  ntn datasource list
+  ntn ds list --all --results-only
+  ntn ds list -o json | jq '.results[].id'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

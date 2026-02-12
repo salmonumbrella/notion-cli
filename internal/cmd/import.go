@@ -148,6 +148,8 @@ Examples:
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be imported without making changes")
 	cmd.Flags().IntVar(&batchSize, "batch-size", 100, "Number of blocks to append per API request (max 100)")
 
+	cmd.AddCommand(newImportCSVCmd())
+
 	return cmd
 }
 

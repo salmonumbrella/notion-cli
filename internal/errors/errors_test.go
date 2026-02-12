@@ -153,14 +153,14 @@ func TestIsContextualError(t *testing.T) {
 
 func TestUserError(t *testing.T) {
 	base := errors.New("missing token")
-	err := WrapUserError(base, "authentication required", "Run 'notion auth login'")
+	err := WrapUserError(base, "authentication required", "Run 'ntn auth login'")
 
 	if !IsUserError(err) {
 		t.Error("IsUserError should return true for UserError")
 	}
 
-	if got := UserSuggestion(err); got != "Run 'notion auth login'" {
-		t.Errorf("UserSuggestion() = %q, want %q", got, "Run 'notion auth login'")
+	if got := UserSuggestion(err); got != "Run 'ntn auth login'" {
+		t.Errorf("UserSuggestion() = %q, want %q", got, "Run 'ntn auth login'")
 	}
 
 	expected := "authentication required: missing token"
@@ -185,7 +185,7 @@ func TestNotFoundError(t *testing.T) {
 	}
 
 	suggestion := UserSuggestion(err)
-	if !strings.Contains(suggestion, "notion search") {
+	if !strings.Contains(suggestion, "ntn search") {
 		t.Errorf("Suggestion should include search command, got: %s", suggestion)
 	}
 }
@@ -197,10 +197,10 @@ func TestNoDatabaseConfiguredError(t *testing.T) {
 	}
 
 	suggestion := UserSuggestion(err)
-	if !strings.Contains(suggestion, "notion skill init") {
+	if !strings.Contains(suggestion, "ntn skill init") {
 		t.Errorf("Suggestion should include skill init, got: %s", suggestion)
 	}
-	if !strings.Contains(suggestion, "notion page create --parent") {
+	if !strings.Contains(suggestion, "ntn page create --parent") {
 		t.Errorf("Suggestion should include explicit page create command, got: %s", suggestion)
 	}
 }
@@ -215,7 +215,7 @@ func TestAPINotFoundError(t *testing.T) {
 	}
 
 	suggestion := UserSuggestion(err)
-	if !strings.Contains(suggestion, "notion search") {
+	if !strings.Contains(suggestion, "ntn search") {
 		t.Errorf("Suggestion should include search command, got: %s", suggestion)
 	}
 

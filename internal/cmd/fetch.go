@@ -19,8 +19,8 @@ func newFetchCmd() *cobra.Command {
 		Long: `Fetch a Notion page or database using a Notion URL.
 
 Examples:
-  notion fetch https://www.notion.so/My-Page-1234567890abcdef1234567890abcdef
-  notion fetch https://www.notion.so/My-Database-1234567890abcdef1234567890abcdef --type database`,
+  ntn fetch https://www.notion.so/My-Page-1234567890abcdef1234567890abcdef
+  ntn fetch https://www.notion.so/My-Database-1234567890abcdef1234567890abcdef --type database`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			urlStr := args[0]

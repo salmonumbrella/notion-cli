@@ -138,7 +138,7 @@ func buildDBQueryShorthandFilters(
 		if !uuidLike.MatchString(assignee) {
 			return nil, errors.NewUserError(
 				fmt.Sprintf("invalid --assignee value %q (expected a user id or skill alias)", assigneeContains),
-				"Run 'notion skill init' to create user aliases, or pass a user UUID.",
+				"Run 'ntn skill init' to create user aliases, or pass a user UUID.",
 			)
 		}
 

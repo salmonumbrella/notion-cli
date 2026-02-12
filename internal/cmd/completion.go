@@ -6,32 +6,32 @@ func newCompletionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "completion",
 		Short: "Generate shell completion scripts",
-		Long: `Generate shell completion scripts for notion CLI.
+		Long: `Generate shell completion scripts for ntn CLI.
 
 To load completions:
 
 Bash:
-  $ source <(notion completion bash)
+  $ source <(ntn completion bash)
   # To load completions for each session, execute once:
   # Linux:
-  $ notion completion bash > /etc/bash_completion.d/notion
+  $ ntn completion bash > /etc/bash_completion.d/ntn
   # macOS:
-  $ notion completion bash > $(brew --prefix)/etc/bash_completion.d/notion
+  $ ntn completion bash > $(brew --prefix)/etc/bash_completion.d/ntn
 
 Zsh:
-  $ source <(notion completion zsh)
+  $ source <(ntn completion zsh)
   # To load completions for each session, execute once:
-  $ notion completion zsh > "${fpath[1]}/_notion"
+  $ ntn completion zsh > "${fpath[1]}/_ntn"
 
 Fish:
-  $ notion completion fish | source
+  $ ntn completion fish | source
   # To load completions for each session, execute once:
-  $ notion completion fish > ~/.config/fish/completions/notion.fish
+  $ ntn completion fish > ~/.config/fish/completions/ntn.fish
 
 PowerShell:
-  PS> notion completion powershell | Out-String | Invoke-Expression
+  PS> ntn completion powershell | Out-String | Invoke-Expression
   # To load completions for each session, execute once:
-  PS> notion completion powershell > notion.ps1
+  PS> ntn completion powershell > ntn.ps1
   # and source this file from your PowerShell profile.
 `,
 	}
@@ -52,15 +52,15 @@ func newCompletionBashCmd() *cobra.Command {
 
 To load completions in your current shell session:
 
-	$ source <(notion completion bash)
+	$ source <(ntn completion bash)
 
 To load completions for every new session, execute once:
 
 Linux:
-	$ notion completion bash > /etc/bash_completion.d/notion
+	$ ntn completion bash > /etc/bash_completion.d/ntn
 
 macOS:
-	$ notion completion bash > $(brew --prefix)/etc/bash_completion.d/notion
+	$ ntn completion bash > $(brew --prefix)/etc/bash_completion.d/ntn
 
 You will need to start a new shell for this setup to take effect.
 `,
@@ -78,11 +78,11 @@ func newCompletionZshCmd() *cobra.Command {
 
 To load completions in your current shell session:
 
-	$ source <(notion completion zsh)
+	$ source <(ntn completion zsh)
 
 To load completions for every new session, execute once:
 
-	$ notion completion zsh > "${fpath[1]}/_notion"
+	$ ntn completion zsh > "${fpath[1]}/_ntn"
 
 You will need to start a new shell for this setup to take effect.
 `,
@@ -100,11 +100,11 @@ func newCompletionFishCmd() *cobra.Command {
 
 To load completions in your current shell session:
 
-	$ notion completion fish | source
+	$ ntn completion fish | source
 
 To load completions for every new session, execute once:
 
-	$ notion completion fish > ~/.config/fish/completions/notion.fish
+	$ ntn completion fish > ~/.config/fish/completions/ntn.fish
 
 You will need to start a new shell for this setup to take effect.
 `,
@@ -122,11 +122,11 @@ func newCompletionPowershellCmd() *cobra.Command {
 
 To load completions in your current shell session:
 
-	PS> notion completion powershell | Out-String | Invoke-Expression
+	PS> ntn completion powershell | Out-String | Invoke-Expression
 
 To load completions for every new session, execute once:
 
-	PS> notion completion powershell > notion.ps1
+	PS> ntn completion powershell > ntn.ps1
 
 and source this file from your PowerShell profile.
 `,

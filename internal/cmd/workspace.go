@@ -46,7 +46,7 @@ func newWorkspaceListCmd() *cobra.Command {
 			if len(cfg.Workspaces) == 0 {
 				_, _ = fmt.Fprintln(out, "No workspaces configured.")
 				_, _ = fmt.Fprintln(out, "\nTo add a workspace, use:")
-				_, _ = fmt.Fprintln(out, "  notion workspace add <name> --token-source <source>")
+				_, _ = fmt.Fprintln(out, "  ntn workspace add <name> --token-source <source>")
 				return nil
 			}
 
@@ -90,9 +90,9 @@ Token sources:
   <direct-token>   - Use token directly (not recommended for production)
 
 Examples:
-  notion workspace add personal --token-source keyring
-  notion workspace add work --token-source env:NOTION_WORK_TOKEN
-  notion workspace add test --token-source secret_abc123 --default`,
+  ntn workspace add personal --token-source keyring
+  ntn workspace add work --token-source env:NOTION_WORK_TOKEN
+  ntn workspace add test --token-source secret_abc123 --default`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := stdoutFromContext(cmd.Context())

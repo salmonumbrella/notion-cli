@@ -37,6 +37,7 @@ directly, need to manage templates, or work with multi-source databases.`,
 	cmd.AddCommand(newDBQueryCmd())
 	cmd.AddCommand(newDBCreateCmd())
 	cmd.AddCommand(newDBUpdateCmd())
+	cmd.AddCommand(newDBBackupCmd())
 
 	return cmd
 }
@@ -54,13 +55,13 @@ func newDBListCmd() *cobra.Command {
 		Long: `List Notion databases (data sources) with optional title search.
 
 Example - List databases:
-  notion db list
+  ntn db list
 
 Example - Search by title:
-  notion db list "Vendor"
+  ntn db list "Vendor"
 
 Example - Fetch all results:
-  notion db list --all`,
+  ntn db list --all`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var query string
@@ -203,8 +204,8 @@ func newDBGetCmd() *cobra.Command {
 If you provide a name instead of an ID, the CLI will search for matching databases.
 
 Example:
-  notion db get 12345678-1234-1234-1234-123456789012
-  notion db get "Projects"`,
+  ntn db get 12345678-1234-1234-1234-123456789012
+  ntn db get "Projects"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -300,25 +301,25 @@ These shorthands require fetching the data source schema once to determine the
 correct filter shape. They combine with --filter using AND.
 
 Example - Query all pages:
-  notion db query 12345678-1234-1234-1234-123456789012
+  ntn db query 12345678-1234-1234-1234-123456789012
 
 Example - Query by name:
-  notion db query "Projects"
+  ntn db query "Projects"
 
 Example - Query with filter (single line recommended):
-  notion db query 12345678-1234-1234-1234-123456789012 --filter '{"property":"Status","select":{"equals":"Done"}}'
+  ntn db query 12345678-1234-1234-1234-123456789012 --filter '{"property":"Status","select":{"equals":"Done"}}'
 
 Example - Query with filter from file (avoids shell escaping issues):
-  notion db query 12345678-1234-1234-1234-123456789012 --filter @filter.json
+  ntn db query 12345678-1234-1234-1234-123456789012 --filter @filter.json
 
 Example - Query with sorts:
-  notion db query 12345678-1234-1234-1234-123456789012 --sorts '[{"property":"Created","direction":"descending"}]'
+  ntn db query 12345678-1234-1234-1234-123456789012 --sorts '[{"property":"Created","direction":"descending"}]'
 
 Example - Query with pagination:
-  notion db query 12345678-1234-1234-1234-123456789012 --page-size 10 --start-cursor abc123
+  ntn db query 12345678-1234-1234-1234-123456789012 --page-size 10 --start-cursor abc123
 
 Example - Fetch all results:
-  notion db query 12345678-1234-1234-1234-123456789012 --all
+  ntn db query 12345678-1234-1234-1234-123456789012 --all
 
 Note: When using multi-line commands with backslash (\), ensure there are no
 trailing spaces after the backslash. Otherwise the shell may split the command

@@ -22,13 +22,13 @@ func newCommentCmd() *cobra.Command {
 		Long:    `List and create comments on Notion pages and blocks.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Desire paths:
-			//   notion comment <page-or-block>       -> list
-			//   notion comment <page> "text..."     -> add (new discussion on page)
+			//   ntn comment <page-or-block>       -> list
+			//   ntn comment <page> "text..."     -> add (new discussion on page)
 			switch len(args) {
 			case 0:
 				return errors.NewUserError(
 					"missing target id",
-					"Try:\n  • notion comment <page-or-block-id>\n  • notion comment <page-id> \"Comment text\"\n  • notion comment list <page-or-block-id>\n  • notion comment add <page-id> --text \"...\"",
+					"Try:\n  • ntn comment <page-or-block-id>\n  • ntn comment <page-id> \"Comment text\"\n  • ntn comment list <page-or-block-id>\n  • ntn comment add <page-id> --text \"...\"",
 				)
 			case 1:
 				listCmd := newCommentListCmd()
@@ -74,18 +74,18 @@ Use --all to fetch all pages of results automatically.
 Use global --results-only to output just the results array (useful for piping to jq).
 
 Example - List all comments on a page:
-  notion comment list abc123def456
-  notion comment list "Meeting Notes"
-  notion comment list https://www.notion.so/Meeting-Notes-abc123def456
+  ntn comment list abc123def456
+  ntn comment list "Meeting Notes"
+  ntn comment list https://www.notion.so/Meeting-Notes-abc123def456
 
 Example - List comments with pagination:
-  notion comment list abc123def456 --page-size 10 --start-cursor cursor123
+  ntn comment list abc123def456 --page-size 10 --start-cursor cursor123
 
 Example - Fetch all comments:
-  notion comment list abc123def456 --all
+  ntn comment list abc123def456 --all
 
 Example - Output only results array:
-  notion comment list abc123def456 --all --results-only`,
+  ntn comment list abc123def456 --all --results-only`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -190,7 +190,7 @@ func newCommentGetCmd() *cobra.Command {
 		Long: `Retrieve a Notion comment by its ID.
 
 Example:
-  notion comment get 12345678-1234-1234-1234-123456789012`,
+  ntn comment get 12345678-1234-1234-1234-123456789012`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -240,8 +240,8 @@ Use --page-mention to @@-mention pages (link to other Notion pages).
 
 DESIRE PATHS:
 You can also use positional args instead of flags:
-  notion comment add <page-id-or-name> "Comment text..."
-  notion comment <page-id-or-name> "Comment text..."
+  ntn comment add <page-id-or-name> "Comment text..."
+  ntn comment <page-id-or-name> "Comment text..."
 
 MARKDOWN FORMATTING:
 The --text flag supports markdown formatting:
@@ -256,32 +256,32 @@ MENTIONS:
   @@Name patterns are replaced with page mentions using --page-mention IDs.
 
 Example - Create a new comment on a page:
-  notion comment add --parent abc123def456 --text "This is my comment"
-  notion comment add abc123def456 "This is my comment"
-  notion comment abc123def456 "This is my comment"
+  ntn comment add --parent abc123def456 --text "This is my comment"
+  ntn comment add abc123def456 "This is my comment"
+  ntn comment abc123def456 "This is my comment"
 
 Example - Create comment with formatting:
-  notion comment add --parent abc123def456 --text "This is **bold** and *italic* and ` + "`code`" + `"
-  notion comment add abc123def456 "This is **bold** and *italic* and ` + "`code`" + `"
+  ntn comment add --parent abc123def456 --text "This is **bold** and *italic* and ` + "`code`" + `"
+  ntn comment add abc123def456 "This is **bold** and *italic* and ` + "`code`" + `"
 
 Example - Create comment with a link:
-  notion comment add --parent abc123def456 --text "Check [Notion docs](https://notion.so) for help"
+  ntn comment add --parent abc123def456 --text "Check [Notion docs](https://notion.so) for help"
 
 Example - Create comment with inline user mention:
-  notion comment add --parent abc123def456 --text "Hey @Georges, can you review?" --mention georges-user-id
+  ntn comment add --parent abc123def456 --text "Hey @Georges, can you review?" --mention georges-user-id
 
 Example - Create comment with page mention:
-  notion comment add --parent abc123def456 --text "See @@RelatedPage for context" --page-mention related-page-id
+  ntn comment add --parent abc123def456 --text "See @@RelatedPage for context" --page-mention related-page-id
 
 Example - Create comment with both user and page mentions:
-  notion comment add --parent abc123def456 --text "@Alice see @@ProjectPlan for details" \
+  ntn comment add --parent abc123def456 --text "@Alice see @@ProjectPlan for details" \
     --mention alice-user-id --page-mention project-plan-page-id
 
 Example - Add to an existing discussion:
-  notion comment add --discussion-id thread123 --text "Reply to discussion"
+  ntn comment add --discussion-id thread123 --text "Reply to discussion"
 
 Combined example (all flags together):
-  notion comment add --parent abc123def456 \
+  ntn comment add --parent abc123def456 \
     --text "@Alice please **review** @@ProjectPlan and check [docs](https://example.com)" \
     --mention alice-user-id \
     --page-mention project-plan-id \

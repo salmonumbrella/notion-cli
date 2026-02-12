@@ -42,10 +42,10 @@ If --page and --property are provided, the file will be attached
 to the specified page property after upload.
 
 Example - Upload a file:
-  notion file upload ./document.pdf
+  ntn file upload ./document.pdf
 
 Example - Upload and attach to page property:
-  notion file upload ./receipt.pdf --page abc123 --property "Attachments"`,
+  ntn file upload ./receipt.pdf --page abc123 --property "Attachments"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath := args[0]
@@ -146,10 +146,11 @@ Example - Upload and attach to page property:
 		},
 	}
 
-	cmd.Flags().StringVar(&pageID, "page", "", "Page ID to attach file to")
+	cmd.Flags().StringVarP(&pageID, "page", "p", "", "Page ID to attach file to")
 	cmd.Flags().StringVar(&propertyName, "property", "", "Property name to attach file to")
 
 	// Flag aliases
+	flagAlias(cmd.Flags(), "page", "pg")
 	flagAlias(cmd.Flags(), "property", "prop")
 
 	return cmd
@@ -163,7 +164,7 @@ func newFileGetCmd() *cobra.Command {
 		Long: `Get the status of a file upload by ID.
 
 Example:
-  notion file get abc123-def456`,
+  ntn file get abc123-def456`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fileUploadID := args[0]
@@ -197,7 +198,7 @@ func newFileListCmd() *cobra.Command {
 		Long: `List file uploads for the current integration.
 
 Example:
-  notion file list --page-size 10`,
+  ntn file list --page-size 10`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get token from context (respects workspace selection)

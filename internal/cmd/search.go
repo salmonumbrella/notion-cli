@@ -37,25 +37,25 @@ Note: The global --query flag is for jq filtering, not the search term.
 Use the positional argument or --text for the search term.
 
 Example - Search for all pages and databases:
-  notion search
+  ntn search
 
 Example - Search by query:
-  notion search "project"
+  ntn search "project"
 
 Example - Search using --text flag:
-  notion search --text "project"
+  ntn search --text "project"
 
 Example - Search only pages:
-  notion search "meeting notes" --filter page
+  ntn search "meeting notes" --filter page
 
 Example - Search with sort (most recently edited first):
-  notion search --sort '{"direction":"descending","timestamp":"last_edited_time"}'
+  ntn search --sort '{"direction":"descending","timestamp":"last_edited_time"}'
 
 Example - Search with pagination:
-  notion search "tasks" --page-size 10 --start-cursor abc123
+  ntn search "tasks" --page-size 10 --start-cursor abc123
 
 Example - Fetch all results:
-  notion search "project" --all`,
+  ntn search "project" --all`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get query from args or --text flag

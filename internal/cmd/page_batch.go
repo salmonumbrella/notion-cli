@@ -45,7 +45,7 @@ The --pages flag accepts a JSON array of page objects. Each object should includ
 Use --file to read the JSON array from a file instead of passing it inline.
 
 Example:
-  notion page create-batch --parent <id> --pages '[{"properties":{"Name":{"title":[{"text":{"content":"One"}}]}}},{"properties":{"Name":{"title":[{"text":{"content":"Two"}}]}}}]'`,
+  ntn page create-batch --parent <id> --pages '[{"properties":{"Name":{"title":[{"text":{"content":"One"}}]}}},{"properties":{"Name":{"title":[{"text":{"content":"Two"}}]}}}]'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
@@ -181,7 +181,7 @@ The --pages flag accepts a JSON array of page update objects. Each object must i
 Use --file to read the JSON array from a file instead of passing it inline.
 
 Example:
-  notion page update-batch --pages '[{"id":"<page-id>","properties":{"Status":{"status":{"name":"Done"}}}}]'`,
+  ntn page update-batch --pages '[{"id":"<page-id>","properties":{"Status":{"status":{"name":"Done"}}}}]'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if pagesJSON == "" && pagesFile == "" {
 				return fmt.Errorf("--pages or --file is required")

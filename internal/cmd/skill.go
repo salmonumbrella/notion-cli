@@ -26,7 +26,7 @@ func newSkillCmd() *cobra.Command {
 		Short:   "Manage the notion-cli skill file for agents",
 		Long: `The skill file provides aliases and context for AI agents using the CLI.
 
-Run 'notion skill init' after authentication to generate a skill file
+Run 'ntn skill init' after authentication to generate a skill file
 tailored to your workspace.`,
 	}
 
@@ -248,7 +248,7 @@ func runSkillSync(cmd *cobra.Command, addNew bool) error {
 		if os.IsNotExist(err) {
 			return errors.NewUserError(
 				"skill file not found",
-				"Run 'notion skill init' first to create it, then re-run 'notion skill sync'.",
+				"Run 'ntn skill init' first to create it, then re-run 'ntn skill sync'.",
 			)
 		}
 		return fmt.Errorf("failed to stat skill file: %w", err)
@@ -418,7 +418,7 @@ func runSkillEdit(ctx context.Context) error {
 		if os.IsNotExist(err) {
 			return errors.NewUserError(
 				"skill file not found",
-				"Run 'notion skill init' first to create it, then re-run 'notion skill edit'.",
+				"Run 'ntn skill init' first to create it, then re-run 'ntn skill edit'.",
 			)
 		}
 		return fmt.Errorf("failed to stat skill file: %w", err)
