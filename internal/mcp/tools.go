@@ -185,3 +185,13 @@ func (c *Client) GetUsers(ctx context.Context, query string, userID string, star
 	}
 	return c.CallTool(ctx, "notion-get-users", args)
 }
+
+// CreateDatabase invokes the notion-create-database MCP tool.
+func (c *Client) CreateDatabase(ctx context.Context, args map[string]interface{}) (string, error) {
+	return c.CallTool(ctx, "notion-create-database", args)
+}
+
+// UpdateDataSource invokes the notion-update-data-source MCP tool.
+func (c *Client) UpdateDataSource(ctx context.Context, args map[string]interface{}) (string, error) {
+	return c.CallTool(ctx, "notion-update-data-source", args)
+}

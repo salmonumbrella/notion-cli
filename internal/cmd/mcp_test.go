@@ -29,6 +29,7 @@ func TestMCPCommandTree(t *testing.T) {
 		"teams",
 		"users",
 		"tools",
+		"db",
 	}
 
 	subCmds := make(map[string]bool)
@@ -167,5 +168,47 @@ func TestMCPToolsArgs(t *testing.T) {
 	cmd := newMCPToolsCmd()
 	if cmd.Use != "tools" {
 		t.Errorf("tools command Use = %q, want 'tools'", cmd.Use)
+	}
+}
+
+func TestMCPDBSubcommands(t *testing.T) {
+	cmd := newMCPDBCmd()
+
+	if cmd.Use != "db" {
+		t.Errorf("db command Use = %q, want 'db'", cmd.Use)
+	}
+
+	wantSubs := []string{"create", "update"}
+	subCmds := make(map[string]bool)
+	for _, sub := range cmd.Commands() {
+		subCmds[sub.Name()] = true
+	}
+
+	for _, name := range wantSubs {
+		if !subCmds[name] {
+			t.Errorf("missing subcommand %q under mcp db", name)
+		}
+	}
+}
+
+func TestMCPDBCreateFlags(t *testing.T) {
+	cmd := newMCPDBCreateCmd()
+
+	wantFlags := []string{"parent", "title", "properties"}
+	for _, name := range wantFlags {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("db create command missing --%s flag", name)
+		}
+	}
+}
+
+func TestMCPDBUpdateFlags(t *testing.T) {
+	cmd := newMCPDBUpdateCmd()
+
+	wantFlags := []string{"id", "title", "properties", "trash"}
+	for _, name := range wantFlags {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("db update command missing --%s flag", name)
+		}
 	}
 }

@@ -384,6 +384,100 @@ func TestCallToolArgConstruction(t *testing.T) {
 			t.Errorf("page_size = %v, want 25", args["page_size"])
 		}
 	})
+
+	t.Run("create database args", func(t *testing.T) {
+		parentID := "parent-page-1"
+		title := "My Database"
+		props := map[string]interface{}{
+			"Name": map[string]interface{}{
+				"title": map[string]interface{}{},
+			},
+			"Status": map[string]interface{}{
+				"select": map[string]interface{}{
+					"options": []interface{}{
+						map[string]interface{}{"name": "Todo"},
+						map[string]interface{}{"name": "Done"},
+					},
+				},
+			},
+		}
+
+		args := map[string]interface{}{
+			"parent": map[string]interface{}{
+				"page_id": parentID,
+			},
+			"title": []interface{}{
+				map[string]interface{}{
+					"text": map[string]interface{}{
+						"content": title,
+					},
+				},
+			},
+			"properties": props,
+		}
+
+		// Verify parent.
+		parentMap := args["parent"].(map[string]interface{})
+		if parentMap["page_id"] != "parent-page-1" {
+			t.Errorf("parent.page_id = %v, want 'parent-page-1'", parentMap["page_id"])
+		}
+
+		// Verify title array.
+		titleArr := args["title"].([]interface{})
+		if len(titleArr) != 1 {
+			t.Fatalf("len(title) = %d, want 1", len(titleArr))
+		}
+		titleObj := titleArr[0].(map[string]interface{})
+		textObj := titleObj["text"].(map[string]interface{})
+		if textObj["content"] != "My Database" {
+			t.Errorf("title[0].text.content = %v, want 'My Database'", textObj["content"])
+		}
+
+		// Verify properties exist.
+		propsMap := args["properties"].(map[string]interface{})
+		if _, ok := propsMap["Name"]; !ok {
+			t.Error("properties missing 'Name' key")
+		}
+		if _, ok := propsMap["Status"]; !ok {
+			t.Error("properties missing 'Status' key")
+		}
+	})
+
+	t.Run("update data source args", func(t *testing.T) {
+		dataSourceID := "ds-abc-123"
+		props := map[string]interface{}{
+			"Priority": map[string]interface{}{
+				"number": map[string]interface{}{},
+			},
+		}
+
+		args := map[string]interface{}{
+			"data_source_id": dataSourceID,
+			"properties":     props,
+		}
+
+		if args["data_source_id"] != "ds-abc-123" {
+			t.Errorf("data_source_id = %v, want 'ds-abc-123'", args["data_source_id"])
+		}
+		propsMap := args["properties"].(map[string]interface{})
+		if _, ok := propsMap["Priority"]; !ok {
+			t.Error("properties missing 'Priority' key")
+		}
+	})
+
+	t.Run("update data source trash", func(t *testing.T) {
+		args := map[string]interface{}{
+			"data_source_id": "ds-trash-1",
+			"in_trash":       true,
+		}
+
+		if args["data_source_id"] != "ds-trash-1" {
+			t.Errorf("data_source_id = %v, want 'ds-trash-1'", args["data_source_id"])
+		}
+		if args["in_trash"] != true {
+			t.Errorf("in_trash = %v, want true", args["in_trash"])
+		}
+	})
 }
 
 func TestPKCEGeneration(t *testing.T) {

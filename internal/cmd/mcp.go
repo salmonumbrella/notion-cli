@@ -36,6 +36,7 @@ directly with Notion's MCP server using your personal Notion account.`,
 	cmd.AddCommand(newMCPTeamsCmd())
 	cmd.AddCommand(newMCPUsersCmd())
 	cmd.AddCommand(newMCPToolsCmd())
+	cmd.AddCommand(newMCPDBCmd())
 
 	return cmd
 }
@@ -579,6 +580,157 @@ func newMCPUsersCmd() *cobra.Command {
 	cmd.Flags().StringVar(&userID, "user-id", "", "Fetch a specific user (\"self\" for current)")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page")
+
+	return cmd
+}
+
+func newMCPDBCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "db",
+		Short: "Manage databases via MCP",
+	}
+
+	cmd.AddCommand(newMCPDBCreateCmd())
+	cmd.AddCommand(newMCPDBUpdateCmd())
+
+	return cmd
+}
+
+func newMCPDBCreateCmd() *cobra.Command {
+	var (
+		parentID       string
+		title          string
+		propertiesJSON string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new database via MCP",
+		Long: `Create a new Notion database using the MCP notion-create-database tool.
+
+Use --parent to specify the parent page ID. Use --title for the database title.
+Use --properties to define the database schema as a JSON object.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			toolArgs := map[string]interface{}{}
+
+			if parentID != "" {
+				toolArgs["parent"] = map[string]interface{}{
+					"page_id": parentID,
+				}
+			}
+
+			if title != "" {
+				toolArgs["title"] = []interface{}{
+					map[string]interface{}{
+						"text": map[string]interface{}{
+							"content": title,
+						},
+					},
+				}
+			}
+
+			if propertiesJSON != "" {
+				var props map[string]interface{}
+				if err := json.Unmarshal([]byte(propertiesJSON), &props); err != nil {
+					return fmt.Errorf("invalid --properties JSON: %w", err)
+				}
+				toolArgs["properties"] = props
+			} else {
+				toolArgs["properties"] = map[string]interface{}{}
+			}
+
+			client, cleanup, err := mcpClientFromToken(ctx)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			result, err := client.CreateDatabase(ctx, toolArgs)
+			if err != nil {
+				return err
+			}
+
+			_, _ = fmt.Fprintln(stdoutFromContext(ctx), result)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page ID")
+	cmd.Flags().StringVar(&title, "title", "", "Database title")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database schema properties as a JSON object")
+
+	return cmd
+}
+
+func newMCPDBUpdateCmd() *cobra.Command {
+	var (
+		dataSourceID   string
+		title          string
+		propertiesJSON string
+		trash          bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a database schema via MCP",
+		Long: `Update a Notion database schema using the MCP notion-update-data-source tool.
+
+Use --id to specify the data source ID (required). Optionally set --title,
+--properties (JSON), or --trash to move the database to trash.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			toolArgs := map[string]interface{}{
+				"data_source_id": dataSourceID,
+			}
+
+			if title != "" {
+				toolArgs["title"] = []interface{}{
+					map[string]interface{}{
+						"text": map[string]interface{}{
+							"content": title,
+						},
+					},
+				}
+			}
+
+			if propertiesJSON != "" {
+				var props map[string]interface{}
+				if err := json.Unmarshal([]byte(propertiesJSON), &props); err != nil {
+					return fmt.Errorf("invalid --properties JSON: %w", err)
+				}
+				toolArgs["properties"] = props
+			}
+
+			if cmd.Flags().Changed("trash") {
+				toolArgs["in_trash"] = trash
+			}
+
+			client, cleanup, err := mcpClientFromToken(ctx)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			result, err := client.UpdateDataSource(ctx, toolArgs)
+			if err != nil {
+				return err
+			}
+
+			_, _ = fmt.Fprintln(stdoutFromContext(ctx), result)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&dataSourceID, "id", "", "Data source ID (required)")
+	cmd.Flags().StringVar(&title, "title", "", "New database title")
+	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database schema properties as a JSON object")
+	cmd.Flags().BoolVar(&trash, "trash", false, "Move database to trash")
+	_ = cmd.MarkFlagRequired("id")
 
 	return cmd
 }
