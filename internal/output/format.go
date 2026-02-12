@@ -139,8 +139,8 @@ func (p *Printer) printJSON(ctx context.Context, data interface{}) error {
 		if !ok {
 			break
 		}
-		if err, isErr := v.(error); isErr {
-			return fmt.Errorf("query error: %w", err)
+		if queryErr, isErr := v.(error); isErr {
+			return fmt.Errorf("query error: %s", safeErrorMessage(queryErr))
 		}
 		if err := enc.Encode(v); err != nil {
 			return err
@@ -174,8 +174,8 @@ func (p *Printer) printNDJSON(ctx context.Context, data interface{}) error {
 			if !ok {
 				break
 			}
-			if err, isErr := v.(error); isErr {
-				return fmt.Errorf("query error: %w", err)
+			if queryErr, isErr := v.(error); isErr {
+				return fmt.Errorf("query error: %s", safeErrorMessage(queryErr))
 			}
 			if err := enc.Encode(v); err != nil {
 				return err
@@ -202,6 +202,49 @@ func (p *Printer) printNDJSON(ctx context.Context, data interface{}) error {
 	}
 
 	return enc.Encode(data)
+}
+
+// safeErrorMessage returns a best-effort string representation for errors whose
+// Error method may panic (seen with some gojq runtime errors on typed values).
+func safeErrorMessage(err error) (msg string) {
+	if err == nil {
+		return "unknown error"
+	}
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			msg = formatRecoveredErrorMessage(err, recovered)
+		}
+	}()
+
+	msg = strings.TrimSpace(err.Error())
+	if msg == "" {
+		return fmt.Sprintf("%T", err)
+	}
+	return msg
+}
+
+func formatRecoveredErrorMessage(err error, recovered interface{}) string {
+	var raw string
+	switch v := recovered.(type) {
+	case string:
+		raw = v
+	case error:
+		raw = v.Error()
+	default:
+		return fmt.Sprintf("%T", err)
+	}
+
+	raw = strings.TrimSpace(raw)
+	// gojq panic payloads often append the full offending value in parentheses.
+	// Keep only the stable prefix to avoid dumping huge payloads.
+	if idx := strings.Index(raw, " ("); idx > 0 {
+		raw = raw[:idx]
+	}
+	if raw == "" {
+		return fmt.Sprintf("%T", err)
+	}
+	return raw
 }
 
 // printYAML outputs data as YAML.

@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -105,5 +106,59 @@ func TestWithQuery_RoundTrip(t *testing.T) {
 	query := QueryFromContext(ctx)
 	if query != ".foo.bar" {
 		t.Errorf("expected .foo.bar, got: %q", query)
+	}
+}
+
+func TestPrinter_WithQuery_RuntimeError_NoPanicFormatting_JSON(t *testing.T) {
+	type page struct {
+		ID string `json:"id"`
+	}
+
+	data := map[string]interface{}{
+		"results": []page{{ID: "1"}},
+	}
+
+	var buf bytes.Buffer
+	ctx := WithQuery(context.Background(), ".results.foo")
+	printer := NewPrinter(&buf, FormatJSON)
+
+	err := printer.Print(ctx, data)
+	if err == nil {
+		t.Fatal("expected runtime query error")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "query error:") {
+		t.Fatalf("expected query error prefix, got: %s", msg)
+	}
+	if strings.Contains(msg, "PANIC=Error method") {
+		t.Fatalf("query error leaked panic formatting: %s", msg)
+	}
+	if !strings.Contains(msg, "invalid type:") {
+		t.Fatalf("expected invalid type message, got: %s", msg)
+	}
+}
+
+func TestPrinter_WithQuery_RuntimeError_NoPanicFormatting_NDJSON(t *testing.T) {
+	type page struct {
+		ID string `json:"id"`
+	}
+
+	data := map[string]interface{}{
+		"results": []page{{ID: "1"}},
+	}
+
+	var buf bytes.Buffer
+	ctx := WithQuery(context.Background(), ".results.foo")
+	printer := NewPrinter(&buf, FormatNDJSON)
+
+	err := printer.Print(ctx, data)
+	if err == nil {
+		t.Fatal("expected runtime query error")
+	}
+
+	msg := err.Error()
+	if strings.Contains(msg, "PANIC=Error method") {
+		t.Fatalf("query error leaked panic formatting: %s", msg)
 	}
 }
