@@ -49,8 +49,9 @@ func newBlockCmd() *cobra.Command {
 
 func newBlockGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <block-id-or-name>",
-		Short: "Get a block by ID or name",
+		Use:     "get <block-id-or-name>",
+		Aliases: []string{"g"},
+		Short:   "Get a block by ID or name",
 		Long: `Retrieve a Notion block by its ID or name.
 
 If you provide a name instead of an ID, the CLI will search for matching pages/blocks.
@@ -252,8 +253,9 @@ func newBlockAppendCmd() *cobra.Command {
 	var content string
 
 	cmd := &cobra.Command{
-		Use:   "append <block-id>",
-		Short: "Append children to a block",
+		Use:     "append <block-id>",
+		Aliases: []string{"ap"},
+		Short:   "Append children to a block",
 		Long: `Append child blocks to a parent block.
 
 SIMPLE USAGE (--type and --content):
@@ -377,6 +379,10 @@ TIP: For convenience commands, see 'notion block add --help'`,
 	cmd.Flags().StringVar(&blockType, "type", "", "Block type for simple mode (paragraph, heading_1, etc.)")
 	cmd.Flags().StringVar(&content, "content", "", "Text content for simple mode (use with --type)")
 
+	// Flag aliases
+	flagAlias(cmd.Flags(), "children", "ch")
+	flagAlias(cmd.Flags(), "children-file", "chf")
+
 	return cmd
 }
 
@@ -429,8 +435,9 @@ func newBlockUpdateCmd() *cobra.Command {
 	var dryRun bool
 
 	cmd := &cobra.Command{
-		Use:   "update <block-id>",
-		Short: "Update a block",
+		Use:     "update <block-id>",
+		Aliases: []string{"u"},
+		Short:   "Update a block",
 		Long: `Update a block's content.
 
 The --content flag accepts a JSON object with the block type and its content.
@@ -549,6 +556,9 @@ Example of updating a paragraph block:
 		return nil
 	}
 
+	// Flag aliases
+	flagAlias(cmd.Flags(), "dry-run", "dr")
+
 	return cmd
 }
 
@@ -556,8 +566,9 @@ func newBlockDeleteCmd() *cobra.Command {
 	var dryRun bool
 
 	cmd := &cobra.Command{
-		Use:   "delete <block-id>",
-		Short: "Delete a block",
+		Use:     "delete <block-id>",
+		Aliases: []string{"d"},
+		Short:   "Delete a block",
 		Long: `Delete (archive) a block by its ID.
 
 Example:

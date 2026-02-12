@@ -48,8 +48,9 @@ func newDBListCmd() *cobra.Command {
 	var titleMatch string
 
 	cmd := &cobra.Command{
-		Use:   "list [query]",
-		Short: "List databases",
+		Use:     "list [query]",
+		Aliases: []string{"ls"},
+		Short:   "List databases",
 		Long: `List Notion databases (data sources) with optional title search.
 
 Example - List databases:
@@ -194,8 +195,9 @@ func extractTitlePlainText(value interface{}) string {
 
 func newDBGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <database-id-or-name>",
-		Short: "Get a database by ID or name",
+		Use:     "get <database-id-or-name>",
+		Aliases: []string{"g"},
+		Short:   "Get a database by ID or name",
 		Long: `Retrieve a Notion database by its ID or name.
 
 If you provide a name instead of an ID, the CLI will search for matching databases.
@@ -271,8 +273,9 @@ func newDBQueryCmd() *cobra.Command {
 	var priorityProperty string
 
 	cmd := &cobra.Command{
-		Use:   "query <database-id-or-name>",
-		Short: "Query a database",
+		Use:     "query <database-id-or-name>",
+		Aliases: []string{"q"},
+		Short:   "Query a database",
 		Long: `Query a Notion database with optional filters and sorts.
 
 If you provide a name instead of an ID, the CLI will search for matching databases.
@@ -284,7 +287,7 @@ The --sorts-file flag reads sorts JSON from a file (- for stdin).
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
-Use --data-source to query a specific data source in a multi-source database.
+Use --datasource to query a specific data source in a multi-source database.
 Use global --results-only to output just the results array.
 
 AGENT-FRIENDLY FILTER SHORTHANDS:
@@ -505,7 +508,7 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
-	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID to query (optional)")
+	cmd.Flags().StringVar(&dataSourceID, "datasource", "", "Data source ID to query (optional)")
 	cmd.Flags().StringVar(&selectProperty, "select-property", "", "Property name to match (select, multi_select, or status)")
 	cmd.Flags().StringVar(&selectEquals, "select-equals", "", "Match select name exactly")
 	cmd.Flags().StringVar(&selectNot, "select-not", "", "Exclude items where select name matches exactly")
@@ -518,6 +521,12 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().StringVar(&assigneeProperty, "assignee-prop", "Assignee", "Property name to use for --assignee")
 	cmd.Flags().StringVar(&priorityEquals, "priority", "", "Shorthand: filter Priority equals value (type select/status; requires schema lookup)")
 	cmd.Flags().StringVar(&priorityProperty, "priority-prop", "Priority", "Property name to use for --priority")
+
+	// Flag aliases
+	flagAlias(cmd.Flags(), "filter", "fi")
+	flagAlias(cmd.Flags(), "filter-file", "ff")
+	flagAlias(cmd.Flags(), "datasource", "ds")
+	flagAlias(cmd.Flags(), "status-prop", "sp")
 
 	return cmd
 }

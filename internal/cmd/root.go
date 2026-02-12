@@ -162,6 +162,13 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&latestFlag, "latest", false, "Shortcut for --sort-by created_time --desc --limit 1")
 	rootCmd.PersistentFlags().IntVar(&recentFlag, "recent", 0, "Shortcut for --sort-by created_time --desc --limit N")
 
+	// Flag aliases for agent ergonomics
+	flagAlias(rootCmd.PersistentFlags(), "fields", "fds")
+	flagAlias(rootCmd.PersistentFlags(), "results-only", "ro")
+	flagAlias(rootCmd.PersistentFlags(), "fail-empty", "fe")
+	flagAlias(rootCmd.PersistentFlags(), "sort-by", "sb")
+	flagAlias(rootCmd.PersistentFlags(), "query-file", "qf")
+
 	// Register subcommands
 	rootCmd.AddCommand(newAuthCmd())
 	rootCmd.AddCommand(newConfigCmd())
@@ -240,8 +247,9 @@ This is a convenience alias for 'notion user me'.`,
 	})
 
 	rootCmd.AddCommand(&cobra.Command{
-		Use:   "open <page-id-or-name>",
-		Short: "Open a Notion page in the browser",
+		Use:     "open <page-id-or-name>",
+		Aliases: []string{"o"},
+		Short:   "Open a Notion page in the browser",
 		Long: `Open a Notion page in your default web browser.
 
 Accepts a page ID, skill file alias, or page name.
@@ -458,7 +466,7 @@ Example:
 	// `notion delete <id>` → delete (archive) a page
 	rootCmd.AddCommand(&cobra.Command{
 		Use:     "delete <page-id-or-alias>",
-		Aliases: []string{"rm", "archive"},
+		Aliases: []string{"rm", "d"},
 		Short:   "Archive a page (alias for 'page delete')",
 		Long: `Archive a Notion page by its ID or skill file alias.
 

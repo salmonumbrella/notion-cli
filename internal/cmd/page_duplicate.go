@@ -34,8 +34,9 @@ func newPageDuplicateCmd() *cobra.Command {
 	var noChildren bool
 
 	cmd := &cobra.Command{
-		Use:   "duplicate <page-id>",
-		Short: "Duplicate a page",
+		Use:     "duplicate <page-id>",
+		Aliases: []string{"dup"},
+		Short:   "Duplicate a page",
 		Long: `Duplicate a Notion page, optionally changing the parent or title.
 
 By default, the duplicate is created under the same parent and includes children blocks.
@@ -127,10 +128,14 @@ Use --no-children to skip block duplication.`,
 	}
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page or database ID (optional)")
-	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'data-source'")
-	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID (optional, overrides --parent-type database)")
+	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'datasource'")
+	cmd.Flags().StringVar(&dataSourceID, "datasource", "", "Data source ID (optional, overrides --parent-type database)")
 	cmd.Flags().StringVar(&titleOverride, "title", "", "Override the duplicate page title")
 	cmd.Flags().BoolVar(&noChildren, "no-children", false, "Skip duplicating page content blocks")
+
+	// Flag aliases
+	flagAlias(cmd.Flags(), "parent", "pa")
+	flagAlias(cmd.Flags(), "datasource", "ds")
 
 	return cmd
 }

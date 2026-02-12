@@ -12,9 +12,10 @@ import (
 
 func newWebhookCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "webhook",
-		Short: "Webhook utilities",
-		Long:  "Verify and parse Notion webhook payloads.",
+		Use:     "webhook",
+		Aliases: []string{"wh"},
+		Short:   "Webhook utilities",
+		Long:    "Verify and parse Notion webhook payloads.",
 	}
 
 	cmd.AddCommand(newWebhookVerifyCmd())

@@ -33,8 +33,9 @@ func newFileUploadCmd() *cobra.Command {
 	var propertyName string
 
 	cmd := &cobra.Command{
-		Use:   "upload <filepath>",
-		Short: "Upload a file to Notion",
+		Use:     "upload <filepath>",
+		Aliases: []string{"up"},
+		Short:   "Upload a file to Notion",
 		Long: `Upload a file to Notion storage.
 
 If --page and --property are provided, the file will be attached
@@ -148,13 +149,17 @@ Example - Upload and attach to page property:
 	cmd.Flags().StringVar(&pageID, "page", "", "Page ID to attach file to")
 	cmd.Flags().StringVar(&propertyName, "property", "", "Property name to attach file to")
 
+	// Flag aliases
+	flagAlias(cmd.Flags(), "property", "prop")
+
 	return cmd
 }
 
 func newFileGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <file-upload-id>",
-		Short: "Get file upload status",
+		Use:     "get <file-upload-id>",
+		Aliases: []string{"g"},
+		Short:   "Get file upload status",
 		Long: `Get the status of a file upload by ID.
 
 Example:
@@ -186,8 +191,9 @@ func newFileListCmd() *cobra.Command {
 	var pageSize int
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List file uploads",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List file uploads",
 		Long: `List file uploads for the current integration.
 
 Example:

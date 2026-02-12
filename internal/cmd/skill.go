@@ -21,8 +21,9 @@ import (
 
 func newSkillCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "skill",
-		Short: "Manage the notion-cli skill file for agents",
+		Use:     "skill",
+		Aliases: []string{"sk"},
+		Short:   "Manage the notion-cli skill file for agents",
 		Long: `The skill file provides aliases and context for AI agents using the CLI.
 
 Run 'notion skill init' after authentication to generate a skill file

@@ -33,8 +33,9 @@ func newUserCmd() *cobra.Command {
 
 func newUserGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <user-id>",
-		Short: "Get a user by ID",
+		Use:     "get <user-id>",
+		Aliases: []string{"g"},
+		Short:   "Get a user by ID",
 		Long: `Retrieve a Notion user by their ID.
 
 Example:
@@ -73,8 +74,9 @@ func newUserListCmd() *cobra.Command {
 	var all bool
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all users",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all users",
 		Long: `List all users in the Notion workspace.
 
 Supports pagination with --start-cursor and --page-size flags.

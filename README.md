@@ -59,10 +59,10 @@ notion auth status
 
 ```bash
 # Search your workspace
-notion search "project notes"
+notion s "project notes"
 
 # Get current user
-notion user me
+notion u me
 ```
 
 ## Configuration
@@ -78,8 +78,8 @@ notion user me
 
 ### Agent-Friendly Global Flags
 
-- `--results-only` - For list-like responses, output just the `.results` array (useful for piping to `jq`).
-- `--limit`, `--sort-by`, `--desc`, `--latest`, `--recent` - Apply client-side sorting/limiting when possible.
+- `--ro` (`--results-only`) - For list-like responses, output just the `.results` array (useful for piping to `jq`).
+- `--limit`, `--sb` (`--sort-by`), `--desc`, `--latest`, `--recent` - Apply client-side sorting/limiting when possible.
 
 ### Config File (Optional)
 
@@ -111,6 +111,24 @@ Credentials are stored securely in your system's keychain:
 
 ## Commands
 
+Every command has a short alias for quick scripting:
+
+| Command | Alias | Subcommands |
+|---------|-------|-------------|
+| `page` | `p` | `g`et, `c`reate, `u`pdate, `d`elete, `ls` list, `props`, `prop`, `mv`, `dup`, `ex`port, `cb` create-batch, `ub` update-batch |
+| `block` | `b` | `g`et, `ls` children, `ap`pend, `u`pdate, `d`elete, `add`, `add-toc`, `add-breadcrumb`, `add-divider`, `add-columns` |
+| `db` | | `g`et, `q`uery, `c`reate, `u`pdate, `ls` list |
+| `datasource` | `ds` | `g`et, `q`uery, `c`reate, `u`pdate, `ls` list, `t`emplates |
+| `comment` | `c` | `g`et, `ls` list, `a`dd |
+| `user` | `u` | `g`et, `ls` list, `me` |
+| `file` | `f` | `g`et, `up`load, `ls` list |
+| `search` | `s` | |
+| `resolve` | `r` | |
+| `open` | `o` | |
+| `skill` | `sk` | |
+| `import` | `im` | |
+| `webhook` | `wh` | |
+
 ### Authentication
 
 ```bash
@@ -120,172 +138,171 @@ notion auth status                 # Check authentication status
 notion auth logout                 # Remove stored credentials
 ```
 
-### Search
+### Search (`s`)
 
 ```bash
-notion search                      # Search all pages and databases
-notion search "project notes"      # Search with query
-notion search --filter page        # Search only pages
-notion search --filter database    # Search only databases
-notion search "project" --all --results-only  # Fetch all results (array only)
+notion s                           # Search all pages and databases
+notion s "project notes"           # Search with query
+notion s --fi page                 # Search only pages
+notion s --fi database             # Search only databases
+notion s "project" --all --ro      # Fetch all results (array only)
 ```
 
-### Resolve
+### Resolve (`r`, `res`)
 
 ```bash
-notion resolve "Meeting Notes"     # Return candidate IDs (skill aliases + search)
-notion resolve "Projects" --type database
-notion resolve standup             # Skill alias
+notion r "Meeting Notes"           # Return candidate IDs (skill aliases + search)
+notion r "Projects" --type database
+notion r standup                   # Skill alias
 ```
 
-### Users
+### Users (`u`)
 
 ```bash
-notion user me                     # Get current user
-notion user list                   # List all workspace users
-notion user get <user-id>          # Get user by ID
+notion u me                        # Get current user
+notion u ls                        # List all workspace users
+notion u g <user-id>               # Get user by ID
 ```
 
-### Pages
+### Pages (`p`)
 
 ```bash
-notion page get <page-id>                              # Get page
-notion page create --parent <id> --properties <json>   # Create page
-notion page create-batch --parent <id> --pages <json>  # Create multiple pages
-notion page update-batch --pages <json>                # Update multiple pages
-notion page duplicate <page-id>                        # Duplicate page
-notion page export <page-id> --format markdown         # Export page content
-notion page update <page-id> --properties <json>       # Update page
-notion page move <page-id> --parent <new-parent-id>    # Move page
-notion page property <page-id> <property-id>           # Get property
-notion page properties <page-id>                       # List properties (optionally simplified)
+notion p g <page-id>                              # Get page
+notion p c --pa <id> --props <json>               # Create page
+notion p cb --pa <id> --pages <json>               # Create multiple pages
+notion p ub --pages <json>                         # Update multiple pages
+notion p dup <page-id>                             # Duplicate page
+notion p ex <page-id> --format markdown            # Export page content
+notion p u <page-id> --props <json>                # Update page
+notion p mv <page-id> --pa <new-parent-id>         # Move page
+notion p d <page-id>                               # Delete page
+notion p prop <page-id> <property-id>              # Get property
+notion p props <page-id>                           # List properties (optionally simplified)
 ```
 
-### Databases
+### Databases (`db`)
 
 ```bash
-notion db get <database-id>                            # Get database
-notion db query <database-id>                          # Query database
-notion db query <database-id> --data-source <id>        # Query a specific data source
-notion db create --parent <id> --properties <json>     # Create database
-notion db update <database-id> --properties <json>     # Update database
+notion db g <database-id>                            # Get database
+notion db q <database-id>                            # Query database
+notion db q <database-id> --ds <id>                   # Query a specific data source
+notion db c --pa <id> --props <json>                 # Create database
+notion db u <database-id> --props <json>             # Update database
 ```
 
 Query with filters and sorts:
 
 ```bash
 # Query with filter
-notion db query <database-id> \
-  --filter '{"property":"Status","select":{"equals":"Done"}}'
+notion db q <database-id> \
+  --fi '{"property":"Status","select":{"equals":"Done"}}'
 
 # Agent-friendly shorthand filters (server-side; combined with --filter using AND)
-notion db query <database-id> --status Done
-notion db query <database-id> --assignee me
-notion db query <database-id> --priority High
+notion db q <database-id> --status Done
+notion db q <database-id> --assignee me
+notion db q <database-id> --priority High
 
 # Query with filter from file/stdin (avoids shell escaping issues)
-notion db query <database-id> --filter @filter.json
-cat filter.json | notion db query <database-id> --filter -
+notion db q <database-id> --fi @filter.json
+cat filter.json | notion db q <database-id> --fi -
 
 # Query with sorts
-notion db query <database-id> \
+notion db q <database-id> \
   --sorts '[{"property":"Created","direction":"descending"}]'
 
 # Fetch all results as an array
-notion db query <database-id> --all --results-only
+notion db q <database-id> --all --ro
 ```
 
-### Blocks
+### Blocks (`b`)
 
 ```bash
-notion block get <block-id>                        # Get block
-notion block children <block-id>                   # Get children
-notion block children <block-id> --plain           # Get children (simplified: id/type/text)
-notion block append <parent-id> --children <json>  # Append blocks
-notion block update <block-id> --content <json>    # Update block
-notion block delete <block-id>                     # Delete block
+notion b g <block-id>                        # Get block
+notion b ls <block-id>                       # Get children
+notion b ls <block-id> --plain               # Get children (simplified: id/type/text)
+notion b ap <parent-id> --ch <json>          # Append blocks
+notion b u <block-id> --content <json>       # Update block
+notion b d <block-id>                        # Delete block
 ```
 
 Quick block creation:
 
 ```bash
-notion block add-toc <parent-id>                   # Add table of contents
-notion block add-toc <parent-id> --color blue      # With color
-notion block add-breadcrumb <parent-id>            # Add breadcrumb navigation
-notion block add-divider <parent-id>               # Add horizontal divider
-notion block add-columns <parent-id> --columns 3   # Add 3-column layout (2-5)
+notion b add-toc <parent-id>                   # Add table of contents
+notion b add-toc <parent-id> --color blue      # With color
+notion b add-breadcrumb <parent-id>            # Add breadcrumb navigation
+notion b add-divider <parent-id>               # Add horizontal divider
+notion b add-columns <parent-id> --columns 3   # Add 3-column layout (2-5)
 ```
 
-### Comments
+### Comments (`c`)
 
 ```bash
-notion comment list <block-id>                     # List comments
-notion comment add <block-id> --text "Comment"     # Add comment
+notion c ls <block-id>                       # List comments
+notion c a <block-id> --text "Comment"       # Add comment
 
 # Desire paths (agent-friendly)
-notion comment <page-id> "Looks great!"            # Add comment (positional)
-notion comment add <page-id> "Looks great!"        # Add comment (positional)
+notion c <page-id> "Looks great!"            # Add comment (positional)
+notion c a <page-id> "Looks great!"          # Add comment (positional)
 ```
 
-### File Uploads
+### File Uploads (`f`)
 
 ```bash
-notion file upload <filepath>                      # Upload file
-notion file get <upload-id>                        # Get upload status
-notion file list                                   # List file uploads
+notion f up <filepath>                       # Upload file
+notion f g <upload-id>                       # Get upload status
+notion f ls                                  # List file uploads
 ```
 
 Upload and attach to page property:
 
 ```bash
-notion file upload ./receipt.pdf --page <page-id> --property "Attachments"
+notion f up ./receipt.pdf --page <page-id> --prop "Attachments"
 ```
 
-### Data Sources
+### Data Sources (`ds`)
 
 ```bash
-notion datasource templates                        # List available templates
-notion datasource create --template <name>         # Create from template
-notion datasource get <datasource-id>              # Get data source
-notion datasource query <datasource-id>            # Query data source
-notion datasource update <datasource-id> <json>    # Update data source
+notion ds t                                    # List available templates
+notion ds c --template <name>                  # Create from template
+notion ds g <datasource-id>                    # Get data source
+notion ds q <datasource-id>                    # Query data source
+notion ds u <datasource-id> <json>             # Update data source
 ```
 
 Query with filters, sorts, and selection:
 
 ```bash
 # Filter by property value
-notion ds query <datasource-id> \
-  --filter '{"property":"Status","status":{"equals":"Active"}}'
+notion ds q <datasource-id> \
+  --fi '{"property":"Status","status":{"equals":"Active"}}'
 
 # Read filter from file (avoids shell escaping)
-notion ds query <datasource-id> --filter-file filter.json
+notion ds q <datasource-id> --ff filter.json
 
 # Sort by timestamp (shorthand)
-notion ds query <datasource-id> --sort-by last_edited_time --desc
+notion ds q <datasource-id> --sb last_edited_time --desc
 
 # Sort with full Notion sorts JSON
-notion ds query <datasource-id> \
+notion ds q <datasource-id> \
   --sorts '[{"property":"Priority","direction":"ascending"}]'
 
 # Client-side select/status filtering (exact, not-equals, or regex)
-notion ds query <datasource-id> \
+notion ds q <datasource-id> \
   --select-property "Category" --select-equals "Engineering"
-notion ds query <datasource-id> \
+notion ds q <datasource-id> \
   --select-property "Status" --select-not "Done"
-notion ds query <datasource-id> \
+notion ds q <datasource-id> \
   --select-property "Category" --select-match "(?i)eng"
 
 # Fetch all results as a plain array
-notion ds query <datasource-id> --limit 0 --results-only
+notion ds q <datasource-id> --limit 0 --ro
 
 # Combine: filter + sort + limit
-notion ds query <datasource-id> \
-  --filter '{"property":"Status","status":{"equals":"Active"}}' \
-  --sort-by created_time --desc --limit 20 --results-only
+notion ds q <datasource-id> \
+  --fi '{"property":"Status","status":{"equals":"Active"}}' \
+  --sb created_time --desc --limit 20 --ro
 ```
-
-Alias: `notion ds` works as shorthand for `notion datasource`.
 
 ### Fetch
 
@@ -295,12 +312,12 @@ notion fetch <notion-url> --type page                  # Force page fetch
 notion fetch <notion-url> --type database              # Force database fetch
 ```
 
-### Webhooks
+### Webhooks (`wh`)
 
 ```bash
-notion webhook verify --secret <secret> --payload payload.json --signature <sig>
-notion webhook verify --secret <secret> --payload payload.json           # Compute signature
-notion webhook parse --payload payload.json
+notion wh verify --secret <secret> --payload payload.json --signature <sig>
+notion wh verify --secret <secret> --payload payload.json           # Compute signature
+notion wh parse --payload payload.json
 ```
 
 ### API
@@ -321,7 +338,7 @@ notion api request GET /blocks/<id>/children --paginate
 Human-readable tables with colors and formatting:
 
 ```bash
-$ notion user me
+$ notion u me
 NAME         EMAIL                  TYPE
 John Doe     john@example.com       person
 ```
@@ -331,7 +348,7 @@ John Doe     john@example.com       person
 Machine-readable output:
 
 ```bash
-$ notion user me --output json
+$ notion u me --output json
 {
   "id": "user_123",
   "name": "John Doe",
@@ -346,7 +363,7 @@ Data goes to stdout, errors and progress to stderr for clean piping.
 Newline-delimited JSON (one JSON object per line):
 
 ```bash
-$ notion search "project" --output ndjson
+$ notion s "project" --output ndjson
 {"object":"page", ...}
 {"object":"page", ...}
 ```
@@ -357,73 +374,73 @@ $ notion search "project" --output ndjson
 
 ```bash
 # Create a page
-notion page create \
-  --parent <parent-id> \
-  --properties '{"title":[{"text":{"content":"New Page"}}]}'
+notion p c \
+  --pa <parent-id> \
+  --props '{"title":[{"text":{"content":"New Page"}}]}'
 
 # Add content blocks
-notion block append <page-id> \
-  --children '[{"object":"block","type":"paragraph","paragraph":{"rich_text":[{"text":{"content":"Hello world"}}]}}]'
+notion b ap <page-id> \
+  --ch '[{"object":"block","type":"paragraph","paragraph":{"rich_text":[{"text":{"content":"Hello world"}}]}}]'
 ```
 
 ### Query and Filter Database
 
 ```bash
 # Get all completed tasks
-notion db query <database-id> \
-  --filter '{"property":"Status","select":{"equals":"Done"}}' \
-  --output json | jq '.results[].properties.Name'
+notion db q <database-id> \
+  --fi '{"property":"Status","select":{"equals":"Done"}}' \
+  -o json | jq '.results[].properties.Name'
 ```
 
 ### Duplicate and Export Pages
 
 ```bash
 # Duplicate a page with its content
-notion page duplicate <page-id>
+notion p dup <page-id>
 
 # Export page content to Markdown
-notion page export <page-id> --format markdown
+notion p ex <page-id> --format markdown
 ```
 
 ### Batch Updates
 
 ```bash
 # Update multiple pages in one command
-notion page update-batch --pages '[{"id":"<page-id>","properties":{"Status":{"status":{"name":"Done"}}}}]'
+notion p ub --pages '[{"id":"<page-id>","properties":{"Status":{"status":{"name":"Done"}}}}]'
 ```
 
 ### Automation
 
-Use `--yes` (or `--no-input`) to skip confirmations, `--limit` to control result size, and `--sort-by` for ordering:
+Use `--yes` (or `--no-input`) to skip confirmations, `--limit` to control result size, and `--sb` for ordering:
 
 ```bash
 # Delete without confirmation
-notion block delete <block-id> --yes
+notion b d <block-id> -y
 
 # Get recent items
-notion search "project" --limit 5 --sort-by created_time --desc
+notion s "project" --limit 5 --sb created_time --desc
 
 # Pipeline example
-notion db query <database-id> --output json | jq '.results[] | .id'
+notion db q <database-id> -o json | jq '.results[] | .id'
 
 # Filter JSON output with jq expression
-notion page get <page-id> --output json --query '.properties.Status'
+notion p g <page-id> -o json --jq '.properties.Status'
 
 # Use a file for longer jq expressions
-notion page get <page-id> --output json --query-file ./query.jq
+notion p g <page-id> -o json --qf ./query.jq
 
 # Project fields without jq
-notion db query <database-id> --results-only --fields id,name,created_time
+notion db q <database-id> --ro --fields id,name,created_time
 
 # JSONPath extraction
-notion db query <database-id> --jsonpath '$.results[0].id'
+notion db q <database-id> --jsonpath '$.results[0].id'
 
 # Latest shortcuts
-notion search "project" --latest
-notion search "project" --recent 5
+notion s "project" --latest
+notion s "project" --recent 5
 
 # Fail if empty
-notion search "project" --fail-empty --limit 1
+notion s "project" --fe --limit 1
 ```
 
 ### JSON Input Shortcuts
@@ -432,19 +449,19 @@ Flags that accept JSON also support reading from a file or stdin:
 
 ```bash
 # From a file
-notion db query <database-id> --filter @filter.json
+notion db q <database-id> --fi @filter.json
 
 # From a file (properties)
-notion page update <page-id> --properties @props.json
+notion p u <page-id> --props @props.json
 
 # From a file (properties flag)
-notion page update <page-id> --properties-file props.json
+notion p u <page-id> --props-file props.json
 
 # From stdin
-cat filter.json | notion db query <database-id> --filter -
+cat filter.json | notion db q <database-id> --fi -
 
 # From stdin (heredoc)
-cat <<'JSON' | notion page update <page-id> --properties -
+cat <<'JSON' | notion p u <page-id> --props -
 {"Status":{"status":{"name":"Done"}}}
 JSON
 ```
@@ -452,7 +469,7 @@ JSON
 ### Debug Mode
 
 ```bash
-notion --debug user me
+notion --debug u me
 # Shows HTTP request/response details to stderr
 ```
 
@@ -462,19 +479,18 @@ All commands support these flags:
 
 - `--output <format>` - Output format: `text`, `json`, `ndjson`, `table`, or `yaml` (default: text)
 - `--query <expr>` / `--jq <expr>` - JQ filter expression for JSON output
-- `--fields <paths>` / `--pick <paths>` - Project fields (comma-separated paths, `key=path` to rename)
+- `--query-file <path>` / `--qf` - Read JQ filter expression from file (use `-` for stdin)
+- `--fields <paths>` / `--pick <paths>` / `--fds` - Project fields (comma-separated paths, `key=path` to rename)
 - `--jsonpath <expr>` - Extract a value using JSONPath
-- `--latest` / `--recent <n>` - Shortcut for `--sort-by created_time --desc --limit N`
-- `--fail-empty` - Exit with error when results are empty
+- `--results-only` / `--ro` - Output just the results array (useful for piping to jq)
+- `--latest` / `--recent <n>` - Shortcut for `--sb created_time --desc --limit N`
+- `--fail-empty` / `--fe` - Exit with error when results are empty
+- `--sort-by <field>` / `--sb` - Sort results by field (e.g., `created_time`, `last_edited_time`)
+- `--desc` - Sort in descending order (use with `--sb`)
 - `--workspace <name>`, `-w` - Workspace to use (overrides NOTION_WORKSPACE)
 - `--debug` - Enable debug output (shows API requests/responses)
-- `--query <expr>` - JQ filter expression for JSON output
-- `--query-file <path>` - Read JQ filter expression from file (use `-` for stdin)
-- `--yes`, `-y` - Skip confirmation prompts (useful for scripts and automation)
-- `--no-input` - Alias for `--yes` (non-interactive mode)
+- `--yes`, `-y` / `--no-input` - Skip confirmation prompts (useful for scripts and automation)
 - `--limit <N>` - Limit number of results
-- `--sort-by <field>` - Sort results by field (e.g., `created_time`, `last_edited_time`)
-- `--desc` - Sort in descending order (use with `--sort-by`)
 - `--error-format <mode>` - Error output format: `auto`, `text`, or `json`
 - `--quiet` - Suppress non-essential output
 - `--help` - Show help for any command

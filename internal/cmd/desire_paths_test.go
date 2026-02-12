@@ -49,12 +49,12 @@ func TestDesirePaths(t *testing.T) {
 
 		// Top-level delete aliases
 		{"shortcut: rm (alias for delete)", []string{"rm", "--help"}, true},
-		{"shortcut: archive (alias for delete)", []string{"archive", "--help"}, true},
+		{"shortcut: d (alias for delete)", []string{"d", "--help"}, true},
 
 		// Subcommand aliases
 		{"alias: page list -> page ls", []string{"page", "ls", "--help"}, true},
 		{"alias: page delete -> page rm", []string{"page", "rm", "--help"}, true},
-		{"alias: page delete -> page archive", []string{"page", "archive", "--help"}, true},
+		{"alias: page delete -> page d", []string{"page", "d", "--help"}, true},
 		{"alias: block children -> block list", []string{"block", "list", "--help"}, true},
 		{"alias: block children -> block ls", []string{"block", "ls", "--help"}, true},
 		{"alias: search -> find", []string{"find", "--help"}, true},
@@ -62,9 +62,6 @@ func TestDesirePaths(t *testing.T) {
 		// db aliases
 		{"alias: db -> database", []string{"database", "--help"}, true},
 		{"alias: db shorthand", []string{"db", "--help"}, true},
-
-		// Patterns that DON'T exist yet (documented desire paths for future)
-		{"unimpl: d for db", []string{"d", "--help"}, false},
 	}
 
 	for _, tt := range paths {

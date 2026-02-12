@@ -25,7 +25,7 @@ func resolveDataSourceID(ctx context.Context, client databaseGetter, databaseID 
 		return "", fmt.Errorf("database has no data sources")
 	}
 	if len(database.DataSources) > 1 {
-		return "", fmt.Errorf("database has multiple data sources; specify --data-source (available: %s)", formatDataSourceChoices(database.DataSources))
+		return "", fmt.Errorf("database has multiple data sources; specify --datasource (available: %s)", formatDataSourceChoices(database.DataSources))
 	}
 
 	return database.DataSources[0].ID, nil

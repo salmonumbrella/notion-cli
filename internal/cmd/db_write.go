@@ -21,14 +21,15 @@ func newDBCreateCmd() *cobra.Command {
 	var isInline bool
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new database",
+		Use:     "create",
+		Aliases: []string{"c"},
+		Short:   "Create a new database",
 		Long: `Create a new Notion database.
 
 The --parent flag specifies the parent page ID (required).
 The --title flag specifies the database title as plain text.
 The --properties flag accepts a JSON object defining the database schema (required).
-The --data-source-title flag sets the title of the initial data source (optional).
+The --datasource-title flag sets the title of the initial data source (optional).
 
 Example - Create a simple task database:
   notion db create \
@@ -150,11 +151,16 @@ Example - Create with description:
 	cmd.Flags().StringVar(&titleText, "title", "", "Database title as plain text")
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Database properties as JSON object (required, @file or - for stdin)")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
-	cmd.Flags().StringVar(&dataSourceTitle, "data-source-title", "", "Initial data source title (optional)")
+	cmd.Flags().StringVar(&dataSourceTitle, "datasource-title", "", "Initial data source title (optional)")
 	cmd.Flags().StringVar(&descriptionJSON, "description", "", "Database description as JSON array")
 	cmd.Flags().StringVar(&iconJSON, "icon", "", "Database icon as JSON object")
 	cmd.Flags().StringVar(&coverJSON, "cover", "", "Database cover as JSON object")
 	cmd.Flags().BoolVar(&isInline, "inline", false, "Create as inline database")
+
+	// Flag aliases
+	flagAlias(cmd.Flags(), "parent", "pa")
+	flagAlias(cmd.Flags(), "properties", "props")
+	flagAlias(cmd.Flags(), "properties-file", "props-file")
 
 	return cmd
 }
@@ -172,13 +178,14 @@ func newDBUpdateCmd() *cobra.Command {
 	var dataSourceID string
 
 	cmd := &cobra.Command{
-		Use:   "update <database-id>",
-		Short: "Update a database",
+		Use:     "update <database-id>",
+		Aliases: []string{"u"},
+		Short:   "Update a database",
 		Long: `Update a Notion database's metadata and properties.
 
 The --title flag updates the database title.
 The --properties flag accepts a JSON object to update the data source schema.
-Use --data-source to target a specific data source in a multi-source database.
+Use --datasource to target a specific data source in a multi-source database.
 The --description flag updates the database description.
 The --archived flag archives or unarchives the database.
 
@@ -389,12 +396,18 @@ Example - Archive database:
 	cmd.Flags().StringVar(&coverJSON, "cover", "", "Database cover as JSON object")
 	cmd.Flags().BoolVar(&archived, "archived", false, "Archive the database")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
-	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID for schema updates (optional)")
+	cmd.Flags().StringVar(&dataSourceID, "datasource", "", "Data source ID for schema updates (optional)")
 
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		setArchived = cmd.Flags().Changed("archived")
 		return nil
 	}
+
+	// Flag aliases
+	flagAlias(cmd.Flags(), "properties", "props")
+	flagAlias(cmd.Flags(), "properties-file", "props-file")
+	flagAlias(cmd.Flags(), "datasource", "ds")
+	flagAlias(cmd.Flags(), "dry-run", "dr")
 
 	return cmd
 }

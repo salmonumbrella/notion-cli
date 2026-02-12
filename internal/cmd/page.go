@@ -75,7 +75,7 @@ Example:
 func newPageDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "delete <page-id-or-name>",
-		Aliases: []string{"archive", "rm"},
+		Aliases: []string{"rm", "d"},
 		Short:   "Archive a page",
 		Long: `Archive a Notion page by its ID or name.
 
@@ -127,8 +127,9 @@ func newPageGetCmd() *cobra.Command {
 	var enrich bool
 
 	cmd := &cobra.Command{
-		Use:   "get <page-id-or-name>",
-		Short: "Get a page by ID or name",
+		Use:     "get <page-id-or-name>",
+		Aliases: []string{"g"},
+		Short:   "Get a page by ID or name",
 		Long: `Retrieve a Notion page by its ID or name.
 
 If you provide a name instead of an ID, the CLI will search for matching pages
@@ -201,8 +202,9 @@ func newPagePropertiesCmd() *cobra.Command {
 	var simple bool
 
 	cmd := &cobra.Command{
-		Use:   "properties <page-id-or-name>",
-		Short: "List page properties",
+		Use:     "properties <page-id-or-name>",
+		Aliases: []string{"props"},
+		Short:   "List page properties",
 		Long: `List page properties with optional filtering.
 
 If you provide a name instead of an ID, the CLI will search for matching pages.
@@ -324,8 +326,9 @@ func newPageCreateCmd() *cobra.Command {
 	var titleFlag string
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new page",
+		Use:     "create",
+		Aliases: []string{"c"},
+		Short:   "Create a new page",
 		Long: `Create a new Notion page with the specified parent and properties.
 
 The --properties flag accepts a JSON string with the page properties.
@@ -333,8 +336,8 @@ You can also pass @file or - (stdin) to avoid shell-escaping JSON.
 The simplest format for a basic page is:
   {"title": [{"text": {"content": "Page Title"}}]}
 
-The --parent-type flag specifies whether the parent is a "page" (default), "database", or "data-source".
-Use --data-source to target a specific data source (overrides --parent-type database).
+The --parent-type flag specifies whether the parent is a "page" (default), "database", or "datasource".
+Use --datasource to target a specific data source (overrides --parent-type database).
 
 PROPERTY SHORTHAND FLAGS:
 For common properties, you can use shorthand flags instead of JSON:
@@ -362,7 +365,7 @@ Examples:
 
 			// Validate required flags
 			if parentID == "" && dataSourceID == "" {
-				return fmt.Errorf("--parent flag is required (or use --data-source)")
+				return fmt.Errorf("--parent flag is required (or use --datasource)")
 			}
 			// Allow --title to be used without --properties
 			hasShorthandFlags := titleFlag != "" || statusFlag != "" || priorityFlag != "" || assigneeFlag != ""
@@ -447,14 +450,20 @@ Examples:
 	}
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page or database ID (required)")
-	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'data-source'")
+	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'datasource'")
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as JSON (@file or - for stdin)")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
-	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID (optional, overrides --parent-type database)")
+	cmd.Flags().StringVar(&dataSourceID, "datasource", "", "Data source ID (optional, overrides --parent-type database)")
 	cmd.Flags().StringVar(&titleFlag, "title", "", "Set page title (finds title property by type)")
 	cmd.Flags().StringVar(&statusFlag, "status", "", "Set Status property value")
 	cmd.Flags().StringVar(&priorityFlag, "priority", "", "Set Priority property value")
 	cmd.Flags().StringVar(&assigneeFlag, "assignee", "", "Set Assignee property (user ID or alias)")
+
+	// Flag aliases
+	flagAlias(cmd.Flags(), "parent", "pa")
+	flagAlias(cmd.Flags(), "datasource", "ds")
+	flagAlias(cmd.Flags(), "properties", "props")
+	flagAlias(cmd.Flags(), "properties-file", "props-file")
 
 	return cmd
 }
@@ -474,8 +483,9 @@ func newPageUpdateCmd() *cobra.Command {
 	var titleFlag string
 
 	cmd := &cobra.Command{
-		Use:   "update <page-id-or-name>",
-		Short: "Update a page",
+		Use:     "update <page-id-or-name>",
+		Aliases: []string{"u"},
+		Short:   "Update a page",
 		Long: `Update a Notion page's properties.
 
 If you provide a name instead of an ID, the CLI will search for matching pages.
@@ -686,13 +696,19 @@ Combined example (all flags together):
 		return nil
 	}
 
+	// Flag aliases
+	flagAlias(cmd.Flags(), "properties", "props")
+	flagAlias(cmd.Flags(), "properties-file", "props-file")
+	flagAlias(cmd.Flags(), "dry-run", "dr")
+
 	return cmd
 }
 
 func newPagePropertyCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "property <page-id> <property-id>",
-		Short: "Get a specific page property",
+		Use:     "property <page-id> <property-id>",
+		Aliases: []string{"prop"},
+		Short:   "Get a specific page property",
 		Long: `Retrieve a specific property value from a page.
 
 This is useful for retrieving paginated properties or getting
@@ -735,8 +751,9 @@ func newPageMoveCmd() *cobra.Command {
 	var after string
 
 	cmd := &cobra.Command{
-		Use:   "move <page-id>",
-		Short: "Move a page to a new parent",
+		Use:     "move <page-id>",
+		Aliases: []string{"mv"},
+		Short:   "Move a page to a new parent",
 		Long: `Move a page to a different parent page or database.
 
 Example - Move page under another page:
@@ -806,6 +823,9 @@ Example - Move page to database:
 	cmd.Flags().StringVar(&parentID, "parent", "", "New parent page or database ID (required)")
 	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type: 'page' or 'database'")
 	cmd.Flags().StringVar(&after, "after", "", "Block ID to position after")
+
+	// Flag aliases
+	flagAlias(cmd.Flags(), "parent", "pa")
 
 	return cmd
 }

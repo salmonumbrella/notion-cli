@@ -175,5 +175,8 @@ Example - Fetch all results:
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().StringVarP(&textQuery, "text", "t", "", "Search text (alternative to positional argument)")
 
+	// Flag aliases
+	flagAlias(cmd.Flags(), "filter", "fi")
+
 	return cmd
 }

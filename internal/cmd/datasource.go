@@ -38,8 +38,9 @@ is equivalent to 'db query'. Use 'db' instead when you need database-level metad
 
 func newDataSourceGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <datasource-id>",
-		Short: "Get a data source by ID",
+		Use:     "get <datasource-id>",
+		Aliases: []string{"g"},
+		Short:   "Get a data source by ID",
 		Long: `Retrieve a Notion data source by its ID.
 
 Example:
@@ -78,8 +79,9 @@ func newDataSourceCreateCmd() *cobra.Command {
 	var propertiesFile string
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new data source",
+		Use:     "create",
+		Aliases: []string{"c"},
+		Short:   "Create a new data source",
 		Long: `Create a new Notion data source.
 
 The --parent flag specifies the parent database ID (required).
@@ -138,6 +140,11 @@ Example:
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Properties JSON (required, @file or - for stdin)")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 
+	// Flag aliases
+	flagAlias(cmd.Flags(), "parent", "pa")
+	flagAlias(cmd.Flags(), "properties", "props")
+	flagAlias(cmd.Flags(), "properties-file", "props-file")
+
 	return cmd
 }
 
@@ -146,8 +153,9 @@ func newDataSourceUpdateCmd() *cobra.Command {
 	var propertiesFile string
 
 	cmd := &cobra.Command{
-		Use:   "update <datasource-id>",
-		Short: "Update a data source",
+		Use:     "update <datasource-id>",
+		Aliases: []string{"u"},
+		Short:   "Update a data source",
 		Long: `Update a Notion data source's properties.
 
 The --properties flag accepts a JSON object to update the data source schema.
@@ -198,6 +206,10 @@ Example:
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Properties JSON (@file or - for stdin)")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "Read properties JSON from file (- for stdin)")
 
+	// Flag aliases
+	flagAlias(cmd.Flags(), "properties", "props")
+	flagAlias(cmd.Flags(), "properties-file", "props-file")
+
 	return cmd
 }
 
@@ -221,8 +233,9 @@ func newDataSourceQueryCmd() *cobra.Command {
 	var priorityProperty string
 
 	cmd := &cobra.Command{
-		Use:   "query <datasource-id>",
-		Short: "Query a data source",
+		Use:     "query <datasource-id>",
+		Aliases: []string{"q"},
+		Short:   "Query a data source",
 		Long: `Query a Notion data source with optional filters, sorts, and pagination.
 
 The --filter flag accepts a JSON object representing the filter (supports @file or - for stdin).
@@ -451,6 +464,11 @@ incorrectly, causing "accepts 1 arg(s), received N" errors.`,
 	cmd.Flags().StringVar(&priorityEquals, "priority", "", "Shorthand: filter Priority equals value (type select/status; requires schema lookup)")
 	cmd.Flags().StringVar(&priorityProperty, "priority-prop", "Priority", "Property name to use for --priority")
 
+	// Flag aliases
+	flagAlias(cmd.Flags(), "filter", "fi")
+	flagAlias(cmd.Flags(), "filter-file", "ff")
+	flagAlias(cmd.Flags(), "status-prop", "sp")
+
 	return cmd
 }
 
@@ -544,8 +562,9 @@ func extractSelectNames(prop map[string]interface{}) []string {
 
 func newDataSourceTemplatesCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "templates",
-		Short: "List data source templates",
+		Use:     "templates",
+		Aliases: []string{"t"},
+		Short:   "List data source templates",
 		Long: `List available Notion data source templates.
 
 Example:
@@ -577,8 +596,9 @@ func newDataSourceListCmd() *cobra.Command {
 	var startCursor string
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all data sources in the workspace",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all data sources in the workspace",
 		Long: `List all data sources (databases) in the Notion workspace.
 
 This command searches for all databases accessible to the integration.

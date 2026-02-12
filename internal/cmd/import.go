@@ -43,8 +43,9 @@ func newImportCmd() *cobra.Command {
 	var batchSize int
 
 	cmd := &cobra.Command{
-		Use:   "import <page-id>",
-		Short: "Import a markdown file as Notion blocks",
+		Use:     "import <page-id>",
+		Aliases: []string{"im"},
+		Short:   "Import a markdown file as Notion blocks",
 		Long: `Import a markdown file and convert it to Notion blocks.
 
 Supported markdown elements:

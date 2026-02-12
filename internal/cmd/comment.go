@@ -55,8 +55,9 @@ func newCommentListCmd() *cobra.Command {
 	var all bool
 
 	cmd := &cobra.Command{
-		Use:   "list <page-or-block-id-or-name>",
-		Short: "List comments on a page or block",
+		Use:     "list <page-or-block-id-or-name>",
+		Aliases: []string{"ls"},
+		Short:   "List comments on a page or block",
 		Long: `List un-resolved comments from a page or block.
 
 The target can be:
@@ -183,8 +184,9 @@ Example - Output only results array:
 
 func newCommentGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <comment-id>",
-		Short: "Get a comment by ID",
+		Use:     "get <comment-id>",
+		Aliases: []string{"g"},
+		Short:   "Get a comment by ID",
 		Long: `Retrieve a Notion comment by its ID.
 
 Example:
@@ -225,7 +227,7 @@ func newCommentAddCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "add [page-id-or-name] [text...]",
-		Aliases: []string{"create"},
+		Aliases: []string{"create", "a"},
 		Short:   "Create a comment",
 		Long: `Create a comment on a page or in an existing discussion thread.
 
@@ -398,6 +400,9 @@ Combined example (all flags together):
 	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention (repeatable)")
 	cmd.Flags().StringArrayVar(&pageMentions, "page-mention", nil, "Page ID(s) to @@-mention (repeatable)")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show how markdown was parsed before creating comment")
+
+	// Flag aliases
+	flagAlias(cmd.Flags(), "parent", "pa")
 
 	return cmd
 }

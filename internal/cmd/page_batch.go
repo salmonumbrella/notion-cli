@@ -35,8 +35,9 @@ func newPageCreateBatchCmd() *cobra.Command {
 	var continueOnError bool
 
 	cmd := &cobra.Command{
-		Use:   "create-batch",
-		Short: "Create multiple pages in a single batch",
+		Use:     "create-batch",
+		Aliases: []string{"cb"},
+		Short:   "Create multiple pages in a single batch",
 		Long: `Create multiple Notion pages from a JSON array.
 
 The --pages flag accepts a JSON array of page objects. Each object should include
@@ -50,7 +51,7 @@ Example:
 			sf := SkillFileFromContext(ctx)
 
 			if parentID == "" && dataSourceID == "" {
-				return fmt.Errorf("--parent flag is required (or use --data-source)")
+				return fmt.Errorf("--parent flag is required (or use --datasource)")
 			}
 			if pagesJSON == "" && pagesFile == "" {
 				return fmt.Errorf("--pages or --file is required")
@@ -151,11 +152,15 @@ Example:
 	}
 
 	cmd.Flags().StringVar(&parentID, "parent", "", "Parent page or database ID (required)")
-	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'data-source'")
-	cmd.Flags().StringVar(&dataSourceID, "data-source", "", "Data source ID (optional, overrides --parent-type database)")
+	cmd.Flags().StringVar(&parentType, "parent-type", "page", "Type of parent: 'page', 'database', or 'datasource'")
+	cmd.Flags().StringVar(&dataSourceID, "datasource", "", "Data source ID (optional, overrides --parent-type database)")
 	cmd.Flags().StringVar(&pagesJSON, "pages", "", "Pages as JSON array")
 	cmd.Flags().StringVar(&pagesFile, "file", "", "Read pages JSON array from file")
 	cmd.Flags().BoolVar(&continueOnError, "continue-on-error", false, "Continue creating pages even if one fails")
+
+	// Flag aliases
+	flagAlias(cmd.Flags(), "parent", "pa")
+	flagAlias(cmd.Flags(), "datasource", "ds")
 
 	return cmd
 }
@@ -166,8 +171,9 @@ func newPageUpdateBatchCmd() *cobra.Command {
 	var continueOnError bool
 
 	cmd := &cobra.Command{
-		Use:   "update-batch",
-		Short: "Update multiple pages in a single batch",
+		Use:     "update-batch",
+		Aliases: []string{"ub"},
+		Short:   "Update multiple pages in a single batch",
 		Long: `Update multiple Notion pages from a JSON array.
 
 The --pages flag accepts a JSON array of page update objects. Each object must include

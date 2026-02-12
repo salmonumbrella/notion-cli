@@ -23,10 +23,11 @@ func newPageExportCmd() *cobra.Command {
 	var format string
 
 	cmd := &cobra.Command{
-		Use:   "export <page-id>",
-		Short: "Export a page's content",
-		Long:  "Export a Notion page as Markdown or JSON block tree.",
-		Args:  cobra.ExactArgs(1),
+		Use:     "export <page-id>",
+		Aliases: []string{"ex"},
+		Short:   "Export a page's content",
+		Long:    "Export a Notion page as Markdown or JSON block tree.",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			sf := SkillFileFromContext(ctx)
