@@ -17,6 +17,63 @@ Command-line interface for the Notion API with secure authentication, file uploa
 - **Pages (Batch/Duplicate)** - Batch-create pages and duplicate pages with content
 - **Search** - Full-text search across pages and databases with filtering and pagination
 - **Webhooks** - Verify and parse webhook payloads
+- **MCP Integration** - AI search, SQL queries, and markdown editing via Notion's MCP server
+
+## MCP Integration (Notion MCP Server)
+
+The `ntn mcp` command group connects to Notion's official MCP server at `https://mcp.notion.com/mcp`, providing capabilities not available through the REST API.
+
+### Setup
+
+```bash
+# One-time OAuth login (opens browser)
+ntn mcp login
+
+# Verify connection
+ntn mcp status
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `ntn mcp login` | OAuth login to Notion MCP server |
+| `ntn mcp status` | Check MCP authentication status |
+| `ntn mcp search <query>` | Search workspace (add `--ai` for AI-powered search) |
+| `ntn mcp fetch <url-or-id>` | Fetch page/database as markdown |
+| `ntn mcp create` | Create pages with markdown content |
+| `ntn mcp edit <page-id>` | Edit page content or properties |
+| `ntn mcp query '<sql>' <url>...` | Query databases using SQL |
+| `ntn mcp query --view <url>` | Execute a database view |
+| `ntn mcp move <id>... --parent <id>` | Move pages to new parent |
+| `ntn mcp duplicate <page-id>` | Duplicate a page with content |
+| `ntn mcp comment list <id>` | List comments |
+| `ntn mcp comment add <id>` | Add a comment |
+| `ntn mcp teams` | List workspace teamspaces |
+| `ntn mcp users` | List workspace users |
+| `ntn mcp db create` | Create a database |
+| `ntn mcp db update` | Update database schema |
+| `ntn mcp tools` | List all available MCP tools |
+
+### Unique MCP Features
+
+These capabilities are only available through the MCP backend:
+
+- **AI Search** - Semantic search using Notion's AI (`ntn mcp search --ai "find action items from last week"`)
+- **SQL Queries** - Query databases with SQL syntax instead of Notion filter JSON
+- **Connected App Search** - Search across Slack, Google Drive, and other connected apps
+- **Markdown-Native Editing** - Edit pages using markdown content directly
+- **Page Moving & Duplication** - Move pages between parents and duplicate with full content
+
+### Example: SQL Query Workflow
+
+```bash
+# Fetch a database to get its data source URL
+ntn mcp fetch https://notion.so/workspace/Tasks-abc123
+
+# Query it with SQL
+ntn mcp query 'SELECT * FROM "collection://abc123" WHERE Status = ?' collection://abc123 --params '["In Progress"]'
+```
 
 ## Installation
 
@@ -128,6 +185,7 @@ Every command has a short alias for quick scripting:
 | `skill` | `sk` | |
 | `import` | `im` | |
 | `webhook` | `wh` | |
+| `mcp` | | `login`, `logout`, `status`, `search`, `fetch`, `create`, `edit`, `comment`, `move`, `duplicate`, `query`, `teams`, `users`, `db`, `tools` |
 
 ### Authentication
 
