@@ -417,6 +417,11 @@ Combined example (all flags together):
 // warnings are printed when --mention or --page-mention flags are provided but not used.
 // Link URL validation warnings are always printed when there are issues, regardless of verbose mode.
 func buildCommentRichTextVerbose(w io.Writer, text string, userIDs []string, pageIDs []string, verbose bool, emitWarnings bool) []notion.RichText {
+	// Sanitize block-level markdown (fenced code blocks) to inline formatting.
+	// Notion comments only support inline formatting; triple backticks would
+	// corrupt the inline parser by mispairing backtick characters.
+	text = richtext.SanitizeForComments(text)
+
 	// Parse markdown first (for verbose output if enabled)
 	tokens := richtext.ParseMarkdown(text)
 	if verbose {
