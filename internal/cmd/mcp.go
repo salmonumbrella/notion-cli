@@ -31,6 +31,8 @@ directly with Notion's MCP server using your personal Notion account.`,
 	cmd.AddCommand(newMCPCreateCmd())
 	cmd.AddCommand(newMCPEditCmd())
 	cmd.AddCommand(newMCPCommentCmd())
+	cmd.AddCommand(newMCPMoveCmd())
+	cmd.AddCommand(newMCPDuplicateCmd())
 	cmd.AddCommand(newMCPToolsCmd())
 
 	return cmd
@@ -443,6 +445,68 @@ func newMCPToolsCmd() *cobra.Command {
 				"object":  "list",
 				"results": toolList,
 			})
+		},
+	}
+}
+
+func newMCPMoveCmd() *cobra.Command {
+	var parentID string
+
+	cmd := &cobra.Command{
+		Use:   "move <page-id>...",
+		Short: "Move pages to a new parent",
+		Long: `Move one or more Notion pages or databases to a new parent page
+using the MCP notion-move-pages tool.`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, cleanup, err := mcpClientFromToken(ctx)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			result, err := client.MovePages(ctx, args, parentID)
+			if err != nil {
+				return err
+			}
+
+			_, _ = fmt.Fprintln(stdoutFromContext(ctx), result)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&parentID, "parent", "", "Destination parent page ID")
+	_ = cmd.MarkFlagRequired("parent")
+
+	return cmd
+}
+
+func newMCPDuplicateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "duplicate <page-id>",
+		Short: "Duplicate a Notion page",
+		Long: `Duplicate a Notion page using the MCP notion-duplicate-page tool.
+
+The duplication is performed asynchronously by Notion. The command returns
+immediately with a confirmation; the duplicated page may take a moment to
+appear in your workspace.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, cleanup, err := mcpClientFromToken(ctx)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			result, err := client.DuplicatePage(ctx, args[0])
+			if err != nil {
+				return err
+			}
+
+			_, _ = fmt.Fprintln(stdoutFromContext(ctx), result)
+			return nil
 		},
 	}
 }

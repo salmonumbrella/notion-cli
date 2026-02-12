@@ -141,3 +141,20 @@ func (c *Client) CreateComment(ctx context.Context, pageID string, body string) 
 	}
 	return c.CallTool(ctx, "notion-create-comment", args)
 }
+
+// MovePages invokes the notion-move-pages MCP tool to move pages/databases to a new parent.
+func (c *Client) MovePages(ctx context.Context, pageIDs []string, parentPageID string) (string, error) {
+	args := map[string]interface{}{
+		"page_ids":       pageIDs,
+		"parent_page_id": parentPageID,
+	}
+	return c.CallTool(ctx, "notion-move-pages", args)
+}
+
+// DuplicatePage invokes the notion-duplicate-page MCP tool.
+func (c *Client) DuplicatePage(ctx context.Context, pageID string) (string, error) {
+	args := map[string]interface{}{
+		"page_id": pageID,
+	}
+	return c.CallTool(ctx, "notion-duplicate-page", args)
+}

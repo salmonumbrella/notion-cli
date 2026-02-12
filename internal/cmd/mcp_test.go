@@ -24,6 +24,8 @@ func TestMCPCommandTree(t *testing.T) {
 		"create",
 		"edit",
 		"comment",
+		"move",
+		"duplicate",
 		"tools",
 	}
 
@@ -131,6 +133,20 @@ func TestMCPStatusArgs(t *testing.T) {
 	cmd := newMCPStatusCmd()
 	if cmd.Use != "status" {
 		t.Errorf("status command Use = %q, want 'status'", cmd.Use)
+	}
+}
+
+func TestMCPMoveFlags(t *testing.T) {
+	cmd := newMCPMoveCmd()
+	if cmd.Flags().Lookup("parent") == nil {
+		t.Error("move command missing --parent flag")
+	}
+}
+
+func TestMCPDuplicateArgs(t *testing.T) {
+	cmd := newMCPDuplicateCmd()
+	if cmd.Use != "duplicate <page-id>" {
+		t.Errorf("duplicate command Use = %q", cmd.Use)
 	}
 }
 

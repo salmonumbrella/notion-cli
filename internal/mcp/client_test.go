@@ -292,6 +292,36 @@ func TestCallToolArgConstruction(t *testing.T) {
 			t.Errorf("body = %v, want 'Great work!'", args["body"])
 		}
 	})
+
+	t.Run("move pages args", func(t *testing.T) {
+		pageIDs := []string{"page-a", "page-b", "page-c"}
+		args := map[string]interface{}{
+			"page_ids":       pageIDs,
+			"parent_page_id": "new-parent-1",
+		}
+		ids := args["page_ids"].([]string)
+		if len(ids) != 3 {
+			t.Fatalf("len(page_ids) = %d, want 3", len(ids))
+		}
+		if ids[0] != "page-a" {
+			t.Errorf("page_ids[0] = %v, want 'page-a'", ids[0])
+		}
+		if ids[2] != "page-c" {
+			t.Errorf("page_ids[2] = %v, want 'page-c'", ids[2])
+		}
+		if args["parent_page_id"] != "new-parent-1" {
+			t.Errorf("parent_page_id = %v, want 'new-parent-1'", args["parent_page_id"])
+		}
+	})
+
+	t.Run("duplicate page args", func(t *testing.T) {
+		args := map[string]interface{}{
+			"page_id": "page-to-dup",
+		}
+		if args["page_id"] != "page-to-dup" {
+			t.Errorf("page_id = %v, want 'page-to-dup'", args["page_id"])
+		}
+	})
 }
 
 func TestPKCEGeneration(t *testing.T) {
