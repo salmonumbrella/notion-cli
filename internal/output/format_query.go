@@ -97,7 +97,7 @@ func (p *Printer) runQuery(query string, data interface{}, prettyPrint bool) err
 }
 
 // runQueryRaw normalizes data, runs a gojq query, and returns the results as
-// a slice of interface{} values. Used by non-JSON formatters (text, yaml).
+// a slice of interface{} values. Used by non-JSON formatters (text).
 func runQueryRaw(query string, data interface{}) ([]interface{}, error) {
 	normalized, err := normalizeToInterface(data)
 	if err != nil {
