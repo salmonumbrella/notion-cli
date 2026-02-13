@@ -403,6 +403,9 @@ Combined example (all flags together):
 
 	// Flag aliases
 	flagAlias(cmd.Flags(), "parent", "pa")
+	flagAlias(cmd.Flags(), "text", "t")
+	flagAlias(cmd.Flags(), "mention", "m")
+	flagAlias(cmd.Flags(), "page-mention", "pm")
 
 	return cmd
 }
