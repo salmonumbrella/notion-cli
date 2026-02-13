@@ -42,7 +42,7 @@ func applyOutputTransforms(ctx context.Context, data interface{}, format Format)
 	if format == FormatTable {
 		return nil, clierrors.NewUserError(
 			"--fields/--jsonpath are not supported with table output",
-			"Use --output json|ndjson|yaml|text instead",
+			"Use --output json|ndjson|jsonl|yaml|text instead",
 		)
 	}
 

@@ -133,14 +133,14 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.SetVersionTemplate(fmt.Sprintf("ntn %s (commit: %s, built: %s)\n", app.Version, app.Commit, app.BuildTime))
 
 	// Global flags
-	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format (text|json|ndjson|table|yaml)")
+	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format: text|json|ndjson|jsonl|table|yaml")
 	// Alias --format to --output for agent discoverability
 	rootCmd.PersistentFlags().String("format", "text", "Alias for --output")
 	_ = rootCmd.PersistentFlags().MarkHidden("format")
 	// Shorthand: --json is equivalent to -o json
 	rootCmd.PersistentFlags().Bool("json", false, "Shorthand for --output json")
 	_ = rootCmd.PersistentFlags().MarkHidden("json")
-	rootCmd.PersistentFlags().StringVarP(&queryFlag, "query", "q", "", "jq expression to filter JSON output")
+	rootCmd.PersistentFlags().StringVarP(&queryFlag, "query", "q", "", "JQ expression to filter JSON output")
 	// Alias --jq to --query for discoverability
 	rootCmd.PersistentFlags().StringVar(&jqFlag, "jq", "", "Alias for --query")
 	_ = rootCmd.PersistentFlags().MarkHidden("jq")
@@ -148,26 +148,32 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&pickFlag, "pick", "", "Alias for --fields")
 	_ = rootCmd.PersistentFlags().MarkHidden("pick")
 	rootCmd.PersistentFlags().StringVar(&jsonPathFlag, "jsonpath", "", "Extract a value using JSONPath (e.g. $.results[0].id)")
-	rootCmd.PersistentFlags().StringVar(&queryFile, "query-file", "", "Read jq expression from file (use - for stdin)")
+	rootCmd.PersistentFlags().StringVar(&queryFile, "query-file", "", "Read JQ expression from file ('-' for stdin)")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug output (shows HTTP requests/responses)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceName, "workspace", "w", "", "Workspace to use (overrides NOTION_WORKSPACE env var)")
 	rootCmd.PersistentFlags().StringVar(&errorFormat, "error-format", "auto", "Error output format (auto|text|json)")
 	rootCmd.PersistentFlags().BoolVar(&quietFlag, "quiet", false, "Suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVar(&failEmptyFlag, "fail-empty", false, "Exit with error when results are empty")
-	rootCmd.PersistentFlags().BoolVar(&resultsOnlyFlag, "results-only", false, "Output only the results array for list responses")
+	rootCmd.PersistentFlags().BoolVar(&resultsOnlyFlag, "items-only", false, "Output only the items/results array when present (JSON output)")
+	rootCmd.PersistentFlags().BoolVar(&resultsOnlyFlag, "results-only", false, "Alias for --items-only")
 
 	// Agent-friendly flags
-	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts (for automation)")
-	rootCmd.PersistentFlags().BoolVar(&yesFlag, "no-input", false, "Alias for --yes (non-interactive)")
-	rootCmd.PersistentFlags().IntVar(&limitFlag, "limit", 0, "Limit number of results (0 = unlimited)")
+	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts")
+	rootCmd.PersistentFlags().BoolVar(&yesFlag, "no-input", false, "Disable interactive prompts (alias for --yes)")
+	rootCmd.PersistentFlags().BoolVar(&yesFlag, "force", false, "Alias for --yes")
+	rootCmd.PersistentFlags().IntVar(&limitFlag, "limit", 0, "Limit number of results (0 = no limit)")
 	rootCmd.PersistentFlags().StringVar(&sortBy, "sort-by", "", "Sort results by field")
 	rootCmd.PersistentFlags().BoolVar(&descFlag, "desc", false, "Sort in descending order")
 	rootCmd.PersistentFlags().BoolVar(&latestFlag, "latest", false, "Shortcut for --sort-by created_time --desc --limit 1")
 	rootCmd.PersistentFlags().IntVar(&recentFlag, "recent", 0, "Shortcut for --sort-by created_time --desc --limit N")
 
 	// Flag aliases for agent ergonomics
+	flagAlias(rootCmd.PersistentFlags(), "json", "j")
+	flagAlias(rootCmd.PersistentFlags(), "output", "out")
+	flagAlias(rootCmd.PersistentFlags(), "query", "qr")
 	flagAlias(rootCmd.PersistentFlags(), "fields", "fds")
 	flagAlias(rootCmd.PersistentFlags(), "results-only", "ro")
+	flagAlias(rootCmd.PersistentFlags(), "items-only", "io")
 	flagAlias(rootCmd.PersistentFlags(), "fail-empty", "fe")
 	flagAlias(rootCmd.PersistentFlags(), "sort-by", "sb")
 	flagAlias(rootCmd.PersistentFlags(), "query-file", "qf")
@@ -483,6 +489,9 @@ This is a convenience alias for 'ntn page delete'.`,
 			return deleteCmd.RunE(deleteCmd, args)
 		},
 	})
+
+	// Canonical additive verb aliases for cross-CLI consistency.
+	applyCanonicalVerbAliases(rootCmd)
 
 	return rootCmd
 }

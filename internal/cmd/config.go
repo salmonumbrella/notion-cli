@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/salmonumbrella/notion-cli/internal/config"
+	"github.com/salmonumbrella/notion-cli/internal/output"
 )
 
 func newConfigCmd() *cobra.Command {
@@ -63,10 +64,10 @@ func newConfigSetCmd() *cobra.Command {
 		Short: "Set a configuration value",
 		Long: `Set a configuration value in ~/.config/notion-cli/config.yaml
 
-Supported keys:
-  output            - Default output format (text, json, table, yaml)
-  color             - Default color mode (auto, always, never)
-  default_workspace - Default workspace name
+	Supported keys:
+	  output            - Default output format (text, json, ndjson/jsonl, table, yaml)
+	  color             - Default color mode (auto, always, never)
+	  default_workspace - Default workspace name
 
 Examples:
   ntn config set output json
@@ -86,12 +87,13 @@ Examples:
 			// Set the value based on key
 			switch key {
 			case "output":
-				// Validate output format
-				validFormats := []string{"text", "json", "table", "yaml"}
-				if !contains(validFormats, value) {
+				format, err := output.ParseFormat(value)
+				if err != nil {
+					validFormats := []string{"text", "json", "ndjson", "jsonl", "table", "yaml"}
 					return fmt.Errorf("invalid output format %q, must be one of: %s", value, strings.Join(validFormats, ", "))
 				}
-				cfg.Output = value
+				cfg.Output = string(format)
+				value = cfg.Output
 			case "color":
 				// Validate color mode
 				validModes := []string{"auto", "always", "never"}

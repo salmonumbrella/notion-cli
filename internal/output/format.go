@@ -40,14 +40,14 @@ func ParseFormat(s string) (Format, error) {
 		return FormatText, nil
 	case FormatJSON:
 		return FormatJSON, nil
-	case FormatNDJSON:
+	case FormatNDJSON, "jsonl":
 		return FormatNDJSON, nil
 	case FormatTable:
 		return FormatTable, nil
 	case FormatYAML:
 		return FormatYAML, nil
 	default:
-		return "", errors.New("invalid --output format (expected text|json|ndjson|table|yaml)")
+		return "", errors.New("invalid --output format (expected text|json|ndjson|jsonl|table|yaml)")
 	}
 }
 

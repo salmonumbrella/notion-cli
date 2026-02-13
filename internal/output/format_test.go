@@ -58,6 +58,16 @@ func TestParseFormat(t *testing.T) {
 			want:  FormatNDJSON,
 		},
 		{
+			name:  "jsonl lowercase",
+			input: "jsonl",
+			want:  FormatNDJSON,
+		},
+		{
+			name:  "jsonl uppercase",
+			input: "JSONL",
+			want:  FormatNDJSON,
+		},
+		{
 			name:  "table lowercase",
 			input: "table",
 			want:  FormatTable,
