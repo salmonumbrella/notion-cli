@@ -48,6 +48,15 @@ func TestRootFlagParity_HiddenAliases(t *testing.T) {
 func TestRootFlagParity_ResultsAndItemsOnly(t *testing.T) {
 	root := newFlagParityTestRoot(t).RootCommand()
 
+	// --results-only should be hidden (it's an alias for --items-only)
+	resultsOnlyFlag := root.PersistentFlags().Lookup("results-only")
+	if resultsOnlyFlag == nil {
+		t.Fatal("expected --results-only flag")
+	}
+	if !resultsOnlyFlag.Hidden {
+		t.Fatal("--results-only should be hidden")
+	}
+
 	if err := root.PersistentFlags().Set("io", "true"); err != nil {
 		t.Fatalf("set --io: %v", err)
 	}
@@ -91,11 +100,19 @@ func TestRootFlagParity_NonInteractiveTrio(t *testing.T) {
 	if yesFlag.Shorthand != "y" {
 		t.Fatalf("--yes shorthand = %q, want %q", yesFlag.Shorthand, "y")
 	}
-	if root.PersistentFlags().Lookup("no-input") == nil {
+	noInputFlag := root.PersistentFlags().Lookup("no-input")
+	if noInputFlag == nil {
 		t.Fatal("expected --no-input flag")
 	}
-	if root.PersistentFlags().Lookup("force") == nil {
+	if !noInputFlag.Hidden {
+		t.Fatal("--no-input should be hidden")
+	}
+	forceFlag := root.PersistentFlags().Lookup("force")
+	if forceFlag == nil {
 		t.Fatal("expected --force flag")
+	}
+	if !forceFlag.Hidden {
+		t.Fatal("--force should be hidden")
 	}
 
 	if err := root.PersistentFlags().Set("no-input", "true"); err != nil {

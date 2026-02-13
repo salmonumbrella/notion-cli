@@ -64,10 +64,10 @@ func newConfigSetCmd() *cobra.Command {
 		Short: "Set a configuration value",
 		Long: `Set a configuration value in ~/.config/notion-cli/config.yaml
 
-	Supported keys:
-	  output            - Default output format (text, json, ndjson/jsonl, table, yaml)
-	  color             - Default color mode (auto, always, never)
-	  default_workspace - Default workspace name
+Supported keys:
+  output            - Default output format (text, json, ndjson/jsonl, table, yaml)
+  color             - Default color mode (auto, always, never)
+  default_workspace - Default workspace name
 
 Examples:
   ntn config set output json

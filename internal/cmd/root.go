@@ -156,11 +156,14 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&failEmptyFlag, "fail-empty", false, "Exit with error when results are empty")
 	rootCmd.PersistentFlags().BoolVar(&resultsOnlyFlag, "items-only", false, "Output only the items/results array when present (JSON output)")
 	rootCmd.PersistentFlags().BoolVar(&resultsOnlyFlag, "results-only", false, "Alias for --items-only")
+	_ = rootCmd.PersistentFlags().MarkHidden("results-only")
 
 	// Agent-friendly flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts")
 	rootCmd.PersistentFlags().BoolVar(&yesFlag, "no-input", false, "Disable interactive prompts (alias for --yes)")
+	_ = rootCmd.PersistentFlags().MarkHidden("no-input")
 	rootCmd.PersistentFlags().BoolVar(&yesFlag, "force", false, "Alias for --yes")
+	_ = rootCmd.PersistentFlags().MarkHidden("force")
 	rootCmd.PersistentFlags().IntVar(&limitFlag, "limit", 0, "Limit number of results (0 = no limit)")
 	rootCmd.PersistentFlags().StringVar(&sortBy, "sort-by", "", "Sort results by field")
 	rootCmd.PersistentFlags().BoolVar(&descFlag, "desc", false, "Sort in descending order")
