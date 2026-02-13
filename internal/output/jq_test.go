@@ -328,3 +328,76 @@ func TestPrinter_WithQuery_TextFormat(t *testing.T) {
 		t.Errorf("expected abc-123, got: %s", got)
 	}
 }
+
+func TestNormalizeQuery_Idempotent(t *testing.T) {
+	input := `.props["Invoice Alert"].rt[0].pt`
+	first, _ := NormalizeQuery(input)
+	second, _ := NormalizeQuery(first)
+	if first != second {
+		t.Fatalf("NormalizeQuery is not idempotent:\nfirst:  %q\nsecond: %q", first, second)
+	}
+}
+
+func TestNormalizeQuery_PipeSeparated(t *testing.T) {
+	query := `.props.Status | .rt | map(.pt)`
+	got, _ := NormalizeQuery(query)
+	want := `.properties.Status | .rich_text | map(.plain_text)`
+	if got != want {
+		t.Errorf("pipe-separated query = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeQuery_RecursiveDescent(t *testing.T) {
+	query := `..rt`
+	got, _ := NormalizeQuery(query)
+	want := `..rich_text`
+	if got != want {
+		t.Errorf("recursive descent query = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeQuery_OptionalOperator(t *testing.T) {
+	query := `.rt?`
+	got, _ := NormalizeQuery(query)
+	want := `.rich_text?`
+	if got != want {
+		t.Errorf("optional operator query = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeQuery_MultipleAliases(t *testing.T) {
+	query := `.rs[0].props.Name.ti[0].pt`
+	got, _ := NormalizeQuery(query)
+	want := `.results[0].properties.Name.title[0].plain_text`
+	if got != want {
+		t.Errorf("multiple aliases query = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeQuery_EmptyAndWhitespace(t *testing.T) {
+	got, changed := NormalizeQuery("")
+	if changed || got != "" {
+		t.Fatalf("expected no-op for empty query, got %q changed=%v", got, changed)
+	}
+	got, changed = NormalizeQuery("   ")
+	if changed || got != "   " {
+		t.Fatalf("expected no-op for whitespace query, got %q changed=%v", got, changed)
+	}
+}
+
+func TestNormalizeQuery_CommentPreserved(t *testing.T) {
+	query := ".props.Name # rt is alias\n.rt"
+	got, _ := NormalizeQuery(query)
+	want := ".properties.Name # rt is alias\n.rich_text"
+	if got != want {
+		t.Errorf("comment handling: got %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeQuery_NoDotPrefix(t *testing.T) {
+	// Bare identifiers without a leading dot should not be rewritten
+	got, _ := NormalizeQuery("rt")
+	if got != "rt" {
+		t.Fatalf("bare token without dot should not be rewritten, got %q", got)
+	}
+}

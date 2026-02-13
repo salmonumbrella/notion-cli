@@ -56,7 +56,7 @@ var pathAliasSpecs = []pathAliasSpec{
 	{Canonical: "is_inline", Aliases: []string{"ii"}},
 	{Canonical: "initial_data_source", Aliases: []string{"ids"}},
 	{Canonical: "verification_token", Aliases: []string{"vt"}},
-	{Canonical: "_meta", Aliases: []string{"m"}},
+	{Canonical: "_meta", Aliases: []string{"_m"}},
 	{Canonical: "status", Aliases: []string{"st"}},
 	{Canonical: "select", Aliases: []string{"sl"}},
 	{Canonical: "relation", Aliases: []string{"rl"}},
@@ -166,6 +166,9 @@ func expandDotPathAliases(expr string) (string, bool) {
 			continue
 		}
 
+		// jq uses only double-quoted strings, but we handle single quotes
+		// defensively for non-jq contexts (JSONPath, --fields values) and
+		// to guard against shell quoting edge cases.
 		if inSingle {
 			b.WriteByte(ch)
 			if escaped {

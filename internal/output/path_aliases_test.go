@@ -59,3 +59,30 @@ func TestApplyAgentOptions_SortAlias(t *testing.T) {
 		t.Fatalf("sorted data mismatch\nwant: %#v\ngot: %#v", want, typed)
 	}
 }
+
+func TestNormalizeSortPath_Empty(t *testing.T) {
+	got, changed := NormalizeSortPath("")
+	if changed || got != "" {
+		t.Fatalf("expected no-op for empty sort path, got %q changed=%v", got, changed)
+	}
+}
+
+func TestNormalizeSortPath_DottedPath(t *testing.T) {
+	got, changed := NormalizeSortPath("props.Name.ct")
+	if !changed {
+		t.Fatal("expected dotted sort path to be normalized")
+	}
+	if got != "properties.Name.created_time" {
+		t.Fatalf("NormalizeSortPath(props.Name.ct) = %q, want %q", got, "properties.Name.created_time")
+	}
+}
+
+func TestNormalizeSortPath_MixedCase(t *testing.T) {
+	got, changed := NormalizeSortPath("Status")
+	if changed {
+		t.Fatal("mixed-case sort path should not change")
+	}
+	if got != "Status" {
+		t.Fatalf("NormalizeSortPath(Status) = %q, want %q", got, "Status")
+	}
+}

@@ -561,6 +561,7 @@ Path aliases are supported in:
 
 Alias rewrite applies to lowercase dot-path segments.
 Use quoted bracket keys to force a literal key name (example: `.properties["st"]`).
+Queries loaded from `--query-file` are also normalized, so aliases work in query files too.
 
 | Canonical key | Alias(es) |
 |---|---|
@@ -606,7 +607,7 @@ Use quoted bracket keys to force a literal key name (example: `.properties["st"]
 | `is_inline` | `ii` |
 | `initial_data_source` | `ids` |
 | `verification_token` | `vt` |
-| `_meta` | `m` |
+| `_meta` | `_m` |
 | `status` | `st` |
 | `select` | `sl` |
 | `relation` | `rl` |

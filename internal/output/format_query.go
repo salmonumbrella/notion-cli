@@ -58,6 +58,8 @@ func (p *Printer) printNDJSON(ctx context.Context, data interface{}) error {
 // runQuery normalizes data to map/slice form, runs a gojq query, and writes
 // results as JSON. When prettyPrint is true, output is indented.
 func (p *Printer) runQuery(query string, data interface{}, prettyPrint bool) error {
+	// Normalize is idempotent; the cobra prerun hook already normalized,
+	// but we re-apply here so the output layer works standalone.
 	query, _ = NormalizeQuery(query)
 
 	normalized, err := normalizeToInterface(data)
@@ -101,6 +103,7 @@ func (p *Printer) runQuery(query string, data interface{}, prettyPrint bool) err
 // runQueryRaw normalizes data, runs a gojq query, and returns the results as
 // a slice of interface{} values. Used by non-JSON formatters (text).
 func runQueryRaw(query string, data interface{}) ([]interface{}, error) {
+	// Normalize is idempotent; see comment in runQuery.
 	query, _ = NormalizeQuery(query)
 
 	normalized, err := normalizeToInterface(data)
