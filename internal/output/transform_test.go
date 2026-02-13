@@ -98,6 +98,38 @@ func TestApplyOutputTransforms_ProjectFields_DotNotationIndex(t *testing.T) {
 	}
 }
 
+func TestApplyOutputTransforms_ProjectFields_PathAliases(t *testing.T) {
+	data := []map[string]interface{}{
+		{
+			"id": "1",
+			"properties": map[string]interface{}{
+				"Invoice Alert": map[string]interface{}{
+					"rich_text": []interface{}{
+						map[string]interface{}{"plain_text": "Ready"},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := WithFields(context.Background(), "id,msg=props['Invoice Alert'].rt.0.pt")
+	got, err := applyOutputTransforms(ctx, data, FormatJSON)
+	if err != nil {
+		t.Fatalf("applyOutputTransforms returned error: %v", err)
+	}
+
+	want := []interface{}{
+		map[string]interface{}{
+			"id":  "1",
+			"msg": "Ready",
+		},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("alias projection mismatch\nwant: %#v\ngot: %#v", want, got)
+	}
+}
+
 func TestApplyOutputTransforms_BracketAndDotNotationEquivalent(t *testing.T) {
 	data := map[string]interface{}{
 		"arr": []interface{}{"a", "b", "c"},
@@ -135,6 +167,32 @@ func TestApplyOutputTransforms_JSONPath(t *testing.T) {
 
 	if got != "abc" {
 		t.Fatalf("expected jsonpath result %q, got %#v", "abc", got)
+	}
+}
+
+func TestApplyOutputTransforms_JSONPath_PathAliases(t *testing.T) {
+	data := map[string]interface{}{
+		"results": []interface{}{
+			map[string]interface{}{
+				"properties": map[string]interface{}{
+					"Invoice Alert": map[string]interface{}{
+						"rich_text": []interface{}{
+							map[string]interface{}{"plain_text": "Done"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := WithJSONPath(context.Background(), "$.rs[0].props[\"Invoice Alert\"].rt[0].pt")
+	got, err := applyOutputTransforms(ctx, data, FormatJSON)
+	if err != nil {
+		t.Fatalf("applyOutputTransforms returned error: %v", err)
+	}
+
+	if got != "Done" {
+		t.Fatalf("expected jsonpath alias result %q, got %#v", "Done", got)
 	}
 }
 

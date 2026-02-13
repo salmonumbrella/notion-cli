@@ -58,6 +58,8 @@ func (p *Printer) printNDJSON(ctx context.Context, data interface{}) error {
 // runQuery normalizes data to map/slice form, runs a gojq query, and writes
 // results as JSON. When prettyPrint is true, output is indented.
 func (p *Printer) runQuery(query string, data interface{}, prettyPrint bool) error {
+	query, _ = NormalizeQuery(query)
+
 	normalized, err := normalizeToInterface(data)
 	if err != nil {
 		return fmt.Errorf("query error: %w", err)
@@ -99,6 +101,8 @@ func (p *Printer) runQuery(query string, data interface{}, prettyPrint bool) err
 // runQueryRaw normalizes data, runs a gojq query, and returns the results as
 // a slice of interface{} values. Used by non-JSON formatters (text).
 func runQueryRaw(query string, data interface{}) ([]interface{}, error) {
+	query, _ = NormalizeQuery(query)
+
 	normalized, err := normalizeToInterface(data)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %w", err)

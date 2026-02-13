@@ -491,14 +491,26 @@ notion db q <database-id> -o json | jq '.results[] | .id'
 # Filter JSON output with jq expression
 notion p g <page-id> -o json --jq '.properties.Status'
 
+# Same query using shorthand aliases
+notion p g <page-id> -o json --jq '.props["Invoice Alert"].rt[0].pt'
+
 # Use a file for longer jq expressions
 notion p g <page-id> -o json --qf ./query.jq
 
 # Project fields without jq
 notion db q <database-id> --ro --fields id,name,created_time
 
+# Project fields with shorthand aliases
+notion db q <database-id> --ro --fields id,alert=props["Invoice Alert"].rt.0.pt
+
 # JSONPath extraction
 notion db q <database-id> --jsonpath '$.results[0].id'
+
+# JSONPath extraction with shorthand aliases
+notion db q <database-id> --jsonpath '$.rs[0].props["Invoice Alert"].rt[0].pt'
+
+# Sort by shorthand alias
+notion s "project" --sb ct --desc --limit 1
 
 # Latest shortcuts
 notion s "project" --latest
@@ -538,19 +550,92 @@ notion --debug u me
 # Shows HTTP request/response details to stderr
 ```
 
+### Path Aliases
+
+Path aliases are supported in:
+
+- `--query` / `--jq`
+- `--fields` / `--pick`
+- `--jsonpath`
+- `--sort-by`
+
+Alias rewrite applies to lowercase dot-path segments.
+Use quoted bracket keys to force a literal key name (example: `.properties["st"]`).
+
+| Canonical key | Alias(es) |
+|---|---|
+| `properties` | `props`, `pr` |
+| `rich_text` | `rt` |
+| `plain_text` | `pt` |
+| `results` | `rs` |
+| `object` | `ob` |
+| `parent` | `pa` |
+| `children` | `ch` |
+| `has_children` | `hc` |
+| `created_time` | `ct` |
+| `last_edited_time` | `lt` |
+| `created_by` | `cb` |
+| `last_edited_by` | `lb` |
+| `archived` | `ar` |
+| `in_trash` | `it` |
+| `public_url` | `pu` |
+| `data_sources` | `ds` |
+| `data_source_id` | `dsi` |
+| `database_id` | `dbi` |
+| `page_id` | `pid` |
+| `workspace_id` | `wid` |
+| `discussion_id` | `did` |
+| `comment_id` | `cid` |
+| `parent_title` | `ptt` |
+| `child_count` | `cc` |
+| `next_cursor` | `nc` |
+| `has_more` | `hm` |
+| `start_cursor` | `sc` |
+| `page_size` | `ps` |
+| `sorts` | `so` |
+| `filter` | `fi` |
+| `query` | `qy` |
+| `multi_select` | `ms` |
+| `phone_number` | `ph` |
+| `time_zone` | `tz` |
+| `unique_id` | `uid` |
+| `upload_url` | `uu` |
+| `expiry_time` | `et` |
+| `file_name` | `fn` |
+| `mime_type` | `mt` |
+| `is_inline` | `ii` |
+| `initial_data_source` | `ids` |
+| `verification_token` | `vt` |
+| `_meta` | `m` |
+| `status` | `st` |
+| `select` | `sl` |
+| `relation` | `rl` |
+| `people` | `pe` |
+| `checkbox` | `cbx` |
+| `number` | `nu` |
+| `files` | `fl` |
+| `content` | `co` |
+| `text` | `tx` |
+| `title` | `ti` |
+| `name` | `nm` |
+| `type` | `ty` |
+| `url` | `ur` |
+| `cover` | `cv` |
+| `icon` | `ic` |
+
 ## Global Flags
 
 All commands support these flags:
 
 - `--output <format>` - Output format: `text`, `json`, `ndjson`, `table`, or `yaml` (default: text)
-- `--query <expr>` / `--jq <expr>` - JQ filter expression for JSON output
+- `--query <expr>` / `--jq <expr>` - JQ filter expression for JSON output (supports path aliases)
 - `--query-file <path>` / `--qf` - Read JQ filter expression from file (use `-` for stdin)
-- `--fields <paths>` / `--pick <paths>` / `--fds` - Project fields (comma-separated paths, `key=path` to rename)
-- `--jsonpath <expr>` - Extract a value using JSONPath
+- `--fields <paths>` / `--pick <paths>` / `--fds` - Project fields (comma-separated paths, `key=path` to rename; supports path aliases)
+- `--jsonpath <expr>` - Extract a value using JSONPath (supports path aliases)
 - `--results-only` / `--ro` - Output just the results array (useful for piping to jq)
 - `--latest` / `--recent <n>` - Shortcut for `--sb created_time --desc --limit N`
 - `--fail-empty` / `--fe` - Exit with error when results are empty
-- `--sort-by <field>` / `--sb` - Sort results by field (e.g., `created_time`, `last_edited_time`)
+- `--sort-by <field>` / `--sb` - Sort results by field (supports path aliases, e.g., `created_time`/`ct`)
 - `--desc` - Sort in descending order (use with `--sb`)
 - `--workspace <name>`, `-w` - Workspace to use (overrides NOTION_WORKSPACE)
 - `--debug` - Enable debug output (shows API requests/responses)

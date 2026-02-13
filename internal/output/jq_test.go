@@ -93,6 +93,53 @@ func TestNormalizeQuery_NoChange(t *testing.T) {
 	}
 }
 
+func TestNormalizeQuery_ExpandsPathAliases(t *testing.T) {
+	query := `.props["Invoice Alert"].rt[0].pt`
+	got, changed := NormalizeQuery(query)
+	// The bool is reserved for shell "\!" normalization warnings.
+	if changed {
+		t.Fatalf("unexpected escape-normalization change for alias-only query")
+	}
+	want := `.properties["Invoice Alert"].rich_text[0].plain_text`
+	if got != want {
+		t.Errorf("normalized query = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeQuery_DoesNotRewriteStringsOrMixedCase(t *testing.T) {
+	query := `.Status | .rt | "pt" | .properties["rt"]`
+	got, _ := NormalizeQuery(query)
+	want := `.Status | .rich_text | "pt" | .properties["rt"]`
+	if got != want {
+		t.Errorf("normalized query = %q, want %q", got, want)
+	}
+}
+
+func TestPrinter_WithQuery_PathAliases(t *testing.T) {
+	data := map[string]interface{}{
+		"properties": map[string]interface{}{
+			"Invoice Alert": map[string]interface{}{
+				"rich_text": []interface{}{
+					map[string]interface{}{"plain_text": "ready"},
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	ctx := WithQuery(context.Background(), `.props["Invoice Alert"].rt[0].pt`)
+	printer := NewPrinter(&buf, FormatJSON)
+
+	if err := printer.Print(ctx, data); err != nil {
+		t.Fatalf("print with alias query failed: %v", err)
+	}
+
+	got := strings.TrimSpace(buf.String())
+	if got != `"ready"` {
+		t.Errorf("expected \"ready\", got %s", got)
+	}
+}
+
 func TestQueryFromContext_Empty(t *testing.T) {
 	ctx := context.Background()
 	query := QueryFromContext(ctx)

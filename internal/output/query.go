@@ -2,10 +2,20 @@ package output
 
 import "strings"
 
-// NormalizeQuery removes common shell-escaped sequences that break jq parsing.
-// Today this only removes "\!" outside string literals (bash history expansion).
-// It returns the normalized query and whether a change was made.
+// NormalizeQuery normalizes jq query input.
+// It:
+// - removes shell-escaped "\!" outside string literals
+// - expands supported shorthand dot-path aliases (for example .props/.rt/.pt)
+//
+// The returned bool is true only when "\!" normalization was applied. We use
+// that signal for an interactive warning about shell escaping.
 func NormalizeQuery(query string) (string, bool) {
+	normalized, escapedBangChanged := normalizeEscapedBang(query)
+	normalized, _ = expandDotPathAliases(normalized)
+	return normalized, escapedBangChanged
+}
+
+func normalizeEscapedBang(query string) (string, bool) {
 	if !strings.Contains(query, `\!`) {
 		return query, false
 	}

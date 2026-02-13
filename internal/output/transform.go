@@ -186,6 +186,9 @@ func parsePathTokens(path string) ([]pathToken, error) {
 			if idx, err := strconv.Atoi(key); err == nil {
 				tokens = append(tokens, pathToken{Index: &idx})
 			} else {
+				// Apply shorthand aliases only to dot-path segments.
+				// Quoted bracket keys remain literal by design.
+				key = canonicalizeAliasToken(key)
 				tokens = append(tokens, pathToken{Key: &key})
 			}
 		}
@@ -293,13 +296,17 @@ func normalizeJSONPath(path string) string {
 	if trimmed == "" {
 		return ""
 	}
-	if strings.HasPrefix(trimmed, "$") || strings.HasPrefix(trimmed, "@") {
-		return trimmed
+	switch {
+	case strings.HasPrefix(trimmed, "$"), strings.HasPrefix(trimmed, "@"):
+		// keep as-is
+	case strings.HasPrefix(trimmed, "."), strings.HasPrefix(trimmed, "["):
+		trimmed = "$" + trimmed
+	default:
+		trimmed = "$." + trimmed
 	}
-	if strings.HasPrefix(trimmed, ".") || strings.HasPrefix(trimmed, "[") {
-		return "$" + trimmed
-	}
-	return "$." + trimmed
+
+	rewritten, _ := expandDotPathAliases(trimmed)
+	return rewritten
 }
 
 func isEmptyResult(data interface{}) bool {

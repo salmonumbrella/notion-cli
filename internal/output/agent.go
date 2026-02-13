@@ -17,6 +17,7 @@ func ApplyAgentOptions(ctx context.Context, data interface{}) interface{} {
 
 	limit := LimitFromContext(ctx)
 	sortBy, desc := SortFromContext(ctx)
+	sortBy, _ = NormalizeSortPath(sortBy)
 	if limit == 0 && sortBy == "" {
 		return data
 	}
