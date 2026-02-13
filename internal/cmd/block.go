@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -251,6 +252,7 @@ func newBlockAppendCmd() *cobra.Command {
 	var afterBlockID string
 	var blockType string
 	var content string
+	var markdownContent string
 
 	cmd := &cobra.Command{
 		Use:     "append <block-id>",
@@ -265,6 +267,11 @@ SIMPLE USAGE (--type and --content):
 
 Supported types: paragraph, heading_1, heading_2, heading_3, bulleted_list_item,
 numbered_list_item, quote, callout, code, to_do, toggle, divider
+
+MARKDOWN USAGE (--md):
+  ntn block append PAGE_ID --md '# Heading\n\nA paragraph with **bold** text.\n\n- Bullet one\n- Bullet two'
+  ntn block append PAGE_ID --md @content.md
+  cat content.md | ntn block append PAGE_ID --md -
 
 ADVANCED USAGE (--children JSON):
   ntn block append PAGE_ID \
@@ -313,13 +320,44 @@ TIP: For convenience commands, see 'ntn block add --help'`,
 				return fmt.Errorf("--type is required when using --content")
 			}
 
+			// Handle --md flag: parse markdown to blocks
+			if markdownContent != "" {
+				if childrenJSON != "" || childrenFile != "" || blockType != "" {
+					return fmt.Errorf("--md cannot be combined with --children, --children-file, or --type")
+				}
+				// Support @file, stdin (-), or inline string
+				mdText := markdownContent
+				if strings.HasPrefix(mdText, "@") {
+					data, err := os.ReadFile(strings.TrimPrefix(mdText, "@"))
+					if err != nil {
+						return fmt.Errorf("reading markdown file: %w", err)
+					}
+					mdText = string(data)
+				} else if mdText == "-" {
+					data, err := readMarkdownFile("-")
+					if err != nil {
+						return fmt.Errorf("reading markdown from stdin: %w", err)
+					}
+					mdText = data
+				}
+				blocks := parseMarkdownToBlocks(mdText)
+				if len(blocks) == 0 {
+					return fmt.Errorf("no blocks parsed from markdown content")
+				}
+				marshaled, err := marshalJSON(blocks)
+				if err != nil {
+					return err
+				}
+				childrenJSON = marshaled
+			}
+
 			if childrenFile != "" && childrenJSON != "" {
 				return fmt.Errorf("use only one of --children or --children-file")
 			}
 
 			// Validate required flag
 			if childrenJSON == "" && childrenFile == "" {
-				return fmt.Errorf("either --children/--children-file or both --type and --content are required\n\nSimple usage:\n  ntn block append PAGE_ID --type paragraph --content \"Your text\"\n\nAdvanced usage:\n  ntn block append PAGE_ID --children '[{\"type\":\"paragraph\",...}]'\n  ntn block append PAGE_ID --children-file /tmp/blocks.json")
+				return fmt.Errorf("either --children/--children-file, --md, or both --type and --content are required\n\nMarkdown usage:\n  ntn block append PAGE_ID --md '# Heading\\nParagraph text'\n\nSimple usage:\n  ntn block append PAGE_ID --type paragraph --content \"Your text\"\n\nAdvanced usage:\n  ntn block append PAGE_ID --children '[{\"type\":\"paragraph\",...}]'\n  ntn block append PAGE_ID --children-file /tmp/blocks.json")
 			}
 
 			// Normalize after block ID if provided
@@ -375,6 +413,7 @@ TIP: For convenience commands, see 'ntn block add --help'`,
 
 	cmd.Flags().StringVar(&childrenJSON, "children", "", "Children blocks as JSON array")
 	cmd.Flags().StringVar(&childrenFile, "children-file", "", "Read children JSON from file (or - for stdin)")
+	cmd.Flags().StringVar(&markdownContent, "md", "", "Markdown content to parse and append as blocks (supports @file and - for stdin)")
 	cmd.Flags().StringVar(&afterBlockID, "after", "", "Insert blocks after this block ID (instead of at end)")
 	cmd.Flags().StringVar(&blockType, "type", "", "Block type for simple mode (paragraph, heading_1, etc.)")
 	cmd.Flags().StringVar(&content, "content", "", "Text content for simple mode (use with --type)")
