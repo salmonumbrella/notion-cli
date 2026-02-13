@@ -56,7 +56,7 @@ var pathAliasSpecs = []pathAliasSpec{
 	{Canonical: "is_inline", Aliases: []string{"ii"}},
 	{Canonical: "initial_data_source", Aliases: []string{"ids"}},
 	{Canonical: "verification_token", Aliases: []string{"vt"}},
-	{Canonical: "_meta", Aliases: []string{"_m"}},
+	{Canonical: "_meta", Aliases: []string{"meta"}},
 	{Canonical: "status", Aliases: []string{"st"}},
 	{Canonical: "select", Aliases: []string{"sl"}},
 	{Canonical: "relation", Aliases: []string{"rl"}},

@@ -607,7 +607,7 @@ Queries loaded from `--query-file` are also normalized, so aliases work in query
 | `is_inline` | `ii` |
 | `initial_data_source` | `ids` |
 | `verification_token` | `vt` |
-| `_meta` | `_m` |
+| `_meta` | `meta` |
 | `status` | `st` |
 | `select` | `sl` |
 | `relation` | `rl` |
