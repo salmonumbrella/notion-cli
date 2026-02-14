@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -13,25 +15,100 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
+// notionSupportedFileExtensions lists all file extensions accepted by the Notion API.
+// See: https://developers.notion.com/docs/working-with-files-and-media
+var notionSupportedFileExtensions = map[string]bool{
+	// Audio
+	".aac": true, ".adts": true, ".mid": true, ".midi": true, ".mp3": true,
+	".mpga": true, ".m4a": true, ".m4b": true, ".oga": true, ".ogg": true,
+	".wav": true, ".wma": true,
+	// Document
+	".pdf": true, ".txt": true, ".json": true, ".doc": true, ".dot": true,
+	".docx": true, ".dotx": true, ".xls": true, ".xlt": true, ".xla": true,
+	".xlsx": true, ".xltx": true, ".ppt": true, ".pot": true, ".pps": true,
+	".ppa": true, ".pptx": true, ".potx": true,
+	// Image
+	".gif": true, ".heic": true, ".jpeg": true, ".jpg": true, ".png": true,
+	".svg": true, ".tif": true, ".tiff": true, ".webp": true, ".ico": true,
+	// Video
+	".amv": true, ".asf": true, ".wmv": true, ".avi": true, ".f4v": true,
+	".flv": true, ".gifv": true, ".m4v": true, ".mp4": true, ".mkv": true,
+	".webm": true, ".mov": true, ".qt": true, ".mpeg": true,
+}
+
+// unsupportedFileWorkarounds maps common unsupported extensions to suggested alternatives.
+var unsupportedFileWorkarounds = map[string]string{
+	".md":       "rename to .txt",
+	".markdown": "rename to .txt",
+	".yml":      "rename to .txt",
+	".yaml":     "rename to .txt",
+	".xml":      "rename to .txt",
+	".html":     "rename to .txt",
+	".htm":      "rename to .txt",
+	".csv":      "rename to .txt",
+	".tsv":      "rename to .txt",
+	".log":      "rename to .txt",
+	".ini":      "rename to .txt",
+	".toml":     "rename to .txt",
+	".cfg":      "rename to .txt",
+	".conf":     "rename to .txt",
+	".sh":       "rename to .txt",
+	".py":       "rename to .txt",
+	".go":       "rename to .txt",
+	".rs":       "rename to .txt",
+	".js":       "rename to .txt",
+	".ts":       "rename to .txt",
+}
+
+// validateFileExtension checks if a file extension is supported by the Notion API.
+// Returns nil if supported, or an error with a helpful message including workarounds.
+func validateFileExtension(filename string) error {
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext == "" {
+		return fmt.Errorf("file %q has no extension; Notion requires a supported file extension", filename)
+	}
+	if notionSupportedFileExtensions[ext] {
+		return nil
+	}
+	msg := fmt.Sprintf("Notion API does not support %q files", ext)
+	if workaround, ok := unsupportedFileWorkarounds[ext]; ok {
+		msg += fmt.Sprintf(" (%s before uploading)", workaround)
+	}
+	msg += fmt.Sprintf("\nSupported: %s", supportedExtensionsList())
+	return fmt.Errorf("%s", msg)
+}
+
+func supportedExtensionsList() string {
+	exts := make([]string, 0, len(notionSupportedFileExtensions))
+	for ext := range notionSupportedFileExtensions {
+		exts = append(exts, ext)
+	}
+	sort.Strings(exts)
+	return strings.Join(exts, ", ")
+}
+
 type blockTextCommandSpec struct {
-	Use    string
-	Short  string
-	Long   string
-	Action string
-	Build  func(text string) map[string]interface{}
+	Use     string
+	Aliases []string
+	Short   string
+	Long    string
+	Action  string
+	Build   func(text string) map[string]interface{}
 }
 
 func newBlockAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Add common block types",
-		Long:  `Convenience commands for adding common block types like paragraphs, headings, lists, etc.`,
+		Use:     "add",
+		Aliases: []string{"a"},
+		Short:   "Add common block types",
+		Long:    `Convenience commands for adding common block types like paragraphs, headings, lists, etc.`,
 	}
 
 	simpleTextSpecs := []blockTextCommandSpec{
 		{
-			Use:   "paragraph <parent-id> <text>",
-			Short: "Add a paragraph block",
+			Use:     "paragraph <parent-id> <text>",
+			Aliases: []string{"para", "p"},
+			Short:   "Add a paragraph block",
 			Long: `Add a paragraph block with text content.
 
 Example:
@@ -40,8 +117,9 @@ Example:
 			Build:  notion.NewParagraph,
 		},
 		{
-			Use:   "bullet <parent-id> <text>",
-			Short: "Add a bulleted list item",
+			Use:     "bullet <parent-id> <text>",
+			Aliases: []string{"bl"},
+			Short:   "Add a bulleted list item",
 			Long: `Add a bulleted list item block.
 
 Example:
@@ -50,8 +128,9 @@ Example:
 			Build:  notion.NewBulletedListItem,
 		},
 		{
-			Use:   "number <parent-id> <text>",
-			Short: "Add a numbered list item",
+			Use:     "number <parent-id> <text>",
+			Aliases: []string{"num", "nl"},
+			Short:   "Add a numbered list item",
 			Long: `Add a numbered list item block.
 
 Example:
@@ -60,8 +139,9 @@ Example:
 			Build:  notion.NewNumberedListItem,
 		},
 		{
-			Use:   "toggle <parent-id> <text>",
-			Short: "Add a toggle block",
+			Use:     "toggle <parent-id> <text>",
+			Aliases: []string{"tg"},
+			Short:   "Add a toggle block",
 			Long: `Add a toggle block (collapsible section).
 
 Note: Toggle blocks in Notion are implemented as bulleted list items with children.
@@ -85,8 +165,9 @@ Example:
 			},
 		},
 		{
-			Use:   "quote <parent-id> <text>",
-			Short: "Add a quote block",
+			Use:     "quote <parent-id> <text>",
+			Aliases: []string{"qt"},
+			Short:   "Add a quote block",
 			Long: `Add a quote block.
 
 Example:
@@ -105,16 +186,18 @@ Example:
 	cmd.AddCommand(newBlockAddCodeCmd())
 	cmd.AddCommand(newBlockAddToDoCmd())
 	cmd.AddCommand(newBlockAddImageCmd())
+	cmd.AddCommand(newBlockAddFileCmd())
 
 	return cmd
 }
 
 func newSimpleTextBlockAddCmd(spec blockTextCommandSpec) *cobra.Command {
 	return &cobra.Command{
-		Use:   spec.Use,
-		Short: spec.Short,
-		Long:  spec.Long,
-		Args:  cobra.ExactArgs(2),
+		Use:     spec.Use,
+		Aliases: spec.Aliases,
+		Short:   spec.Short,
+		Long:    spec.Long,
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
@@ -156,8 +239,9 @@ func newBlockAddHeadingCmd() *cobra.Command {
 	var level int
 
 	cmd := &cobra.Command{
-		Use:   "heading <parent-id> <text>",
-		Short: "Add a heading block",
+		Use:     "heading <parent-id> <text>",
+		Aliases: []string{"h"},
+		Short:   "Add a heading block",
 		Long: `Add a heading block with specified level (1-3).
 
 Examples:
@@ -207,8 +291,9 @@ func newBlockAddCalloutCmd() *cobra.Command {
 	var emoji string
 
 	cmd := &cobra.Command{
-		Use:   "callout <parent-id> <text>",
-		Short: "Add a callout block",
+		Use:     "callout <parent-id> <text>",
+		Aliases: []string{"co"},
+		Short:   "Add a callout block",
 		Long: `Add a callout block with an emoji icon.
 
 Examples:
@@ -242,8 +327,9 @@ func newBlockAddCodeCmd() *cobra.Command {
 	var language string
 
 	cmd := &cobra.Command{
-		Use:   "code <parent-id> <code>",
-		Short: "Add a code block",
+		Use:     "code <parent-id> <code>",
+		Aliases: []string{"cd"},
+		Short:   "Add a code block",
 		Long: `Add a code block with syntax highlighting.
 
 Examples:
@@ -278,8 +364,9 @@ func newBlockAddToDoCmd() *cobra.Command {
 	var checked bool
 
 	cmd := &cobra.Command{
-		Use:   "todo <parent-id> <text>",
-		Short: "Add a to-do item",
+		Use:     "todo <parent-id> <text>",
+		Aliases: []string{"td"},
+		Short:   "Add a to-do item",
 		Long: `Add a to-do (checkbox) item.
 
 Examples:
@@ -314,8 +401,9 @@ func newBlockAddImageCmd() *cobra.Command {
 	var caption string
 
 	cmd := &cobra.Command{
-		Use:   "image <parent-id>",
-		Short: "Add an image block from a local file",
+		Use:     "image <parent-id>",
+		Aliases: []string{"img", "i"},
+		Short:   "Add an image block from a local file",
 		Long: `Add an image block by uploading a local file.
 
 Example:
@@ -331,6 +419,10 @@ Example with caption:
 				return fmt.Errorf("--file is required")
 			}
 
+			if err := validateFileExtension(filePath); err != nil {
+				return err
+			}
+
 			parentID, err := resolveBlockAddParentID(ctx, args[0])
 			if err != nil {
 				return err
@@ -344,7 +436,10 @@ Example with caption:
 
 			filename := filepath.Base(filePath)
 			buffer := make([]byte, 512)
-			n, _ := file.Read(buffer)
+			n, readErr := file.Read(buffer)
+			if readErr != nil {
+				return fmt.Errorf("failed to read file header: %w", readErr)
+			}
 			contentType := http.DetectContentType(buffer[:n])
 			if _, err := file.Seek(0, 0); err != nil {
 				return fmt.Errorf("failed to reset file position: %w", err)
@@ -395,5 +490,114 @@ Example with caption:
 
 	cmd.Flags().StringVar(&filePath, "file", "", "Local image file path")
 	cmd.Flags().StringVar(&caption, "caption", "", "Caption text for the image")
+	return cmd
+}
+
+func newBlockAddFileCmd() *cobra.Command {
+	var filePath string
+	var caption string
+
+	cmd := &cobra.Command{
+		Use:     "file <parent-id>",
+		Aliases: []string{"f"},
+		Short:   "Add a file block from a local file",
+		Long: `Add a file block by uploading a local file to a page body.
+
+Supported extensions:
+  Document: .pdf .txt .json .doc .docx .dotx .xls .xlsx .xltx .ppt .pptx .potx
+  Image:    .gif .heic .jpeg .jpg .png .svg .tif .tiff .webp .ico
+  Audio:    .aac .mp3 .m4a .m4b .mp4 .ogg .wav .wma
+  Video:    .mp4 .mov .avi .mkv .webm .mpeg .flv .wmv
+
+Note: .md files are NOT supported by Notion. Rename to .txt before uploading.
+
+Example:
+  ntn block add file abc123 --file ./report.pdf
+
+Example with caption:
+  ntn block add file abc123 --file ./report.pdf --caption "Q4 Report"
+
+Workaround for .md files:
+  cp notes.md notes.txt && ntn block add file abc123 --file ./notes.txt`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			if filePath == "" {
+				return fmt.Errorf("--file is required")
+			}
+
+			if err := validateFileExtension(filePath); err != nil {
+				return err
+			}
+
+			parentID, err := resolveBlockAddParentID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+
+			file, err := os.Open(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to open file: %w", err)
+			}
+			defer func() { _ = file.Close() }()
+
+			filename := filepath.Base(filePath)
+			buffer := make([]byte, 512)
+			n, readErr := file.Read(buffer)
+			if readErr != nil {
+				return fmt.Errorf("failed to read file header: %w", readErr)
+			}
+			contentType := http.DetectContentType(buffer[:n])
+			if _, err := file.Seek(0, 0); err != nil {
+				return fmt.Errorf("failed to reset file position: %w", err)
+			}
+
+			client, err := clientFromContext(ctx)
+			if err != nil {
+				return err
+			}
+
+			upload, err := client.CreateFileUpload(ctx, &notion.CreateFileUploadRequest{
+				FileName:    filename,
+				ContentType: contentType,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create file upload: %w", err)
+			}
+
+			upload, err = client.SendFileUpload(ctx, upload.UploadURL, file, filename, contentType)
+			if err != nil {
+				return fmt.Errorf("failed to upload file: %w", err)
+			}
+
+			fileBlock := map[string]interface{}{
+				"type": "file",
+				"file": map[string]interface{}{
+					"type":        "file_upload",
+					"file_upload": map[string]interface{}{"id": upload.ID},
+					"name":        filename,
+				},
+			}
+			if caption != "" {
+				fileProps := fileBlock["file"].(map[string]interface{})
+				fileProps["caption"] = []map[string]interface{}{
+					{
+						"type": "text",
+						"text": map[string]interface{}{"content": caption},
+					},
+				}
+			}
+
+			result, err := appendSingleBlock(ctx, client, parentID, fileBlock, "add file", args[0])
+			if err != nil {
+				return err
+			}
+			return printerForContext(ctx).Print(ctx, result)
+		},
+	}
+
+	cmd.Flags().StringVar(&filePath, "file", "", "Local file path to upload")
+	cmd.Flags().StringVar(&caption, "caption", "", "Caption text for the file")
 	return cmd
 }

@@ -332,13 +332,39 @@ ntn b d <block-id>                        # Delete block
 #### Quick block creation
 
 ```bash
-ntn b add <parent-id> --type paragraph --text "Hello"
+ntn b add paragraph <parent-id> "Hello world"
+ntn b add heading <parent-id> "Title" --level 1
+ntn b add bullet <parent-id> "List item"
+ntn b add code <parent-id> 'fmt.Println("hi")' --language go
+ntn b add todo <parent-id> "Buy milk"
+ntn b add callout <parent-id> "Note" --emoji "💡"
 ntn b add-toc <parent-id>                   # Table of contents
-ntn b add-toc <parent-id> --color blue      # With color
 ntn b add-breadcrumb <parent-id>            # Breadcrumb navigation
 ntn b add-divider <parent-id>               # Horizontal divider
 ntn b add-columns <parent-id> --columns 3   # Column layout (2-5)
 ```
+
+#### File & image uploads to page body
+
+```bash
+ntn b add file <parent-id> --file ./report.pdf
+ntn b add file <parent-id> --file ./data.txt --caption "Raw data"
+ntn b add image <parent-id> --file ./photo.jpg --caption "Team offsite"
+```
+
+**Supported file extensions:**
+
+| Category | Extensions |
+|----------|-----------|
+| Document | `.pdf` `.txt` `.json` `.doc` `.docx` `.dotx` `.xls` `.xlsx` `.xltx` `.ppt` `.pptx` `.potx` |
+| Image | `.gif` `.heic` `.jpeg` `.jpg` `.png` `.svg` `.tif` `.tiff` `.webp` `.ico` |
+| Audio | `.aac` `.mp3` `.m4a` `.m4b` `.mp4` `.ogg` `.wav` `.wma` |
+| Video | `.mp4` `.mov` `.avi` `.mkv` `.webm` `.mpeg` `.flv` `.wmv` |
+
+> **Note:** `.md` files are **not supported** by the Notion API. Rename to `.txt` before uploading:
+> ```bash
+> cp notes.md notes.txt && ntn b add file <parent-id> --file ./notes.txt
+> ```
 
 ---
 

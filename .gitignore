@@ -33,3 +33,4 @@ internal/skill/sort_test.go
 # Internal docs
 CIRCUIT_BREAKER.md
 .private-journal/
+research.md
