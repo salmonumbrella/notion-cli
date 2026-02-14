@@ -560,3 +560,14 @@ func NewToggleWithMarkdown(text string) map[string]interface{} {
 		},
 	}
 }
+
+// NewTableRow creates a table_row block.
+// Each cell is a rich_text array ([]map[string]interface{}).
+func NewTableRow(cells [][]map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"type": "table_row",
+		"table_row": map[string]interface{}{
+			"cells": cells,
+		},
+	}
+}

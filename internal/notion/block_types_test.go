@@ -307,6 +307,25 @@ func TestNewColumn(t *testing.T) {
 	}
 }
 
+func TestNewTableRow(t *testing.T) {
+	cells := [][]map[string]interface{}{
+		{{"type": "text", "text": map[string]interface{}{"content": "A"}}},
+		{{"type": "text", "text": map[string]interface{}{"content": "B"}}},
+	}
+
+	block := NewTableRow(cells)
+
+	if block["type"] != "table_row" {
+		t.Errorf("expected type 'table_row', got %v", block["type"])
+	}
+
+	tr := block["table_row"].(map[string]interface{})
+	rowCells := tr["cells"].([][]map[string]interface{})
+	if len(rowCells) != 2 {
+		t.Errorf("expected 2 cells, got %d", len(rowCells))
+	}
+}
+
 func TestBlockTypesSerialization(t *testing.T) {
 	blocks := []map[string]interface{}{
 		NewParagraph("test"),
