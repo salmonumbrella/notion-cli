@@ -21,6 +21,7 @@ func newPageSyncCmd() *cobra.Command {
 	var parentType string
 	var outputFile string
 	var dryRun bool
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:     "sync",
@@ -76,7 +77,7 @@ Examples:
 			stderr := stderrFromContext(ctx)
 
 			if pushFile != "" {
-				return runSyncPush(ctx, client, stderr, pushFile, parentID, parentType, dryRun)
+				return runSyncPush(ctx, client, stderr, pushFile, parentID, parentType, dryRun, force)
 			}
 			return runSyncPull(ctx, client, stderr, pullID, outputFile, dryRun)
 		},
@@ -88,6 +89,7 @@ Examples:
 	cmd.Flags().StringVar(&parentType, "parent-type", "", "Parent type: 'page' or 'database' (default: auto-detect)")
 	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file path (for pull)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would happen without making changes")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Push even if the Notion page was edited since last sync")
 
 	// Flag aliases
 	flagAlias(cmd.Flags(), "parent", "pa")
@@ -97,7 +99,7 @@ Examples:
 }
 
 // runSyncPush pushes a local markdown file to Notion.
-func runSyncPush(ctx context.Context, client *notion.Client, stderr io.Writer, filePath, parentID, parentType string, dryRun bool) error {
+func runSyncPush(ctx context.Context, client *notion.Client, stderr io.Writer, filePath, parentID, parentType string, dryRun, force bool) error {
 	// Read file
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -113,6 +115,28 @@ func runSyncPush(ctx context.Context, client *notion.Client, stderr io.Writer, f
 
 	// Parse markdown content to blocks
 	blocks := parseMarkdownToBlocks(body)
+
+	// Check for conflicts on existing pages
+	if notionID != "" && !force && !dryRun {
+		lastSynced := fm["last-synced"]
+		if lastSynced != "" {
+			checkID, err := cmdutil.NormalizeNotionID(notionID)
+			if err != nil {
+				return fmt.Errorf("invalid notion-id in frontmatter: %w", err)
+			}
+			page, err := client.GetPage(ctx, checkID)
+			if err != nil {
+				return fmt.Errorf("failed to fetch page for conflict check: %w", err)
+			}
+			if page.LastEditedTime != "" {
+				syncedTime, err1 := time.Parse(time.RFC3339, lastSynced)
+				editedTime, err2 := time.Parse(time.RFC3339, page.LastEditedTime)
+				if err1 == nil && err2 == nil && editedTime.After(syncedTime) {
+					return fmt.Errorf("page was modified on Notion since last sync (synced: %s, edited: %s); use --force to overwrite", lastSynced, page.LastEditedTime)
+				}
+			}
+		}
+	}
 
 	if dryRun {
 		printer := NewDryRunPrinter(stderr)

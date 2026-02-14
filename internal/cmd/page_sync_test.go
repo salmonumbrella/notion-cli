@@ -307,7 +307,7 @@ func TestPageSyncPush_ExistingPage(t *testing.T) {
 
 	var stderr strings.Builder
 	ctx := t.Context()
-	err := runSyncPush(ctx, client, &stderr, mdFile, "", "", false)
+	err := runSyncPush(ctx, client, &stderr, mdFile, "", "", false, true)
 	if err != nil {
 		t.Fatalf("runSyncPush: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestPageSyncPush_NewPage(t *testing.T) {
 
 	var stderr strings.Builder
 	ctx := t.Context()
-	err := runSyncPush(ctx, client, &stderr, mdFile, "parent-page-id-1234567890ab", "", false)
+	err := runSyncPush(ctx, client, &stderr, mdFile, "parent-page-id-1234567890ab", "", false, false)
 	if err != nil {
 		t.Fatalf("runSyncPush: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestPageSyncPush_NoIDNoParent(t *testing.T) {
 
 	var stderr strings.Builder
 	ctx := t.Context()
-	err := runSyncPush(ctx, nil, &stderr, mdFile, "", "", false)
+	err := runSyncPush(ctx, nil, &stderr, mdFile, "", "", false, false)
 	if err == nil {
 		t.Fatal("expected error when no notion-id and no --parent")
 	}
@@ -559,7 +559,7 @@ func TestPageSyncPush_DryRun(t *testing.T) {
 
 	var stderr strings.Builder
 	ctx := t.Context()
-	err := runSyncPush(ctx, nil, &stderr, mdFile, "", "", true)
+	err := runSyncPush(ctx, nil, &stderr, mdFile, "", "", true, false)
 	if err != nil {
 		t.Fatalf("runSyncPush dry-run: %v", err)
 	}
@@ -608,6 +608,108 @@ func TestPageSyncResolveParentForSync(t *testing.T) {
 			t.Fatal("expected error for invalid parent type")
 		}
 	})
+}
+
+func TestPageSyncPush_ConflictDetected(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			// Page was edited AFTER the last sync
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":           "page",
+				"id":               "12345678-1234-1234-1234-123456789012",
+				"last_edited_time": "2026-02-13T12:00:00.000Z",
+				"properties": map[string]interface{}{
+					"title": map[string]interface{}{
+						"type":  "title",
+						"title": []map[string]interface{}{{"plain_text": "Test"}},
+					},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	mdFile := filepath.Join(dir, "conflict.md")
+	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\ntitle: Test\nlast-synced: 2026-02-13T10:00:00Z\n---\n\n# Test\n\nContent.\n"
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	client := newTestSyncClient(t, srv)
+
+	var stderr strings.Builder
+	err := runSyncPush(t.Context(), client, &stderr, mdFile, "", "", false, false)
+	if err == nil {
+		t.Fatal("expected conflict error")
+	}
+	if !strings.Contains(err.Error(), "modified on Notion since last sync") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestPageSyncPush_ConflictForced(t *testing.T) {
+	var appendCalls int
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":           "page",
+				"id":               "12345678-1234-1234-1234-123456789012",
+				"last_edited_time": "2026-02-13T12:00:00.000Z",
+				"properties": map[string]interface{}{
+					"title": map[string]interface{}{
+						"type":  "title",
+						"title": []map[string]interface{}{{"plain_text": "Test"}},
+					},
+				},
+			})
+
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":   "list",
+				"results":  []map[string]interface{}{},
+				"has_more": false,
+			})
+
+		case r.Method == "PATCH" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children"):
+			appendCalls++
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":  "list",
+				"results": []map[string]interface{}{},
+			})
+
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	mdFile := filepath.Join(dir, "forced.md")
+	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\ntitle: Test\nlast-synced: 2026-02-13T10:00:00Z\n---\n\n# Test\n\nContent.\n"
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	client := newTestSyncClient(t, srv)
+
+	var stderr strings.Builder
+	err := runSyncPush(t.Context(), client, &stderr, mdFile, "", "", false, true)
+	if err != nil {
+		t.Fatalf("runSyncPush with --force: %v", err)
+	}
+	if appendCalls != 1 {
+		t.Errorf("expected 1 append call, got %d", appendCalls)
+	}
 }
 
 // newTestSyncClient creates a notion.Client pointed at a test server.
