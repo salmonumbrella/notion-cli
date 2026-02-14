@@ -168,7 +168,13 @@ func renderBlockMarkdown(block exportBlock, indent int) []string {
 		}
 		return lines
 	case "quote":
-		return []string{prefix + "> " + richTextContentToMarkdown(block.Content, "rich_text")}
+		lines := []string{prefix + "> " + richTextContentToMarkdown(block.Content, "rich_text")}
+		if len(block.Children) > 0 {
+			for _, childLine := range renderMarkdownLines(block.Children, 0) {
+				lines = append(lines, prefix+"> "+childLine)
+			}
+		}
+		return lines
 	case "code":
 		language, _ := block.Content["language"].(string)
 		code := richTextFromContent(block.Content, "rich_text")

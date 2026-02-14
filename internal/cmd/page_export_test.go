@@ -305,6 +305,34 @@ func TestRenderBlockMarkdown_TableNoHeader(t *testing.T) {
 	}
 }
 
+func TestRenderBlockMarkdown_QuoteWithChildren(t *testing.T) {
+	block := exportBlock{
+		Type: "quote",
+		Content: map[string]interface{}{
+			"rich_text": []interface{}{
+				map[string]interface{}{"plain_text": "Main quote", "text": map[string]interface{}{"content": "Main quote"}},
+			},
+		},
+		Children: []exportBlock{
+			{
+				Type: "paragraph",
+				Content: map[string]interface{}{
+					"rich_text": []interface{}{
+						map[string]interface{}{"plain_text": "Nested paragraph", "text": map[string]interface{}{"content": "Nested paragraph"}},
+					},
+				},
+			},
+		},
+	}
+
+	lines := renderBlockMarkdown(block, 0)
+	got := strings.Join(lines, "\n")
+	want := "> Main quote\n> Nested paragraph"
+	if got != want {
+		t.Errorf("quote with children:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestRenderBlockMarkdown_TableEmpty(t *testing.T) {
 	table := exportBlock{
 		Type: "table",
