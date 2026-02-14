@@ -170,6 +170,31 @@ func runSyncPush(ctx context.Context, client *notion.Client, stderr io.Writer, f
 			return fmt.Errorf("invalid notion-id in frontmatter: %w", err)
 		}
 
+		// Update page title if frontmatter has a title
+		title := fm["title"]
+		if title == "" {
+			title = extractTitleFromBody(body)
+		}
+		if title != "" {
+			updateReq := &notion.UpdatePageRequest{
+				Properties: map[string]interface{}{
+					"title": map[string]interface{}{
+						"title": []map[string]interface{}{
+							{
+								"type": "text",
+								"text": map[string]interface{}{
+									"content": title,
+								},
+							},
+						},
+					},
+				},
+			}
+			if _, err := client.UpdatePage(ctx, normalizedID, updateReq); err != nil {
+				return fmt.Errorf("failed to update page title: %w", err)
+			}
+		}
+
 		// Fetch existing blocks
 		existingBlocks, err := fetchAllBlockChildren(ctx, client, normalizedID)
 		if err != nil {

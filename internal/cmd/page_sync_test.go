@@ -262,6 +262,13 @@ func TestPageSyncPush_ExistingPage(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 
 		switch {
+		case r.Method == "PATCH" && strings.Contains(r.URL.Path, "/pages/") && !strings.Contains(r.URL.Path, "/blocks/"):
+			// Title update — accept silently
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object": "page",
+				"id":     "12345678-1234-1234-1234-123456789012",
+			})
+
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children"):
 			blockChildrenCalls++
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -673,6 +680,13 @@ func TestPageSyncPush_ConflictForced(t *testing.T) {
 				},
 			})
 
+		case r.Method == "PATCH" && strings.Contains(r.URL.Path, "/pages/") && !strings.Contains(r.URL.Path, "/blocks/"):
+			// Title update — accept silently
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object": "page",
+				"id":     "12345678-1234-1234-1234-123456789012",
+			})
+
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children"):
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"object":   "list",
@@ -709,6 +723,163 @@ func TestPageSyncPush_ConflictForced(t *testing.T) {
 	}
 	if appendCalls != 1 {
 		t.Errorf("expected 1 append call, got %d", appendCalls)
+	}
+}
+
+func TestPageSyncPush_UpdatesTitle(t *testing.T) {
+	var updatedTitle string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":           "page",
+				"id":               "12345678-1234-1234-1234-123456789012",
+				"last_edited_time": "2026-02-13T09:00:00.000Z",
+				"properties": map[string]interface{}{
+					"title": map[string]interface{}{
+						"type":  "title",
+						"title": []map[string]interface{}{{"plain_text": "Old Title"}},
+					},
+				},
+			})
+
+		case r.Method == "PATCH" && strings.Contains(r.URL.Path, "/pages/") && !strings.Contains(r.URL.Path, "/blocks/"):
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if props, ok := body["properties"].(map[string]interface{}); ok {
+				if titleProp, ok := props["title"].(map[string]interface{}); ok {
+					if titleArr, ok := titleProp["title"].([]interface{}); ok && len(titleArr) > 0 {
+						if first, ok := titleArr[0].(map[string]interface{}); ok {
+							if textObj, ok := first["text"].(map[string]interface{}); ok {
+								updatedTitle, _ = textObj["content"].(string)
+							}
+						}
+					}
+				}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object": "page",
+				"id":     "12345678-1234-1234-1234-123456789012",
+			})
+
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":   "list",
+				"results":  []map[string]interface{}{},
+				"has_more": false,
+			})
+
+		case r.Method == "PATCH" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":  "list",
+				"results": []map[string]interface{}{},
+			})
+
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	mdFile := filepath.Join(dir, "title-update.md")
+	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\ntitle: New Title\nlast-synced: 2026-02-13T10:00:00Z\n---\n\n# New Title\n\nContent.\n"
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	client := newTestSyncClient(t, srv)
+
+	var stderr strings.Builder
+	err := runSyncPush(t.Context(), client, &stderr, mdFile, "", "", false, true)
+	if err != nil {
+		t.Fatalf("runSyncPush: %v", err)
+	}
+
+	if updatedTitle != "New Title" {
+		t.Errorf("expected title update to 'New Title', got %q", updatedTitle)
+	}
+}
+
+func TestPageSyncPush_UpdatesTitleFromH1(t *testing.T) {
+	var updatedTitle string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":           "page",
+				"id":               "12345678-1234-1234-1234-123456789012",
+				"last_edited_time": "2026-02-13T09:00:00.000Z",
+				"properties": map[string]interface{}{
+					"title": map[string]interface{}{
+						"type":  "title",
+						"title": []map[string]interface{}{{"plain_text": "Old Title"}},
+					},
+				},
+			})
+
+		case r.Method == "PATCH" && strings.Contains(r.URL.Path, "/pages/") && !strings.Contains(r.URL.Path, "/blocks/"):
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if props, ok := body["properties"].(map[string]interface{}); ok {
+				if titleProp, ok := props["title"].(map[string]interface{}); ok {
+					if titleArr, ok := titleProp["title"].([]interface{}); ok && len(titleArr) > 0 {
+						if first, ok := titleArr[0].(map[string]interface{}); ok {
+							if textObj, ok := first["text"].(map[string]interface{}); ok {
+								updatedTitle, _ = textObj["content"].(string)
+							}
+						}
+					}
+				}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object": "page",
+				"id":     "12345678-1234-1234-1234-123456789012",
+			})
+
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":   "list",
+				"results":  []map[string]interface{}{},
+				"has_more": false,
+			})
+
+		case r.Method == "PATCH" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":  "list",
+				"results": []map[string]interface{}{},
+			})
+
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	mdFile := filepath.Join(dir, "title-from-h1.md")
+	// No title in frontmatter, should extract from first H1
+	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\nlast-synced: 2026-02-13T10:00:00Z\n---\n\n# Heading Title\n\nContent.\n"
+	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	client := newTestSyncClient(t, srv)
+
+	var stderr strings.Builder
+	err := runSyncPush(t.Context(), client, &stderr, mdFile, "", "", false, true)
+	if err != nil {
+		t.Fatalf("runSyncPush: %v", err)
+	}
+
+	if updatedTitle != "Heading Title" {
+		t.Errorf("expected title update to 'Heading Title', got %q", updatedTitle)
 	}
 }
 
