@@ -400,6 +400,14 @@ func TestNewTableWithMarkdown(t *testing.T) {
 	}
 }
 
+func TestNewTableWithMarkdown_Empty(t *testing.T) {
+	block := NewTableWithMarkdown(nil, false)
+	tbl := block["table"].(map[string]interface{})
+	if tbl["table_width"] != 0 {
+		t.Errorf("expected table_width 0, got %v", tbl["table_width"])
+	}
+}
+
 func TestBlockTypesSerialization(t *testing.T) {
 	blocks := []map[string]interface{}{
 		NewParagraph("test"),

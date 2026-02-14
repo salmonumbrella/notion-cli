@@ -294,6 +294,68 @@ func TestParseMarkdownToBlocks_TableMultipleDataRows(t *testing.T) {
 	}
 }
 
+func TestParseMarkdownToBlocks_TableEmptyCells(t *testing.T) {
+	input := "| A | B | C |\n| --- | --- | --- |\n|  | data |  |"
+	blocks := parseMarkdownToBlocks(input)
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(blocks))
+	}
+
+	tbl := blocks[0]["table"].(map[string]interface{})
+	children := tbl["children"].([]map[string]interface{})
+	dataRow := children[1]["table_row"].(map[string]interface{})
+	cells := dataRow["cells"].([][]map[string]interface{})
+	if len(cells) != 3 {
+		t.Errorf("expected 3 cells, got %d", len(cells))
+	}
+}
+
+func TestParseMarkdownToBlocks_TableAlignmentMarkers(t *testing.T) {
+	// Alignment colons in separator should be recognized and ignored
+	input := "| Left | Center | Right |\n| :--- | :---: | ---: |\n| a | b | c |"
+	blocks := parseMarkdownToBlocks(input)
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 table block, got %d", len(blocks))
+	}
+	if blocks[0]["type"] != "table" {
+		t.Errorf("expected type 'table', got %v", blocks[0]["type"])
+	}
+}
+
+func TestParseMarkdownToBlocks_PipeInParagraph(t *testing.T) {
+	// A single pipe line that doesn't end with | should NOT be a table
+	input := "This has a | pipe in it"
+	blocks := parseMarkdownToBlocks(input)
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(blocks))
+	}
+	if blocks[0]["type"] != "paragraph" {
+		t.Errorf("expected paragraph, got %v", blocks[0]["type"])
+	}
+}
+
+func TestParseMarkdownToBlocks_TableHeaderOnly(t *testing.T) {
+	// Header + separator with no data rows is still a valid table
+	input := "| Name | Role |\n| --- | --- |"
+	blocks := parseMarkdownToBlocks(input)
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(blocks))
+	}
+	if blocks[0]["type"] != "table" {
+		t.Errorf("expected table, got %v", blocks[0]["type"])
+	}
+
+	tbl := blocks[0]["table"].(map[string]interface{})
+	children := tbl["children"].([]map[string]interface{})
+	if len(children) != 1 {
+		t.Errorf("expected 1 row (header only), got %d", len(children))
+	}
+}
+
 func TestParseMarkdownToBlocks_CodeBlockWithLanguage(t *testing.T) {
 	input := "```python\ndef hello():\n    print('hi')\n```"
 	blocks := parseMarkdownToBlocks(input)
