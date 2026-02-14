@@ -182,6 +182,11 @@ func renderBlockMarkdown(block exportBlock, indent int) []string {
 			return []string{prefix + "![](" + url + ")"}
 		}
 		return []string{prefix + "![](unsupported-image)"}
+	case "table":
+		return renderTableMarkdown(block, prefix)
+	case "table_row":
+		// table_row is handled by renderTableMarkdown; standalone rendering shouldn't happen
+		return nil
 	default:
 		if len(block.Children) > 0 {
 			lines := []string{prefix + "<!-- unsupported block type: " + block.Type + " -->"}
@@ -190,6 +195,50 @@ func renderBlockMarkdown(block exportBlock, indent int) []string {
 		}
 		return []string{prefix + "<!-- unsupported block type: " + block.Type + " -->"}
 	}
+}
+
+// renderTableMarkdown converts a table block with table_row children to markdown pipe table.
+func renderTableMarkdown(block exportBlock, prefix string) []string {
+	if len(block.Children) == 0 {
+		return nil
+	}
+
+	var lines []string
+	for i, row := range block.Children {
+		cells := extractTableCells(row.Content)
+		line := prefix + "| " + strings.Join(cells, " | ") + " |"
+		lines = append(lines, line)
+
+		// Add separator after first row (markdown table spec requires it)
+		if i == 0 {
+			var seps []string
+			for range cells {
+				seps = append(seps, "---")
+			}
+			lines = append(lines, prefix+"| "+strings.Join(seps, " | ")+" |")
+		}
+	}
+
+	return lines
+}
+
+// extractTableCells extracts cell text from a table_row's content.
+func extractTableCells(content map[string]interface{}) []string {
+	cellsRaw, ok := content["cells"].([]interface{})
+	if !ok {
+		return nil
+	}
+
+	cells := make([]string, len(cellsRaw))
+	for i, cell := range cellsRaw {
+		items, ok := cell.([]interface{})
+		if !ok {
+			cells[i] = ""
+			continue
+		}
+		cells[i] = richTextToMarkdown(items)
+	}
+	return cells
 }
 
 func richTextFromContent(content map[string]interface{}, key string) string {

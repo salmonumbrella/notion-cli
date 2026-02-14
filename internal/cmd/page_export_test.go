@@ -1,6 +1,9 @@
 package cmd
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestRichTextToMarkdown(t *testing.T) {
 	tests := []struct {
@@ -206,5 +209,115 @@ func TestRichTextToMarkdown(t *testing.T) {
 				t.Errorf("richTextToMarkdown:\ngot:  %q\nwant: %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRenderBlockMarkdown_Table(t *testing.T) {
+	// A 2-column, 3-row table with header row
+	table := exportBlock{
+		Type: "table",
+		Content: map[string]interface{}{
+			"table_width":       float64(2),
+			"has_column_header": true,
+			"has_row_header":    false,
+		},
+		Children: []exportBlock{
+			{
+				Type: "table_row",
+				Content: map[string]interface{}{
+					"cells": []interface{}{
+						[]interface{}{map[string]interface{}{"plain_text": "Name", "text": map[string]interface{}{"content": "Name"}}},
+						[]interface{}{map[string]interface{}{"plain_text": "Role", "text": map[string]interface{}{"content": "Role"}}},
+					},
+				},
+			},
+			{
+				Type: "table_row",
+				Content: map[string]interface{}{
+					"cells": []interface{}{
+						[]interface{}{map[string]interface{}{"plain_text": "Alice", "text": map[string]interface{}{"content": "Alice"}}},
+						[]interface{}{map[string]interface{}{"plain_text": "Engineer", "text": map[string]interface{}{"content": "Engineer"}}},
+					},
+				},
+			},
+			{
+				Type: "table_row",
+				Content: map[string]interface{}{
+					"cells": []interface{}{
+						[]interface{}{map[string]interface{}{
+							"plain_text": "Bob",
+							"text":       map[string]interface{}{"content": "Bob"},
+							"annotations": map[string]interface{}{
+								"bold": true, "italic": false, "code": false,
+								"strikethrough": false, "underline": false, "color": "default",
+							},
+						}},
+						[]interface{}{map[string]interface{}{"plain_text": "Designer", "text": map[string]interface{}{"content": "Designer"}}},
+					},
+				},
+			},
+		},
+	}
+
+	lines := renderBlockMarkdown(table, 0)
+	got := strings.Join(lines, "\n")
+	want := "| Name | Role |\n| --- | --- |\n| Alice | Engineer |\n| **Bob** | Designer |"
+	if got != want {
+		t.Errorf("table render:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestRenderBlockMarkdown_TableNoHeader(t *testing.T) {
+	table := exportBlock{
+		Type: "table",
+		Content: map[string]interface{}{
+			"table_width":       float64(2),
+			"has_column_header": false,
+			"has_row_header":    false,
+		},
+		Children: []exportBlock{
+			{
+				Type: "table_row",
+				Content: map[string]interface{}{
+					"cells": []interface{}{
+						[]interface{}{map[string]interface{}{"plain_text": "A", "text": map[string]interface{}{"content": "A"}}},
+						[]interface{}{map[string]interface{}{"plain_text": "B", "text": map[string]interface{}{"content": "B"}}},
+					},
+				},
+			},
+			{
+				Type: "table_row",
+				Content: map[string]interface{}{
+					"cells": []interface{}{
+						[]interface{}{map[string]interface{}{"plain_text": "C", "text": map[string]interface{}{"content": "C"}}},
+						[]interface{}{map[string]interface{}{"plain_text": "D", "text": map[string]interface{}{"content": "D"}}},
+					},
+				},
+			},
+		},
+	}
+
+	lines := renderBlockMarkdown(table, 0)
+	got := strings.Join(lines, "\n")
+	want := "| A | B |\n| --- | --- |\n| C | D |"
+	if got != want {
+		t.Errorf("table no-header render:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestRenderBlockMarkdown_TableEmpty(t *testing.T) {
+	table := exportBlock{
+		Type: "table",
+		Content: map[string]interface{}{
+			"table_width":       float64(2),
+			"has_column_header": false,
+			"has_row_header":    false,
+		},
+		Children: []exportBlock{},
+	}
+
+	lines := renderBlockMarkdown(table, 0)
+	if len(lines) != 0 {
+		t.Errorf("empty table should produce no lines, got %d", len(lines))
 	}
 }
