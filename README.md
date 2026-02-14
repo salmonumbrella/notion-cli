@@ -619,7 +619,7 @@ All commands support these flags:
 |------|-------|---------|-------------|
 | `--workspace` | `-w` | | Workspace to use (overrides `NOTION_WORKSPACE`) |
 | `--debug` | | | Show API requests/responses on stderr |
-| `--yes` | `-y` | `--no-input`, `--force` | Skip confirmation prompts |
+| `--yes` | `-y` | `--no-input` | Skip confirmation prompts |
 | `--help` | | | Show help for any command |
 | `--version` | | | Show version information |
 

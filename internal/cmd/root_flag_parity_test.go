@@ -108,11 +108,8 @@ func TestRootFlagParity_NonInteractiveTrio(t *testing.T) {
 		t.Fatal("--no-input should be hidden")
 	}
 	forceFlag := root.PersistentFlags().Lookup("force")
-	if forceFlag == nil {
-		t.Fatal("expected --force flag")
-	}
-	if !forceFlag.Hidden {
-		t.Fatal("--force should be hidden")
+	if forceFlag != nil {
+		t.Fatal("--force should not be registered at root (conflicts with page sync --force semantics)")
 	}
 
 	if err := root.PersistentFlags().Set("no-input", "true"); err != nil {
@@ -121,13 +118,5 @@ func TestRootFlagParity_NonInteractiveTrio(t *testing.T) {
 	yesVal, _ := root.PersistentFlags().GetBool("yes")
 	if !yesVal {
 		t.Fatal("--no-input should set --yes")
-	}
-
-	if err := root.PersistentFlags().Set("force", "false"); err != nil {
-		t.Fatalf("set --force: %v", err)
-	}
-	yesVal, _ = root.PersistentFlags().GetBool("yes")
-	if yesVal {
-		t.Fatal("--force should update --yes value")
 	}
 }

@@ -49,9 +49,10 @@ func newRootCmd(app *App) *cobra.Command {
 	)
 
 	rootCmd := &cobra.Command{
-		Use:   "ntn",
-		Short: "CLI for Notion API",
-		Long:  `A command-line interface for interacting with the Notion API`,
+		Use:     "ntn",
+		Aliases: []string{"notion"},
+		Short:   "CLI for Notion API",
+		Long:    `A command-line interface for interacting with the Notion API`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Ensure Cobra doesn't emit its own error/usage text; we handle error output centrally.
 			cmd.SilenceErrors = true
@@ -138,7 +139,7 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().String("format", "text", "Alias for --output")
 	_ = rootCmd.PersistentFlags().MarkHidden("format")
 	// Shorthand: --json is equivalent to -o json
-	rootCmd.PersistentFlags().Bool("json", false, "Shorthand for --output json")
+	rootCmd.PersistentFlags().BoolP("json", "j", false, "Shorthand for --output json")
 	_ = rootCmd.PersistentFlags().MarkHidden("json")
 	rootCmd.PersistentFlags().StringVarP(&queryFlag, "query", "q", "", "JQ expression to filter JSON output")
 	// Alias --jq to --query for discoverability
@@ -162,8 +163,6 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts")
 	rootCmd.PersistentFlags().BoolVar(&yesFlag, "no-input", false, "Disable interactive prompts (alias for --yes)")
 	_ = rootCmd.PersistentFlags().MarkHidden("no-input")
-	rootCmd.PersistentFlags().BoolVar(&yesFlag, "force", false, "Alias for --yes")
-	_ = rootCmd.PersistentFlags().MarkHidden("force")
 	rootCmd.PersistentFlags().IntVar(&limitFlag, "limit", 0, "Limit number of results (0 = no limit)")
 	rootCmd.PersistentFlags().StringVar(&sortBy, "sort-by", "", "Sort results by field")
 	rootCmd.PersistentFlags().BoolVar(&descFlag, "desc", false, "Sort in descending order")
@@ -495,6 +494,10 @@ This is a convenience alias for 'ntn page delete'.`,
 
 	// Canonical additive verb aliases for cross-CLI consistency.
 	applyCanonicalVerbAliases(rootCmd)
+	// Ensure every non-root command has at least one short alias (without sibling collisions).
+	applyDefaultCommandAliases(rootCmd)
+	// Add safe shorthand aliases (-x) to visible flags where possible.
+	applyDefaultFlagShorthands(rootCmd)
 
 	return rootCmd
 }
