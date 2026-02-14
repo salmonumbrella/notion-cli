@@ -131,21 +131,21 @@ func renderBlockMarkdown(block exportBlock, indent int) []string {
 	prefix := strings.Repeat("  ", indent)
 	switch block.Type {
 	case "paragraph":
-		return []string{prefix + richTextFromContent(block.Content, "rich_text")}
+		return []string{prefix + richTextContentToMarkdown(block.Content, "rich_text")}
 	case "heading_1":
-		return []string{"# " + richTextFromContent(block.Content, "rich_text")}
+		return []string{"# " + richTextContentToMarkdown(block.Content, "rich_text")}
 	case "heading_2":
-		return []string{"## " + richTextFromContent(block.Content, "rich_text")}
+		return []string{"## " + richTextContentToMarkdown(block.Content, "rich_text")}
 	case "heading_3":
-		return []string{"### " + richTextFromContent(block.Content, "rich_text")}
+		return []string{"### " + richTextContentToMarkdown(block.Content, "rich_text")}
 	case "bulleted_list_item":
-		lines := []string{prefix + "- " + richTextFromContent(block.Content, "rich_text")}
+		lines := []string{prefix + "- " + richTextContentToMarkdown(block.Content, "rich_text")}
 		if len(block.Children) > 0 {
 			lines = append(lines, renderMarkdownLines(block.Children, indent+1)...)
 		}
 		return lines
 	case "numbered_list_item":
-		lines := []string{prefix + "1. " + richTextFromContent(block.Content, "rich_text")}
+		lines := []string{prefix + "1. " + richTextContentToMarkdown(block.Content, "rich_text")}
 		if len(block.Children) > 0 {
 			lines = append(lines, renderMarkdownLines(block.Children, indent+1)...)
 		}
@@ -156,25 +156,25 @@ func renderBlockMarkdown(block exportBlock, indent int) []string {
 		if checked {
 			box = "x"
 		}
-		lines := []string{prefix + "- [" + box + "] " + richTextFromContent(block.Content, "rich_text")}
+		lines := []string{prefix + "- [" + box + "] " + richTextContentToMarkdown(block.Content, "rich_text")}
 		if len(block.Children) > 0 {
 			lines = append(lines, renderMarkdownLines(block.Children, indent+1)...)
 		}
 		return lines
 	case "toggle":
-		lines := []string{prefix + "- " + richTextFromContent(block.Content, "rich_text")}
+		lines := []string{prefix + "- " + richTextContentToMarkdown(block.Content, "rich_text")}
 		if len(block.Children) > 0 {
 			lines = append(lines, renderMarkdownLines(block.Children, indent+1)...)
 		}
 		return lines
 	case "quote":
-		return []string{prefix + "> " + richTextFromContent(block.Content, "rich_text")}
+		return []string{prefix + "> " + richTextContentToMarkdown(block.Content, "rich_text")}
 	case "code":
 		language, _ := block.Content["language"].(string)
 		code := richTextFromContent(block.Content, "rich_text")
 		return []string{prefix + "```" + language, code, prefix + "```"}
 	case "callout":
-		return []string{prefix + "> " + richTextFromContent(block.Content, "rich_text")}
+		return []string{prefix + "> " + richTextContentToMarkdown(block.Content, "rich_text")}
 	case "divider":
 		return []string{prefix + "---"}
 	case "image":
@@ -222,6 +222,85 @@ func richTextFromContent(content map[string]interface{}, key string) string {
 	return strings.Join(parts, "")
 }
 
+// richTextToMarkdown converts a Notion rich_text array ([]interface{}) to a markdown string,
+// preserving bold, italic, code, strikethrough, and links.
+func richTextToMarkdown(items []interface{}) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	for _, item := range items {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		text := ""
+		if plain, ok := entry["plain_text"].(string); ok {
+			text = plain
+		} else if textObj, ok := entry["text"].(map[string]interface{}); ok {
+			text, _ = textObj["content"].(string)
+		}
+		if text == "" {
+			continue
+		}
+
+		linkURL := ""
+		if href, ok := entry["href"].(string); ok && href != "" {
+			linkURL = href
+		} else if textObj, ok := entry["text"].(map[string]interface{}); ok {
+			if linkObj, ok := textObj["link"].(map[string]interface{}); ok {
+				linkURL, _ = linkObj["url"].(string)
+			}
+		}
+
+		var bold, italic, code, strikethrough bool
+		if ann, ok := entry["annotations"].(map[string]interface{}); ok {
+			bold, _ = ann["bold"].(bool)
+			italic, _ = ann["italic"].(bool)
+			code, _ = ann["code"].(bool)
+			strikethrough, _ = ann["strikethrough"].(bool)
+		}
+
+		segment := text
+		if linkURL != "" {
+			segment = "[" + segment + "](" + linkURL + ")"
+		}
+		if code {
+			segment = "`" + segment + "`"
+		}
+		if strikethrough {
+			segment = "~~" + segment + "~~"
+		}
+		if bold && italic {
+			segment = "***" + segment + "***"
+		} else if bold {
+			segment = "**" + segment + "**"
+		} else if italic {
+			segment = "*" + segment + "*"
+		}
+
+		b.WriteString(segment)
+	}
+
+	return b.String()
+}
+
+// richTextContentToMarkdown extracts a rich_text array from a block's content map
+// and converts it to markdown with formatting preserved.
+func richTextContentToMarkdown(content map[string]interface{}, key string) string {
+	value, ok := content[key]
+	if !ok {
+		return ""
+	}
+	items, ok := value.([]interface{})
+	if !ok {
+		return ""
+	}
+	return richTextToMarkdown(items)
+}
+
 func extractFileURL(content map[string]interface{}) string {
 	fileType, _ := content["type"].(string)
 	if fileType == "" {
@@ -263,7 +342,7 @@ func pageTitleFromProperties(properties map[string]interface{}) string {
 			continue
 		}
 		if _, ok := prop["title"]; ok {
-			return richTextFromContent(prop, "title")
+			return richTextContentToMarkdown(prop, "title")
 		}
 	}
 	return ""
