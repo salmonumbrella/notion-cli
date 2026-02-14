@@ -59,6 +59,7 @@ Supported markdown elements:
   - 1. Numbered list items
   - - [ ] To-do items (unchecked), - [x] To-do items (checked)
   - > Blockquotes
+  - | Tables | with | pipe | syntax |
   - ` + "```" + `language code blocks ` + "```" + `
   - Regular paragraphs
 
