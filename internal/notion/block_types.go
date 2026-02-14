@@ -585,3 +585,27 @@ func NewTable(width int, hasColumnHeader bool, rows []map[string]interface{}) ma
 		},
 	}
 }
+
+// NewTableWithMarkdown creates a table block from raw cell strings.
+// Each cell string is parsed for inline markdown (bold, italic, code).
+func NewTableWithMarkdown(rows [][]string, hasColumnHeader bool) map[string]interface{} {
+	if len(rows) == 0 {
+		return NewTable(0, false, nil)
+	}
+
+	width := len(rows[0])
+	var tableRows []map[string]interface{}
+	for _, row := range rows {
+		cells := make([][]map[string]interface{}, width)
+		for j := 0; j < width; j++ {
+			if j < len(row) {
+				cells[j] = ParseMarkdownToRichText(row[j])
+			} else {
+				cells[j] = ParseMarkdownToRichText("")
+			}
+		}
+		tableRows = append(tableRows, NewTableRow(cells))
+	}
+
+	return NewTable(width, hasColumnHeader, tableRows)
+}

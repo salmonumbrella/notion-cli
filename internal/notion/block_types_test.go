@@ -359,6 +359,47 @@ func TestNewTable(t *testing.T) {
 	}
 }
 
+func TestNewTableWithMarkdown(t *testing.T) {
+	rows := [][]string{
+		{"Name", "Role"},
+		{"**Alice**", "Engineer"},
+	}
+
+	block := NewTableWithMarkdown(rows, true)
+
+	if block["type"] != "table" {
+		t.Errorf("expected type 'table', got %v", block["type"])
+	}
+
+	tbl := block["table"].(map[string]interface{})
+	if tbl["table_width"] != 2 {
+		t.Errorf("expected table_width 2, got %v", tbl["table_width"])
+	}
+	if tbl["has_column_header"] != true {
+		t.Errorf("expected has_column_header true")
+	}
+
+	children := tbl["children"].([]map[string]interface{})
+	if len(children) != 2 {
+		t.Errorf("expected 2 rows, got %d", len(children))
+	}
+
+	// Check that inline markdown was parsed in the second row's first cell
+	row2 := children[1]["table_row"].(map[string]interface{})
+	cells := row2["cells"].([][]map[string]interface{})
+	firstCell := cells[0]
+	if len(firstCell) != 1 {
+		t.Errorf("expected 1 rich_text element, got %d", len(firstCell))
+	}
+	if firstCell[0]["text"].(map[string]interface{})["content"] != "Alice" {
+		t.Errorf("expected content 'Alice', got %v", firstCell[0]["text"])
+	}
+	ann := firstCell[0]["annotations"].(map[string]interface{})
+	if ann["bold"] != true {
+		t.Error("expected bold annotation on 'Alice'")
+	}
+}
+
 func TestBlockTypesSerialization(t *testing.T) {
 	blocks := []map[string]interface{}{
 		NewParagraph("test"),
