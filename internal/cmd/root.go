@@ -49,10 +49,9 @@ func newRootCmd(app *App) *cobra.Command {
 	)
 
 	rootCmd := &cobra.Command{
-		Use:     "ntn",
-		Aliases: []string{"notion"},
-		Short:   "CLI for Notion API",
-		Long:    `A command-line interface for interacting with the Notion API`,
+		Use:   "ntn",
+		Short: "CLI for Notion API",
+		Long:  `A command-line interface for interacting with the Notion API`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Ensure Cobra doesn't emit its own error/usage text; we handle error output centrally.
 			cmd.SilenceErrors = true
