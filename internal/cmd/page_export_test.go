@@ -349,3 +349,89 @@ func TestRenderBlockMarkdown_TableEmpty(t *testing.T) {
 		t.Errorf("empty table should produce no lines, got %d", len(lines))
 	}
 }
+
+func TestMarkdownRoundTrip_FormattingPreserved(t *testing.T) {
+	// Simulate what pull returns: blocks with annotations
+	blocks := []exportBlock{
+		{
+			Type: "heading_1",
+			Content: map[string]interface{}{
+				"rich_text": []interface{}{
+					map[string]interface{}{"plain_text": "SOP Title", "text": map[string]interface{}{"content": "SOP Title"}},
+				},
+			},
+		},
+		{
+			Type: "paragraph",
+			Content: map[string]interface{}{
+				"rich_text": []interface{}{
+					map[string]interface{}{"plain_text": "Read the ", "text": map[string]interface{}{"content": "Read the "}},
+					map[string]interface{}{
+						"plain_text": "docs",
+						"text": map[string]interface{}{
+							"content": "docs",
+							"link":    map[string]interface{}{"url": "https://example.com"},
+						},
+						"href": "https://example.com",
+					},
+					map[string]interface{}{"plain_text": " before proceeding.", "text": map[string]interface{}{"content": " before proceeding."}},
+				},
+			},
+		},
+		{
+			Type: "paragraph",
+			Content: map[string]interface{}{
+				"rich_text": []interface{}{
+					map[string]interface{}{
+						"plain_text": "Important",
+						"text":       map[string]interface{}{"content": "Important"},
+						"annotations": map[string]interface{}{
+							"bold": true, "italic": false, "code": false,
+							"strikethrough": false, "underline": false, "color": "default",
+						},
+					},
+					map[string]interface{}{"plain_text": ": use ", "text": map[string]interface{}{"content": ": use "}},
+					map[string]interface{}{
+						"plain_text": "ntn sync",
+						"text":       map[string]interface{}{"content": "ntn sync"},
+						"annotations": map[string]interface{}{
+							"bold": false, "italic": false, "code": true,
+							"strikethrough": false, "underline": false, "color": "default",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Render to markdown (simulates pull)
+	md := renderMarkdown(blocks, 0)
+
+	// Verify formatting is present in the markdown
+	if !strings.Contains(md, "[docs](https://example.com)") {
+		t.Errorf("link not preserved in markdown:\n%s", md)
+	}
+	if !strings.Contains(md, "**Important**") {
+		t.Errorf("bold not preserved in markdown:\n%s", md)
+	}
+	if !strings.Contains(md, "`ntn sync`") {
+		t.Errorf("code not preserved in markdown:\n%s", md)
+	}
+
+	// Parse back to blocks (simulates push)
+	reparsed := parseMarkdownToBlocks(md)
+
+	// Verify block count matches (heading + 2 paragraphs)
+	if len(reparsed) != 3 {
+		t.Fatalf("expected 3 blocks after re-parse, got %d", len(reparsed))
+	}
+	if reparsed[0]["type"] != "heading_1" {
+		t.Errorf("block 0: expected heading_1, got %s", reparsed[0]["type"])
+	}
+	if reparsed[1]["type"] != "paragraph" {
+		t.Errorf("block 1: expected paragraph, got %s", reparsed[1]["type"])
+	}
+	if reparsed[2]["type"] != "paragraph" {
+		t.Errorf("block 2: expected paragraph, got %s", reparsed[2]["type"])
+	}
+}

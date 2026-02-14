@@ -121,7 +121,10 @@ func renderMarkdown(blocks []exportBlock, indent int) string {
 
 func renderMarkdownLines(blocks []exportBlock, indent int) []string {
 	var lines []string
-	for _, block := range blocks {
+	for i, block := range blocks {
+		if i > 0 {
+			lines = append(lines, "")
+		}
 		lines = append(lines, renderBlockMarkdown(block, indent)...)
 	}
 	return lines
