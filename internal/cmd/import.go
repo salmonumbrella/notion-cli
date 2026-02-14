@@ -35,6 +35,9 @@ var (
 
 	// Code block fence: ```language or ```
 	codeFencePattern = regexp.MustCompile("^```(\\w*)$")
+
+	// Table separator: | --- | --- | (with optional colons for alignment, ignored)
+	tableSeparatorPattern = regexp.MustCompile(`^\|[\s:]*-{3,}[\s:]*(\|[\s:]*-{3,}[\s:]*)*\|$`)
 )
 
 func newImportCmd() *cobra.Command {
@@ -193,6 +196,44 @@ func parseMarkdownToBlocks(content string) []map[string]interface{} {
 			continue
 		}
 
+		// Check for table
+		if isTableRow(trimmed) {
+			// Collect all consecutive table rows
+			var rawRows []string
+			for i < len(lines) {
+				rowLine := strings.TrimSpace(lines[i])
+				if !isTableRow(rowLine) {
+					break
+				}
+				rawRows = append(rawRows, rowLine)
+				i++
+			}
+
+			// Need at least 2 rows (header + separator) to be a valid table
+			if len(rawRows) >= 2 && tableSeparatorPattern.MatchString(rawRows[1]) {
+				// Parse header row
+				headerCells := parseTableCells(rawRows[0])
+
+				// Collect data rows (skip separator at index 1)
+				var dataRows [][]string
+				for _, raw := range rawRows[2:] {
+					dataRows = append(dataRows, parseTableCells(raw))
+				}
+
+				// Build all rows: header + data
+				allRows := [][]string{headerCells}
+				allRows = append(allRows, dataRows...)
+
+				blocks = append(blocks, notion.NewTableWithMarkdown(allRows, true))
+			} else {
+				// Not a valid table (no separator row), treat rows as paragraphs
+				for _, raw := range rawRows {
+					blocks = append(blocks, notion.NewParagraphWithMarkdown(raw))
+				}
+			}
+			continue
+		}
+
 		// Check for code block
 		if matches := codeFencePattern.FindStringSubmatch(trimmed); matches != nil {
 			language := matches[1]
@@ -314,7 +355,25 @@ func isBlockStart(line string) bool {
 		numberedListPattern.MatchString(line) ||
 		todoPattern.MatchString(line) ||
 		quotePattern.MatchString(line) ||
-		codeFencePattern.MatchString(line)
+		codeFencePattern.MatchString(line) ||
+		isTableRow(line)
+}
+
+// isTableRow checks if a line looks like a markdown table row (starts and ends with |).
+func isTableRow(line string) bool {
+	return len(line) >= 3 && line[0] == '|' && line[len(line)-1] == '|'
+}
+
+// parseTableCells splits a markdown table row into trimmed cell strings.
+func parseTableCells(line string) []string {
+	// Remove leading/trailing pipes
+	inner := line[1 : len(line)-1]
+	parts := strings.Split(inner, "|")
+	cells := make([]string, len(parts))
+	for i, p := range parts {
+		cells[i] = strings.TrimSpace(p)
+	}
+	return cells
 }
 
 // countBlockTypes counts the number of each block type for dry-run output

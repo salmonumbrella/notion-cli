@@ -197,6 +197,100 @@ func TestParseMarkdownToBlocks_MultilineQuote(t *testing.T) {
 	}
 }
 
+func TestParseMarkdownToBlocks_SimpleTable(t *testing.T) {
+	input := "| Name | Role |\n| --- | --- |\n| Alice | Engineer |"
+	blocks := parseMarkdownToBlocks(input)
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 table block, got %d", len(blocks))
+	}
+	if blocks[0]["type"] != "table" {
+		t.Errorf("expected type 'table', got %v", blocks[0]["type"])
+	}
+
+	tbl := blocks[0]["table"].(map[string]interface{})
+	if tbl["table_width"] != 2 {
+		t.Errorf("expected table_width 2, got %v", tbl["table_width"])
+	}
+	if tbl["has_column_header"] != true {
+		t.Errorf("expected has_column_header true")
+	}
+
+	children := tbl["children"].([]map[string]interface{})
+	if len(children) != 2 {
+		t.Errorf("expected 2 rows (header + 1 data), got %d", len(children))
+	}
+}
+
+func TestParseMarkdownToBlocks_TableWithSurroundingContent(t *testing.T) {
+	input := "# Title\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\nParagraph after."
+	blocks := parseMarkdownToBlocks(input)
+
+	if len(blocks) != 3 {
+		t.Fatalf("expected 3 blocks (heading, table, paragraph), got %d", len(blocks))
+	}
+
+	expectedTypes := []string{"heading_1", "table", "paragraph"}
+	for i, b := range blocks {
+		if b["type"] != expectedTypes[i] {
+			t.Errorf("block %d: expected %q, got %q", i, expectedTypes[i], b["type"])
+		}
+	}
+}
+
+func TestParseMarkdownToBlocks_TableInlineFormatting(t *testing.T) {
+	input := "| Name | Status |\n| --- | --- |\n| **Alice** | `active` |"
+	blocks := parseMarkdownToBlocks(input)
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(blocks))
+	}
+
+	tbl := blocks[0]["table"].(map[string]interface{})
+	children := tbl["children"].([]map[string]interface{})
+
+	// Check data row (index 1) has inline formatting
+	dataRow := children[1]["table_row"].(map[string]interface{})
+	cells := dataRow["cells"].([][]map[string]interface{})
+
+	// First cell: **Alice** should have bold annotation
+	if cells[0][0]["text"].(map[string]interface{})["content"] != "Alice" {
+		t.Errorf("expected 'Alice', got %v", cells[0][0]["text"])
+	}
+	ann := cells[0][0]["annotations"].(map[string]interface{})
+	if ann["bold"] != true {
+		t.Error("expected bold on 'Alice'")
+	}
+
+	// Second cell: `active` should have code annotation
+	if cells[1][0]["text"].(map[string]interface{})["content"] != "active" {
+		t.Errorf("expected 'active', got %v", cells[1][0]["text"])
+	}
+	ann2 := cells[1][0]["annotations"].(map[string]interface{})
+	if ann2["code"] != true {
+		t.Error("expected code on 'active'")
+	}
+}
+
+func TestParseMarkdownToBlocks_TableMultipleDataRows(t *testing.T) {
+	input := "| Endpoint | Method | Status |\n| --- | --- | --- |\n| /api/orders | GET | PASS |\n| /api/users | POST | FAIL |\n| /api/items | GET | PASS |"
+	blocks := parseMarkdownToBlocks(input)
+
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 table block, got %d", len(blocks))
+	}
+
+	tbl := blocks[0]["table"].(map[string]interface{})
+	if tbl["table_width"] != 3 {
+		t.Errorf("expected table_width 3, got %v", tbl["table_width"])
+	}
+
+	children := tbl["children"].([]map[string]interface{})
+	if len(children) != 4 {
+		t.Errorf("expected 4 rows (1 header + 3 data), got %d", len(children))
+	}
+}
+
 func TestParseMarkdownToBlocks_CodeBlockWithLanguage(t *testing.T) {
 	input := "```python\ndef hello():\n    print('hi')\n```"
 	blocks := parseMarkdownToBlocks(input)
