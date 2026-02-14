@@ -326,6 +326,39 @@ func TestNewTableRow(t *testing.T) {
 	}
 }
 
+func TestNewTable(t *testing.T) {
+	row1 := NewTableRow([][]map[string]interface{}{
+		{{"type": "text", "text": map[string]interface{}{"content": "Name"}}},
+		{{"type": "text", "text": map[string]interface{}{"content": "Role"}}},
+	})
+	row2 := NewTableRow([][]map[string]interface{}{
+		{{"type": "text", "text": map[string]interface{}{"content": "Alice"}}},
+		{{"type": "text", "text": map[string]interface{}{"content": "Eng"}}},
+	})
+
+	block := NewTable(2, true, []map[string]interface{}{row1, row2})
+
+	if block["type"] != "table" {
+		t.Errorf("expected type 'table', got %v", block["type"])
+	}
+
+	tbl := block["table"].(map[string]interface{})
+	if tbl["table_width"] != 2 {
+		t.Errorf("expected table_width 2, got %v", tbl["table_width"])
+	}
+	if tbl["has_column_header"] != true {
+		t.Errorf("expected has_column_header true")
+	}
+
+	children := tbl["children"].([]map[string]interface{})
+	if len(children) != 2 {
+		t.Errorf("expected 2 children, got %d", len(children))
+	}
+	if children[0]["type"] != "table_row" {
+		t.Errorf("expected child type 'table_row', got %v", children[0]["type"])
+	}
+}
+
 func TestBlockTypesSerialization(t *testing.T) {
 	blocks := []map[string]interface{}{
 		NewParagraph("test"),

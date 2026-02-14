@@ -571,3 +571,17 @@ func NewTableRow(cells [][]map[string]interface{}) map[string]interface{} {
 		},
 	}
 }
+
+// NewTable creates a table block with nested table_row children.
+// The Notion API requires table_row blocks to be nested inside the table's children array.
+func NewTable(width int, hasColumnHeader bool, rows []map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"type": "table",
+		"table": map[string]interface{}{
+			"table_width":       width,
+			"has_column_header": hasColumnHeader,
+			"has_row_header":    false,
+			"children":          rows,
+		},
+	}
+}
