@@ -22,7 +22,6 @@ func TestRootHiddenFlagAliases(t *testing.T) {
 		base  string
 		alias string
 	}{
-		{base: "json", alias: "j"},
 		{base: "output", alias: "out"},
 		{base: "query", alias: "qr"},
 	}
@@ -46,12 +45,16 @@ func TestRootHiddenFlagAliases(t *testing.T) {
 		})
 	}
 
-	if err := root.PersistentFlags().Set("j", "true"); err != nil {
-		t.Fatalf("set --j: %v", err)
+	// -j is provided by BoolP (native shorthand), not a flagAlias.
+	if root.PersistentFlags().ShorthandLookup("j") == nil {
+		t.Fatal("-j shorthand not found on --json flag")
+	}
+	if err := root.PersistentFlags().Set("json", "true"); err != nil {
+		t.Fatalf("set --json: %v", err)
 	}
 	jsonEnabled, _ := root.PersistentFlags().GetBool("json")
 	if !jsonEnabled {
-		t.Error("--j should set --json")
+		t.Error("--json should be enabled")
 	}
 	if err := root.PersistentFlags().Set("json", "false"); err != nil {
 		t.Fatalf("set --json: %v", err)

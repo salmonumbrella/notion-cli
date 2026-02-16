@@ -169,7 +169,7 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().IntVar(&recentFlag, "recent", 0, "Shortcut for --sort-by created_time --desc --limit N")
 
 	// Flag aliases for agent ergonomics
-	flagAlias(rootCmd.PersistentFlags(), "json", "j")
+	// Note: "json" already has -j via BoolP; no need for flagAlias.
 	flagAlias(rootCmd.PersistentFlags(), "output", "out")
 	flagAlias(rootCmd.PersistentFlags(), "query", "qr")
 	flagAlias(rootCmd.PersistentFlags(), "fields", "fds")

@@ -237,7 +237,7 @@ description: "Use when interacting with Notion via the CLI - contains database a
 |-----------|---------|
 | Create page (fast) | ` + "`ntn create \"My new page\"`" + ` |
 | Create page (explicit) | ` + "`ntn p c --ds <database-alias-or-id> --title \"...\" --status \"...\"`" + ` |
-| Query database | ` + "`ntn db q <database-alias-or-id> --all --i`" + ` |
+| Query database | ` + "`ntn db q <database-alias-or-id> --all --io`" + ` |
 | Query a title quickly | ` + "`ntn db q <database-alias-or-id> --i -j --jq '.rs[0].pr.Name.t[0].p'`" + ` |
 | Add comment | ` + "`ntn c a <page-id-or-name> \"Looks great\"`" + ` |
 `

@@ -292,18 +292,18 @@ func dataSourceTitle(ds *notion.DataSource) string {
 		return ""
 	}
 
-	var parts []string
+	var b strings.Builder
 	for _, item := range ds.Title {
 		if strings.TrimSpace(item.PlainText) != "" {
-			parts = append(parts, item.PlainText)
+			b.WriteString(item.PlainText)
 			continue
 		}
 		if item.Text != nil && strings.TrimSpace(item.Text.Content) != "" {
-			parts = append(parts, item.Text.Content)
+			b.WriteString(item.Text.Content)
 		}
 	}
 
-	return strings.TrimSpace(strings.Join(parts, ""))
+	return strings.TrimSpace(b.String())
 }
 
 func newDBQueryCmd() *cobra.Command {

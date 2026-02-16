@@ -73,15 +73,8 @@ func TestAutoFlagShorthands_NoPerCommandConflicts(t *testing.T) {
 	}
 	walk(root)
 
-	// Smoke-check that shorthand aliases are actually being added.
+	// Smoke-check that -j shorthand is registered (via BoolP, not flagAlias).
 	if root.PersistentFlags().ShorthandLookup("j") == nil {
 		t.Fatal("expected root shorthand -j to be registered")
-	}
-	if err := root.PersistentFlags().Set("j", "true"); err != nil {
-		t.Fatalf("set --j: %v", err)
-	}
-	jsonEnabled, _ := root.PersistentFlags().GetBool("json")
-	if !jsonEnabled {
-		t.Fatal("expected --j to set --json")
 	}
 }

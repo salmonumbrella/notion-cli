@@ -15,8 +15,8 @@ type databaseGetter interface {
 // pageSchemaGetter describes the schema lookups needed when creating pages
 // with shorthand flags against database/data source parents.
 type pageSchemaGetter interface {
-	GetDatabase(ctx context.Context, id string) (*notion.Database, error)
-	GetDataSource(ctx context.Context, dataSourceID string) (*notion.DataSource, error)
+	databaseGetter
+	dataSourceGetter
 }
 
 // blockChildrenReader describes the block children retrieval used by export/duplicate helpers.

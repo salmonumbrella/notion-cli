@@ -227,6 +227,14 @@ func TestMCPQueryFlags(t *testing.T) {
 	}
 }
 
+func TestResolveMCPCreatePeopleIDs_NilSkillFile(t *testing.T) {
+	props := map[string]interface{}{"key": "value"}
+	got := resolveMCPCreatePeopleIDs(nil, props)
+	if got["key"] != "value" {
+		t.Fatal("nil SkillFile should return properties unchanged")
+	}
+}
+
 func TestResolveMCPCreatePeopleIDs(t *testing.T) {
 	sf := &skill.SkillFile{
 		Users: map[string]skill.UserAlias{
