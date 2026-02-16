@@ -182,6 +182,7 @@ ntn o <notion-url>              # Open by URL
 ```bash
 ntn u me                        # Get current user
 ntn u ls                        # List all workspace users
+ntn u ls --li                   # Light list (id, name, email, type)
 ntn u g <user-id>               # Get user by ID
 ```
 

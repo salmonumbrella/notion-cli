@@ -72,6 +72,7 @@ func newUserListCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -81,10 +82,12 @@ func newUserListCmd() *cobra.Command {
 
 Supports pagination with --start-cursor and --page-size flags.
 Use --all to fetch all pages of results automatically.
+Use --light (or --li) for compact lookup output (id, name, email, type).
 Use global --results-only to output just the results array (useful for piping to jq).
 
 Example:
   ntn user list
+  ntn user list --light
   ntn user list --page-size 50
   ntn user list --start-cursor abc123
   ntn user list --all --results-only`,
@@ -140,6 +143,14 @@ Example:
 
 				// Print all results
 				printer := printerForContext(ctx)
+				if light {
+					return printer.Print(ctx, map[string]interface{}{
+						"object":      "list",
+						"results":     toLightUsers(allUsers),
+						"has_more":    hasMore,
+						"next_cursor": nextCursor,
+					})
+				}
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
 					"results":     allUsers,
@@ -165,6 +176,14 @@ Example:
 
 			// Print result
 			printer := printerForContext(ctx)
+			if light {
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     toLightUsers(userList.Results),
+					"has_more":    userList.HasMore,
+					"next_cursor": userList.NextCursor,
+				})
+			}
 			return printer.Print(ctx, userList)
 		},
 	}
@@ -172,8 +191,36 @@ Example:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor from previous response")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of items per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
+	cmd.Flags().BoolVar(&light, "light", false, "Return compact user payload (id, name, email, type)")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
+}
+
+type lightUser struct {
+	ID    string `json:"id"`
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+	Type  string `json:"type,omitempty"`
+}
+
+func toLightUsers(users []*notion.User) []lightUser {
+	light := make([]lightUser, 0, len(users))
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		entry := lightUser{
+			ID:   user.ID,
+			Name: user.Name,
+			Type: user.Type,
+		}
+		if user.Person != nil {
+			entry.Email = user.Person.Email
+		}
+		light = append(light, entry)
+	}
+	return light
 }
 
 func newUserMeCmd() *cobra.Command {
