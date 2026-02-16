@@ -12,6 +12,13 @@ type databaseGetter interface {
 	GetDatabase(ctx context.Context, id string) (*notion.Database, error)
 }
 
+// pageSchemaGetter describes the schema lookups needed when creating pages
+// with shorthand flags against database/data source parents.
+type pageSchemaGetter interface {
+	GetDatabase(ctx context.Context, id string) (*notion.Database, error)
+	GetDataSource(ctx context.Context, dataSourceID string) (*notion.DataSource, error)
+}
+
 // blockChildrenReader describes the block children retrieval used by export/duplicate helpers.
 type blockChildrenReader interface {
 	GetBlockChildren(ctx context.Context, blockID string, opts *notion.BlockChildrenOptions) (*notion.BlockList, error)
@@ -31,4 +38,5 @@ var (
 	_ blockChildrenReader = (*notion.Client)(nil)
 	_ blockChildrenWriter = (*notion.Client)(nil)
 	_ rawRequester        = (*notion.Client)(nil)
+	_ pageSchemaGetter    = (*notion.Client)(nil)
 )

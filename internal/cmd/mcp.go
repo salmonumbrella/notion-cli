@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/mcp"
+	"github.com/salmonumbrella/notion-cli/internal/skill"
 )
 
 func newMCPCmd() *cobra.Command {
@@ -191,6 +192,7 @@ over page properties, use --properties with a JSON object.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			sf := SkillFileFromContext(ctx)
 
 			if title == "" && propertiesJSON == "" {
 				return fmt.Errorf("--title or --properties is required")
@@ -216,6 +218,7 @@ over page properties, use --properties with a JSON object.`,
 			if title != "" {
 				props["title"] = title
 			}
+			props = resolveMCPCreatePeopleIDs(sf, props)
 
 			client, cleanup, err := mcpClientFromToken(ctx)
 			if err != nil {
@@ -254,6 +257,39 @@ over page properties, use --properties with a JSON object.`,
 	cmd.Flags().StringVar(&propertiesJSON, "properties", "", "Page properties as a JSON object")
 
 	return cmd
+}
+
+func resolveMCPCreatePeopleIDs(sf *skill.SkillFile, properties map[string]interface{}) map[string]interface{} {
+	if sf == nil || len(properties) == 0 {
+		return properties
+	}
+
+	for _, rawProp := range properties {
+		propMap, ok := rawProp.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		peopleRaw, ok := propMap["people"]
+		if !ok {
+			continue
+		}
+		peopleArr, ok := peopleRaw.([]interface{})
+		if !ok {
+			continue
+		}
+		for _, personRaw := range peopleArr {
+			personMap, ok := personRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			id, ok := personMap["id"].(string)
+			if !ok || strings.TrimSpace(id) == "" {
+				continue
+			}
+			personMap["id"] = resolveUserID(sf, id)
+		}
+	}
+	return properties
 }
 
 func newMCPEditCmd() *cobra.Command {

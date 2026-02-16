@@ -18,6 +18,11 @@ func resolveDataSourceID(ctx context.Context, client databaseGetter, databaseID 
 
 	database, err := client.GetDatabase(ctx, databaseID)
 	if err != nil {
+		if dsClient, ok := client.(dataSourceGetter); ok {
+			if hinted := maybeDataSourceHintForDatabaseNotFound(ctx, dsClient, err, databaseID); hinted != nil {
+				return "", hinted
+			}
+		}
 		return "", fmt.Errorf("failed to get database: %w", err)
 	}
 

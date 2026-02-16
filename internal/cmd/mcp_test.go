@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/salmonumbrella/notion-cli/internal/skill"
 )
 
 func TestMCPCommandTree(t *testing.T) {
@@ -222,5 +224,65 @@ func TestMCPQueryFlags(t *testing.T) {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("query command missing --%s flag", name)
 		}
+	}
+}
+
+func TestResolveMCPCreatePeopleIDs(t *testing.T) {
+	sf := &skill.SkillFile{
+		Users: map[string]skill.UserAlias{
+			"isaac": {
+				Alias: "isaac",
+				Name:  "Isaac",
+				ID:    "608a5f14-b513-4fae-b3cc-476d266f227b",
+			},
+		},
+	}
+
+	props := map[string]interface{}{
+		"DRI": map[string]interface{}{
+			"people": []interface{}{
+				map[string]interface{}{"id": "isaac"},
+			},
+		},
+		"Watch": map[string]interface{}{
+			"people": []interface{}{
+				map[string]interface{}{"id": "already-uuid"},
+			},
+		},
+		"Title": "ignored-non-map-value",
+	}
+
+	got := resolveMCPCreatePeopleIDs(sf, props)
+
+	driProp, ok := got["DRI"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("DRI property type = %T, want map[string]interface{}", got["DRI"])
+	}
+	driPeople, ok := driProp["people"].([]interface{})
+	if !ok || len(driPeople) != 1 {
+		t.Fatalf("DRI.people type/len invalid: %T len=%d", driProp["people"], len(driPeople))
+	}
+	driPerson, ok := driPeople[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("DRI.people[0] type = %T, want map[string]interface{}", driPeople[0])
+	}
+	if driPerson["id"] != "608a5f14-b513-4fae-b3cc-476d266f227b" {
+		t.Fatalf("DRI.people[0].id = %v, want resolved user id", driPerson["id"])
+	}
+
+	watchProp, ok := got["Watch"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Watch property type = %T, want map[string]interface{}", got["Watch"])
+	}
+	watchPeople, ok := watchProp["people"].([]interface{})
+	if !ok || len(watchPeople) != 1 {
+		t.Fatalf("Watch.people type/len invalid: %T len=%d", watchProp["people"], len(watchPeople))
+	}
+	watchPerson, ok := watchPeople[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Watch.people[0] type = %T, want map[string]interface{}", watchPeople[0])
+	}
+	if watchPerson["id"] != "already-uuid" {
+		t.Fatalf("Watch.people[0].id = %v, want unchanged", watchPerson["id"])
 	}
 }

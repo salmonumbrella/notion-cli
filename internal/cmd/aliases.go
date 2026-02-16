@@ -11,7 +11,7 @@ var canonicalVerbAliasRules = []canonicalAliasRule{
 	{token: "list", aliases: []string{"ls"}},
 	{token: "get", aliases: []string{"g"}},
 	{token: "show", aliases: []string{"g"}},
-	{token: "create", aliases: []string{"mk"}},
+	{token: "create", aliases: []string{"mk", "cr"}},
 	{token: "update", aliases: []string{"up"}},
 	{token: "edit", aliases: []string{"up"}},
 	{token: "delete", aliases: []string{"rm"}},

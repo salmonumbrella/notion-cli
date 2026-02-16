@@ -204,6 +204,21 @@ func findTitlePropertyNameFromPage(properties map[string]interface{}) string {
 	return "title"
 }
 
+// findTitlePropertyNameFromDataSource finds the title property name from a data source schema.
+// Returns "title" as the default if no title property is found.
+func findTitlePropertyNameFromDataSource(properties map[string]interface{}) string {
+	for propName, propVal := range properties {
+		prop, ok := propVal.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if propType, ok := prop["type"].(string); ok && propType == "title" {
+			return propName
+		}
+	}
+	return "title"
+}
+
 // setTitleProperty sets the title property in a properties map using the given property name.
 // The title is formatted as a rich text array with a single text element.
 func setTitleProperty(properties map[string]interface{}, propName, title string) map[string]interface{} {

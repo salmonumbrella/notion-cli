@@ -409,20 +409,9 @@ Examples:
 
 			// Handle --title flag: find title property name based on parent type
 			if titleFlag != "" {
-				titlePropName := "title" // default for page parents
-				// For database parents, look up the schema to find the title property name
-				dbID := ""
-				if dataSourceID != "" {
-					dbID = dataSourceID
-				} else if parentType == "database" || parentType == "data-source" {
-					dbID = parentID
-				}
-				if dbID != "" {
-					db, err := client.GetDatabase(ctx, dbID)
-					if err != nil {
-						return wrapAPIError(err, "get database schema for title property", "database", dbID)
-					}
-					titlePropName = findTitlePropertyName(db.Properties)
+				titlePropName, err := resolveTitlePropertyNameForPageCreate(ctx, client, parentID, parentType, dataSourceID)
+				if err != nil {
+					return err
 				}
 				properties = setTitleProperty(properties, titlePropName, titleFlag)
 			}
