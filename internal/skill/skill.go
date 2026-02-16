@@ -235,10 +235,11 @@ description: "Use when interacting with Notion via the CLI - contains database a
 
 | Operation | Command |
 |-----------|---------|
-| Create page (fast) | ` + "`notion create \"My new page\"`" + ` |
-| Create page (explicit) | ` + "`notion page create --parent <database-alias-or-id> --parent-type database --title \"...\" --status \"...\"`" + ` |
-| Query database | ` + "`notion db query <database-alias-or-id> --all --results-only`" + ` |
-| Add comment | ` + "`notion comment <page-id-or-name> \"Looks great\"`" + ` |
+| Create page (fast) | ` + "`ntn create \"My new page\"`" + ` |
+| Create page (explicit) | ` + "`ntn p c --ds <database-alias-or-id> --title \"...\" --status \"...\"`" + ` |
+| Query database | ` + "`ntn db q <database-alias-or-id> --all --i`" + ` |
+| Query a title quickly | ` + "`ntn db q <database-alias-or-id> --i -j --jq '.rs[0].pr.Name.t[0].p'`" + ` |
+| Add comment | ` + "`ntn c a <page-id-or-name> \"Looks great\"`" + ` |
 `
 
 // Write writes the skill file to a writer

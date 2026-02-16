@@ -396,6 +396,15 @@ func TestNormalizeQuery_MultipleAliases(t *testing.T) {
 	}
 }
 
+func TestNormalizeQuery_ShortestAliases(t *testing.T) {
+	query := `.rs[0].pr.Name.t[0].p`
+	got, _ := NormalizeQuery(query)
+	want := `.results[0].properties.Name.title[0].plain_text`
+	if got != want {
+		t.Errorf("shortest aliases query = %q, want %q", got, want)
+	}
+}
+
 func TestNormalizeQuery_EmptyAndWhitespace(t *testing.T) {
 	got, changed := NormalizeQuery("")
 	if changed || got != "" {

@@ -16,7 +16,7 @@ type pathAliasSpec struct {
 var pathAliasSpecs = []pathAliasSpec{
 	{Canonical: "properties", Aliases: []string{"props", "pr"}},
 	{Canonical: "rich_text", Aliases: []string{"rt"}},
-	{Canonical: "plain_text", Aliases: []string{"pt"}},
+	{Canonical: "plain_text", Aliases: []string{"pt", "p"}},
 	{Canonical: "results", Aliases: []string{"rs"}},
 	{Canonical: "object", Aliases: []string{"ob"}},
 	{Canonical: "parent", Aliases: []string{"pa"}},
@@ -66,7 +66,7 @@ var pathAliasSpecs = []pathAliasSpec{
 	{Canonical: "files", Aliases: []string{"fl"}},
 	{Canonical: "content", Aliases: []string{"co"}},
 	{Canonical: "text", Aliases: []string{"tx"}},
-	{Canonical: "title", Aliases: []string{"ti"}},
+	{Canonical: "title", Aliases: []string{"ti", "t"}},
 	{Canonical: "name", Aliases: []string{"nm"}},
 	{Canonical: "type", Aliases: []string{"ty"}},
 	{Canonical: "url", Aliases: []string{"ur"}},

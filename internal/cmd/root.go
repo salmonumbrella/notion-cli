@@ -175,6 +175,7 @@ func newRootCmd(app *App) *cobra.Command {
 	flagAlias(rootCmd.PersistentFlags(), "fields", "fds")
 	flagAlias(rootCmd.PersistentFlags(), "results-only", "ro")
 	flagAlias(rootCmd.PersistentFlags(), "items-only", "io")
+	flagAlias(rootCmd.PersistentFlags(), "items-only", "i")
 	flagAlias(rootCmd.PersistentFlags(), "fail-empty", "fe")
 	flagAlias(rootCmd.PersistentFlags(), "sort-by", "sb")
 	flagAlias(rootCmd.PersistentFlags(), "query-file", "qf")

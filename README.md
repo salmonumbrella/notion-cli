@@ -600,7 +600,7 @@ All commands support these flags:
 | `--query-file` | | `--qf` | Read JQ expression from file (use `-` for stdin) |
 | `--fields` | | `--pick`, `--fds` | Project fields (comma-separated, `key=path` to rename) |
 | `--jsonpath` | | | Extract value using JSONPath |
-| `--results-only` | | `--ro`, `--items-only`, `--io` | Output just the results array |
+| `--items-only` | | `--results-only`, `--io`, `--ro`, `--i` | Output just the results array |
 | `--fail-empty` | | `--fe` | Exit with error when results are empty |
 
 ### Sorting & Limiting
@@ -757,7 +757,7 @@ Queries loaded from `--query-file` are also normalized.
 |---|---|
 | `properties` | `props`, `pr` |
 | `rich_text` | `rt` |
-| `plain_text` | `pt` |
+| `plain_text` | `pt`, `p` |
 | `results` | `rs` |
 | `object` | `ob` |
 | `parent` | `pa` |
@@ -807,7 +807,7 @@ Queries loaded from `--query-file` are also normalized.
 | `files` | `fl` |
 | `content` | `co` |
 | `text` | `tx` |
-| `title` | `ti` |
+| `title` | `ti`, `t` |
 | `name` | `nm` |
 | `type` | `ty` |
 | `url` | `ur` |
@@ -825,22 +825,22 @@ Queries loaded from `--query-file` are also normalized.
 ntn p g <page-id> -j --jq '.properties.Status'
 
 # Same query using path aliases
-ntn p g <page-id> -j --jq '.props["Invoice Alert"].rt[0].pt'
+ntn p g <page-id> -j --jq '.pr["Invoice Alert"].rt[0].p'
 
 # Read jq from file
 ntn p g <page-id> -j --qf ./query.jq
 
 # Project specific fields
-ntn db q <database-id> --ro --fields id,name,created_time
+ntn db q <database-id> --i --fields id,name,created_time
 
 # Rename fields during projection
-ntn db q <database-id> --ro --fields id,alert=props["Invoice Alert"].rt.0.pt
+ntn db q <database-id> --i --fields id,alert=pr["Invoice Alert"].rt.0.p
 
 # JSONPath extraction
 ntn db q <database-id> --jsonpath '$.results[0].id'
 
 # JSONPath with aliases
-ntn db q <database-id> --jsonpath '$.rs[0].props["Invoice Alert"].rt[0].pt'
+ntn db q <database-id> --jsonpath '$.rs[0].pr["Invoice Alert"].rt[0].p'
 ```
 
 ### Sorting & Limiting

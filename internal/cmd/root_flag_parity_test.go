@@ -23,6 +23,7 @@ func TestRootFlagParity_HiddenAliases(t *testing.T) {
 		{base: "query-file", alias: "qf"},
 		{base: "results-only", alias: "ro"},
 		{base: "items-only", alias: "io"},
+		{base: "items-only", alias: "i"},
 	}
 
 	for _, tt := range tests {
@@ -75,6 +76,14 @@ func TestRootFlagParity_ResultsAndItemsOnly(t *testing.T) {
 	itemsOnlyVal, _ = root.PersistentFlags().GetBool("items-only")
 	if itemsOnlyVal {
 		t.Fatal("--ro should update --items-only value")
+	}
+
+	if err := root.PersistentFlags().Set("i", "true"); err != nil {
+		t.Fatalf("set --i: %v", err)
+	}
+	itemsOnlyVal, _ = root.PersistentFlags().GetBool("items-only")
+	if !itemsOnlyVal {
+		t.Fatal("--i should set --items-only")
 	}
 }
 

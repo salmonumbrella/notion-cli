@@ -130,6 +130,38 @@ func TestApplyOutputTransforms_ProjectFields_PathAliases(t *testing.T) {
 	}
 }
 
+func TestApplyOutputTransforms_ProjectFields_ShortestPathAliases(t *testing.T) {
+	data := []map[string]interface{}{
+		{
+			"id": "1",
+			"properties": map[string]interface{}{
+				"Name": map[string]interface{}{
+					"title": []interface{}{
+						map[string]interface{}{"plain_text": "Ready"},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := WithFields(context.Background(), "id,name=pr.Name.t.0.p")
+	got, err := applyOutputTransforms(ctx, data, FormatJSON)
+	if err != nil {
+		t.Fatalf("applyOutputTransforms returned error: %v", err)
+	}
+
+	want := []interface{}{
+		map[string]interface{}{
+			"id":   "1",
+			"name": "Ready",
+		},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("shortest alias projection mismatch\nwant: %#v\ngot: %#v", want, got)
+	}
+}
+
 func TestApplyOutputTransforms_BracketAndDotNotationEquivalent(t *testing.T) {
 	data := map[string]interface{}{
 		"arr": []interface{}{"a", "b", "c"},
@@ -193,6 +225,32 @@ func TestApplyOutputTransforms_JSONPath_PathAliases(t *testing.T) {
 
 	if got != "Done" {
 		t.Fatalf("expected jsonpath alias result %q, got %#v", "Done", got)
+	}
+}
+
+func TestApplyOutputTransforms_JSONPath_ShortestPathAliases(t *testing.T) {
+	data := map[string]interface{}{
+		"results": []interface{}{
+			map[string]interface{}{
+				"properties": map[string]interface{}{
+					"Name": map[string]interface{}{
+						"title": []interface{}{
+							map[string]interface{}{"plain_text": "Done"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := WithJSONPath(context.Background(), "$.rs[0].pr.Name.t[0].p")
+	got, err := applyOutputTransforms(ctx, data, FormatJSON)
+	if err != nil {
+		t.Fatalf("applyOutputTransforms returned error: %v", err)
+	}
+
+	if got != "Done" {
+		t.Fatalf("expected jsonpath shortest alias result %q, got %#v", "Done", got)
 	}
 }
 
