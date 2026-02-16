@@ -53,6 +53,7 @@ func newCommentListCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
 	var all bool
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "list <page-or-block-id-or-name>",
@@ -71,6 +72,7 @@ Note: Notion search only finds pages/databases; resolving by name is page-only.
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
+Use --light (or --li) for compact output (id, discussion_id, text, created_by).
 Use global --results-only to output just the results array (useful for piping to jq).
 
 Example - List all comments on a page:
@@ -83,6 +85,7 @@ Example - List comments with pagination:
 
 Example - Fetch all comments:
   ntn comment list abc123def456 --all
+  ntn comment list abc123def456 --li
 
 Example - Output only results array:
   ntn comment list abc123def456 --all --results-only`,
@@ -145,6 +148,14 @@ Example - Output only results array:
 
 				// Print all results
 				printer := printerForContext(ctx)
+				if light {
+					return printer.Print(ctx, map[string]interface{}{
+						"object":      "list",
+						"results":     toLightComments(allComments),
+						"has_more":    false,
+						"next_cursor": nil,
+					})
+				}
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
 					"results":     allComments,
@@ -171,6 +182,14 @@ Example - Output only results array:
 
 			// Print result
 			printer := printerForContext(ctx)
+			if light {
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     toLightComments(result.Results),
+					"has_more":    result.HasMore,
+					"next_cursor": result.NextCursor,
+				})
+			}
 			return printer.Print(ctx, result)
 		},
 	}
@@ -178,6 +197,8 @@ Example - Output only results array:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
+	cmd.Flags().BoolVar(&light, "light", false, "Return compact payload (id, discussion_id, text, created_by)")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

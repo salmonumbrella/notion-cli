@@ -147,6 +147,7 @@ ntn s                           # Search all pages and databases
 ntn s "project notes"           # Search with query
 ntn s --fi page                 # Search only pages
 ntn s --fi database             # Search only databases
+ntn s "project" --li            # Light search (id, object, title, url)
 ntn s "project" --all --ro      # Fetch all results (array only)
 ntn s "project" --sort recent   # Sort by most recent
 ```
@@ -252,6 +253,7 @@ ntn p sync --pa <parent-id> --dry-run          # Preview sync changes
 ```bash
 ntn db g <database-id>                         # Get database
 ntn db ls                                      # List databases
+ntn db ls --li                                 # Light list (id, object, title, url)
 ntn db ls --title-match "Tasks"                # Filter by title
 ntn db c --pa <id> --props <json>              # Create database
 ntn db u <database-id> --props <json>          # Update database
@@ -373,6 +375,7 @@ ntn b add image <parent-id> --file ./photo.jpg --caption "Team offsite"
 
 ```bash
 ntn c ls <page-id>                       # List comments
+ntn c ls <page-id> --li                  # Light list (id, discussion_id, text, created_by)
 ntn c ls <page-id> --all                 # List all comments (paginated)
 ntn c g <comment-id>                     # Get comment
 ntn c a <page-id> --text "Comment"       # Add comment
@@ -391,6 +394,7 @@ ntn f up <filepath>                       # Upload file
 ntn f up ./receipt.pdf --page <page-id> --prop "Attachments"  # Upload and attach
 ntn f g <upload-id>                       # Get upload status
 ntn f ls                                  # List file uploads
+ntn f ls --li                             # Light list (id, file_name, status, size, timestamps)
 ```
 
 ---
@@ -404,6 +408,7 @@ ntn ds g <datasource-id>                    # Get data source
 ntn ds q <datasource-id>                    # Query data source
 ntn ds u <datasource-id> <json>             # Update data source
 ntn ds ls                                   # List data sources
+ntn ds ls --li                              # Light list (id, object, title, url)
 ```
 
 Query with filters, sorts, and selection (same flags as `db q`):
@@ -639,6 +644,7 @@ These flags appear on multiple commands:
 | `--children` | `--ch` | block append/update | Block children as JSON |
 | `--children-file` | `--chf` | block append | Read children from file |
 | `--dry-run` | `--dr` | page update/sync, db update, block append/update, bulk, import | Preview without applying |
+| `--light` | `--li` | user list, search, page list, db list, ds list, comment list, file list | Compact lookup payload (IDs + key fields) |
 | `--all` | | db query, ds query, search, block children, comment list | Fetch all pages |
 | `--page-size` | | db query, ds query, search, block children | Results per page |
 | `--start-cursor` | | db query, ds query, search, block children | Resume pagination |

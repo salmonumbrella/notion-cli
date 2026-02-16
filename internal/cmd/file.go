@@ -190,15 +190,18 @@ Example:
 func newFileListCmd() *cobra.Command {
 	var startCursor string
 	var pageSize int
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List file uploads",
 		Long: `List file uploads for the current integration.
+Use --light (or --li) for compact output (id, file_name, status, size, timestamps).
 
 Example:
-  ntn file list --page-size 10`,
+  ntn file list --page-size 10
+  ntn file list --li`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get token from context (respects workspace selection)
@@ -226,12 +229,22 @@ Example:
 			}
 
 			printer := printerForContext(ctx)
+			if light {
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     toLightFileUploads(list.Results),
+					"has_more":    list.HasMore,
+					"next_cursor": list.NextCursor,
+				})
+			}
 			return printer.Print(ctx, list)
 		},
 	}
 
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Results per page")
+	cmd.Flags().BoolVar(&light, "light", false, "Return compact payload (id, file_name, status, size, timestamps)")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

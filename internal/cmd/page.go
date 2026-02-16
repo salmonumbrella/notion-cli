@@ -49,16 +49,20 @@ func newPageCmd() *cobra.Command {
 }
 
 func newPageListCmd() *cobra.Command {
-	return &cobra.Command{
+	var light bool
+
+	cmd := &cobra.Command{
 		Use:     "list [query]",
 		Aliases: []string{"ls"},
 		Short:   "List pages (alias for 'search --filter page')",
 		Long: `Search for pages in Notion.
 
 This is a convenience alias for 'ntn search --filter page'.
+Use --light (or --li) for compact output (id, object, title, url).
 
 Example:
   ntn page list
+  ntn page list --li
   ntn page list "project"
   ntn page ls meetings`,
 		Args: cobra.MaximumNArgs(1),
@@ -68,9 +72,19 @@ Example:
 			if err := searchCmd.Flags().Set("filter", "page"); err != nil {
 				return err
 			}
+			if light {
+				if err := searchCmd.Flags().Set("light", "true"); err != nil {
+					return err
+				}
+			}
 			return searchCmd.RunE(searchCmd, args)
 		},
 	}
+
+	cmd.Flags().BoolVar(&light, "light", false, "Return compact payload (id, object, title, url)")
+	flagAlias(cmd.Flags(), "light", "li")
+
+	return cmd
 }
 
 func newPageDeleteCmd() *cobra.Command {

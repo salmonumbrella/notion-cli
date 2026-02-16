@@ -48,6 +48,7 @@ func newDBListCmd() *cobra.Command {
 	var pageSize int
 	var all bool
 	var titleMatch string
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "list [query]",
@@ -60,6 +61,7 @@ Example - List databases:
 
 Example - Search by title:
   ntn db list "Vendor"
+  ntn db list --li
 
 Example - Fetch all results:
   ntn db list --all`,
@@ -121,6 +123,9 @@ Example - Fetch all results:
 				}
 
 				printer := printerForContext(ctx)
+				if light {
+					return printer.Print(ctx, toLightSearchResults(allResults))
+				}
 				return printer.Print(ctx, allResults)
 			}
 
@@ -144,6 +149,9 @@ Example - Fetch all results:
 			}
 
 			printer := printerForContext(ctx)
+			if light {
+				return printer.Print(ctx, toLightSearchResults(result.Results))
+			}
 			return printer.Print(ctx, result.Results)
 		},
 	}
@@ -152,6 +160,8 @@ Example - Fetch all results:
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().StringVar(&titleMatch, "title-match", "", "Regex to match database title (Go syntax, use (?i) for case-insensitive). Note: filtering is applied after fetching, so fewer results may be returned when combined with --limit")
+	cmd.Flags().BoolVar(&light, "light", false, "Return compact payload (id, object, title, url)")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

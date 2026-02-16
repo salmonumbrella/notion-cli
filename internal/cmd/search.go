@@ -18,6 +18,7 @@ func newSearchCmd() *cobra.Command {
 	var pageSize int
 	var all bool
 	var textQuery string
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "search [query]",
@@ -31,6 +32,7 @@ Use --sort to specify sort order (JSON object with "direction" and "timestamp" k
 Use --page-size to control the number of results per page (max 100).
 Use --start-cursor for pagination.
 Use --all to fetch all pages of results automatically.
+Use --light (or --li) for compact output (id, object, title, url).
 Use global --results-only to output just the results array (useful for piping to jq).
 
 Note: The global --query flag is for jq filtering, not the search term.
@@ -41,6 +43,7 @@ Example - Search for all pages and databases:
 
 Example - Search by query:
   ntn search "project"
+  ntn search "project" --li
 
 Example - Search using --text flag:
   ntn search --text "project"
@@ -139,10 +142,14 @@ Example - Fetch all results:
 					return fmt.Errorf("failed to search: %w", err)
 				}
 
+				outResults := interface{}(allResults)
+				if light {
+					outResults = toLightSearchResults(allResults)
+				}
 				printer := printerForContext(ctx)
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
-					"results":     allResults,
+					"results":     outResults,
 					"has_more":    hasMore,
 					"next_cursor": nextCursor,
 				})
@@ -164,6 +171,14 @@ Example - Fetch all results:
 
 			// Print result
 			printer := printerForContext(ctx)
+			if light {
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     toLightSearchResults(result.Results),
+					"has_more":    result.HasMore,
+					"next_cursor": result.NextCursor,
+				})
+			}
 			return printer.Print(ctx, result)
 		},
 	}
@@ -174,9 +189,11 @@ Example - Fetch all results:
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results (may be slow for large datasets)")
 	cmd.Flags().StringVarP(&textQuery, "text", "t", "", "Search text (alternative to positional argument)")
+	cmd.Flags().BoolVar(&light, "light", false, "Return compact payload (id, object, title, url)")
 
 	// Flag aliases
 	flagAlias(cmd.Flags(), "filter", "fi")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }

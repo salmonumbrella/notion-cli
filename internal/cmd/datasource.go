@@ -594,6 +594,7 @@ func newDataSourceListCmd() *cobra.Command {
 	var pageSize int
 	var all bool
 	var startCursor string
+	var light bool
 
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -604,10 +605,12 @@ func newDataSourceListCmd() *cobra.Command {
 This command searches for all databases accessible to the integration.
 Use --page-size to control results per page (max 100).
 Use --all to fetch all pages of results automatically.
+Use --light (or --li) for compact output (id, object, title, url).
 Use global --results-only to output just the results array (useful for piping to jq).
 
 Example:
   ntn datasource list
+  ntn ds list --li
   ntn ds list --all --results-only
   ntn ds list -o json | jq '.results[].id'`,
 		Args: cobra.NoArgs,
@@ -651,8 +654,16 @@ Example:
 					return wrapAPIError(err, "list data sources", "data source", "workspace")
 				}
 				allResults = normalizeDataSourceSearchResults(allResults)
-
 				printer := printerForContext(ctx)
+				if light {
+					return printer.Print(ctx, map[string]interface{}{
+						"object":      "list",
+						"results":     toLightSearchResults(allResults),
+						"has_more":    hasMore,
+						"next_cursor": nextCursor,
+					})
+				}
+
 				return printer.Print(ctx, map[string]interface{}{
 					"object":      "list",
 					"results":     allResults,
@@ -675,6 +686,14 @@ Example:
 			result.Results = normalizeDataSourceSearchResults(result.Results)
 
 			printer := printerForContext(ctx)
+			if light {
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     toLightSearchResults(result.Results),
+					"has_more":    result.HasMore,
+					"next_cursor": result.NextCursor,
+				})
+			}
 			return printer.Print(ctx, result)
 		},
 	}
@@ -682,6 +701,8 @@ Example:
 	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Number of results per page (max 100)")
 	cmd.Flags().BoolVar(&all, "all", false, "Fetch all pages of results")
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
+	cmd.Flags().BoolVar(&light, "light", false, "Return compact payload (id, object, title, url)")
+	flagAlias(cmd.Flags(), "light", "li")
 
 	return cmd
 }
