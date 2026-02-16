@@ -650,6 +650,7 @@ Example:
 				if err != nil {
 					return wrapAPIError(err, "list data sources", "data source", "workspace")
 				}
+				allResults = normalizeDataSourceSearchResults(allResults)
 
 				printer := printerForContext(ctx)
 				return printer.Print(ctx, map[string]interface{}{
@@ -671,6 +672,7 @@ Example:
 			if err != nil {
 				return wrapAPIError(err, "list data sources", "data source", "workspace")
 			}
+			result.Results = normalizeDataSourceSearchResults(result.Results)
 
 			printer := printerForContext(ctx)
 			return printer.Print(ctx, result)
@@ -682,4 +684,30 @@ Example:
 	cmd.Flags().StringVar(&startCursor, "start-cursor", "", "Pagination cursor")
 
 	return cmd
+}
+
+// normalizeDataSourceSearchResults makes ds list JSON output easier to consume:
+// - title is always an array (never null/missing)
+// - name is a plain-text title fallback for scripts
+// - title_plain_text mirrors name explicitly
+func normalizeDataSourceSearchResults(results []map[string]interface{}) []map[string]interface{} {
+	for _, item := range results {
+		if item == nil {
+			continue
+		}
+
+		titleValue, hasTitle := item["title"]
+		if !hasTitle || titleValue == nil {
+			titleValue = []interface{}{}
+			item["title"] = titleValue
+		}
+
+		titleText := extractTitlePlainText(titleValue)
+		item["title_plain_text"] = titleText
+
+		if _, hasName := item["name"]; !hasName {
+			item["name"] = titleText
+		}
+	}
+	return results
 }

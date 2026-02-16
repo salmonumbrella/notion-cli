@@ -6,6 +6,94 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 )
 
+func TestNormalizeDataSourceSearchResults(t *testing.T) {
+	tests := []struct {
+		name                 string
+		input                []map[string]interface{}
+		wantTitleIsArray     bool
+		wantName             string
+		wantTitlePlainText   string
+		wantExistingNameKept bool
+	}{
+		{
+			name: "nil title becomes empty array with empty fallbacks",
+			input: []map[string]interface{}{
+				{"id": "ds1", "title": nil},
+			},
+			wantTitleIsArray:   true,
+			wantName:           "",
+			wantTitlePlainText: "",
+		},
+		{
+			name: "missing title becomes empty array with empty fallbacks",
+			input: []map[string]interface{}{
+				{"id": "ds1"},
+			},
+			wantTitleIsArray:   true,
+			wantName:           "",
+			wantTitlePlainText: "",
+		},
+		{
+			name: "plain_text title populates normalized fields",
+			input: []map[string]interface{}{
+				{
+					"id": "ds1",
+					"title": []interface{}{
+						map[string]interface{}{"plain_text": "Sample Shipments"},
+					},
+				},
+			},
+			wantTitleIsArray:   true,
+			wantName:           "Sample Shipments",
+			wantTitlePlainText: "Sample Shipments",
+		},
+		{
+			name: "existing name is preserved",
+			input: []map[string]interface{}{
+				{
+					"id":   "ds1",
+					"name": "Custom Name",
+					"title": []interface{}{
+						map[string]interface{}{"plain_text": "Actual Title"},
+					},
+				},
+			},
+			wantTitleIsArray:     true,
+			wantName:             "Custom Name",
+			wantTitlePlainText:   "Actual Title",
+			wantExistingNameKept: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeDataSourceSearchResults(tt.input)
+			if len(got) != 1 {
+				t.Fatalf("expected 1 result, got %d", len(got))
+			}
+
+			item := got[0]
+			if _, ok := item["title"].([]interface{}); tt.wantTitleIsArray && !ok {
+				t.Fatalf("title should be []interface{}, got %T", item["title"])
+			}
+
+			name, _ := item["name"].(string)
+			if name != tt.wantName {
+				t.Fatalf("name = %q, want %q", name, tt.wantName)
+			}
+
+			titlePlainText, _ := item["title_plain_text"].(string)
+			if titlePlainText != tt.wantTitlePlainText {
+				t.Fatalf("title_plain_text = %q, want %q", titlePlainText, tt.wantTitlePlainText)
+			}
+
+			if tt.wantExistingNameKept && name != "Custom Name" {
+				t.Fatalf("existing name should be preserved, got %q", name)
+			}
+		})
+	}
+}
+
 func TestExtractSelectNames(t *testing.T) {
 	tests := []struct {
 		name string
