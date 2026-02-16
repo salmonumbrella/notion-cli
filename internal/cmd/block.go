@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -393,14 +394,8 @@ TIP: For convenience commands, see 'ntn block add --help'`,
 				return err
 			}
 
-			// Build request
-			req := &notion.AppendBlockChildrenRequest{
-				Children: children,
-				After:    afterBlockID,
-			}
-
-			// Append children
-			blockList, err := client.AppendBlockChildren(ctx, blockID, req)
+			// Append children in batches (Notion API limit is 100 blocks per request).
+			blockList, err := appendBlockChildrenBatched(ctx, client, blockID, children, afterBlockID)
 			if err != nil {
 				return wrapAPIError(err, "access block", "block", args[0])
 			}
@@ -903,4 +898,66 @@ func isArchivedBlockError(err error) bool {
 // ptrBool returns a pointer to a bool value
 func ptrBool(b bool) *bool {
 	return &b
+}
+
+func appendBlockChildrenBatched(
+	ctx context.Context,
+	client blockChildrenWriter,
+	blockID string,
+	children []map[string]interface{},
+	afterBlockID string,
+) (*notion.BlockList, error) {
+	if len(children) == 0 {
+		return nil, fmt.Errorf("children are required")
+	}
+
+	const batchSize = 100
+	nextAfter := afterBlockID
+	combined := &notion.BlockList{Object: "list"}
+
+	for i := 0; i < len(children); i += batchSize {
+		end := i + batchSize
+		if end > len(children) {
+			end = len(children)
+		}
+
+		req := &notion.AppendBlockChildrenRequest{
+			Children: children[i:end],
+			After:    nextAfter,
+		}
+
+		batchResult, err := client.AppendBlockChildren(ctx, blockID, req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append blocks (batch %d-%d): %w", i, end-1, err)
+		}
+
+		if batchResult == nil {
+			return nil, fmt.Errorf("failed to append blocks (batch %d-%d): empty response", i, end-1)
+		}
+
+		if batchResult.Object != "" {
+			combined.Object = batchResult.Object
+		}
+		combined.Results = append(combined.Results, batchResult.Results...)
+		combined.NextCursor = batchResult.NextCursor
+		combined.HasMore = batchResult.HasMore
+		if batchResult.Type != "" {
+			combined.Type = batchResult.Type
+		}
+
+		// Preserve order across multiple requests by chaining "after" to the
+		// last block ID returned from the previous append.
+		if end < len(children) {
+			if len(batchResult.Results) == 0 || batchResult.Results[len(batchResult.Results)-1].ID == "" {
+				return nil, fmt.Errorf(
+					"failed to append blocks (batch %d-%d): response missing last block ID for chaining",
+					i,
+					end-1,
+				)
+			}
+			nextAfter = batchResult.Results[len(batchResult.Results)-1].ID
+		}
+	}
+
+	return combined, nil
 }
