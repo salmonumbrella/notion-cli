@@ -69,12 +69,12 @@ func (p *Printer) runQuery(query string, data interface{}, prettyPrint bool) err
 
 	parsed, err := gojq.Parse(query)
 	if err != nil {
-		return fmt.Errorf("invalid --query: %w", err)
+		return formatInvalidQueryErr(err)
 	}
 
 	code, err := gojq.Compile(parsed)
 	if err != nil {
-		return fmt.Errorf("invalid --query: %w", err)
+		return formatInvalidQueryErr(err)
 	}
 
 	enc := json.NewEncoder(p.w)
@@ -113,12 +113,12 @@ func runQueryRaw(query string, data interface{}) ([]interface{}, error) {
 
 	parsed, err := gojq.Parse(query)
 	if err != nil {
-		return nil, fmt.Errorf("invalid --query: %w", err)
+		return nil, formatInvalidQueryErr(err)
 	}
 
 	code, err := gojq.Compile(parsed)
 	if err != nil {
-		return nil, fmt.Errorf("invalid --query: %w", err)
+		return nil, formatInvalidQueryErr(err)
 	}
 
 	var results []interface{}
@@ -135,6 +135,19 @@ func runQueryRaw(query string, data interface{}) ([]interface{}, error) {
 	}
 
 	return results, nil
+}
+
+func formatInvalidQueryErr(err error) error {
+	if err == nil {
+		return fmt.Errorf("invalid --query")
+	}
+
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if strings.Contains(msg, "unexpected eof") {
+		return fmt.Errorf("invalid --query: %w\nHint: query looks incomplete; quote it fully or use --query-file", err)
+	}
+
+	return fmt.Errorf("invalid --query: %w", err)
 }
 
 // safeErrorMessage returns a best-effort string representation for errors whose

@@ -42,6 +42,28 @@ func TestPrinter_WithQuery_InvalidQuery(t *testing.T) {
 	}
 }
 
+func TestPrinter_WithQuery_UnexpectedEOFHint(t *testing.T) {
+	var buf bytes.Buffer
+	ctx := WithQuery(context.Background(), `.props | map({key`)
+	printer := NewPrinter(&buf, FormatJSON)
+
+	err := printer.Print(ctx, map[string]string{"key": "value"})
+	if err == nil {
+		t.Fatal("expected error for incomplete jq query")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "invalid --query:") {
+		t.Fatalf("expected invalid --query prefix, got: %s", msg)
+	}
+	if !strings.Contains(msg, "query looks incomplete") {
+		t.Fatalf("expected incomplete-query hint, got: %s", msg)
+	}
+	if !strings.Contains(msg, "--query-file") {
+		t.Fatalf("expected --query-file guidance, got: %s", msg)
+	}
+}
+
 func TestPrinter_WithQuery_NoQuery(t *testing.T) {
 	data := map[string]string{"key": "value"}
 

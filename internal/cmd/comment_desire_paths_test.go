@@ -195,5 +195,105 @@ func TestCommentList_ResolvesPageNameViaSearch(t *testing.T) {
 	}
 }
 
+func TestCommentAdd_ShortFlags(t *testing.T) {
+	const (
+		pageID    = "208eaeccf76481aea95bec6d51c70337"
+		mentionID = "608a5f14-b513-4fae-b3cc-476d266f227b"
+	)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/comments", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("expected POST /comments, got %s", r.Method)
+		}
+
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
+
+		parent, _ := body["parent"].(map[string]interface{})
+		if got, _ := parent["page_id"].(string); got != pageID {
+			t.Fatalf("expected parent.page_id %q, got %q", pageID, got)
+		}
+
+		rt, ok := body["rich_text"].([]interface{})
+		if !ok || len(rt) == 0 {
+			t.Fatalf("expected rich_text array in request, got %#v", body["rich_text"])
+		}
+
+		foundMention := false
+		for _, item := range rt {
+			entry, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if entry["type"] != "mention" {
+				continue
+			}
+			mention, _ := entry["mention"].(map[string]interface{})
+			user, _ := mention["user"].(map[string]interface{})
+			if got, _ := user["id"].(string); got == mentionID {
+				foundMention = true
+				break
+			}
+		}
+		if !foundMention {
+			t.Fatalf("expected mention with user id %q in rich_text payload", mentionID)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"object": "comment",
+			"id":     "c-short",
+			"parent": map[string]interface{}{
+				"type":    "page_id",
+				"page_id": pageID,
+			},
+			"discussion_id":    "d-short",
+			"created_time":     "2026-01-01T00:00:00Z",
+			"last_edited_time": "2026-01-01T00:00:00Z",
+			"created_by": map[string]interface{}{
+				"object": "user",
+				"id":     "u1",
+				"type":   "bot",
+				"name":   "Test Bot",
+			},
+			"rich_text": []map[string]interface{}{
+				{
+					"type":       "text",
+					"plain_text": "ok",
+					"text": map[string]interface{}{
+						"content": "ok",
+					},
+				},
+			},
+		})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("NOTION_TOKEN", "test-token")
+	t.Setenv("NOTION_API_BASE_URL", server.URL)
+
+	var out, errBuf bytes.Buffer
+	app := &App{
+		Stdout: outWriter(&out),
+		Stderr: outWriter(&errBuf),
+	}
+
+	root := app.RootCommand()
+	root.SetArgs([]string{"comment", "add", "-p", pageID, "-t", "@Amy wire sent", "-m", mentionID})
+	if err := root.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("command failed: %v", err)
+	}
+
+	if !strings.Contains(out.String(), `"id": "c-short"`) {
+		t.Fatalf("expected comment JSON output, got: %s", out.String())
+	}
+}
+
 // outWriter prevents accidental type assertions in isTerminal(*os.File).
 func outWriter(buf *bytes.Buffer) *bytes.Buffer { return buf }

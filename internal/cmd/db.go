@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
+	clierrors "github.com/salmonumbrella/notion-cli/internal/errors"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
 	"github.com/salmonumbrella/notion-cli/internal/output"
 )
@@ -228,6 +229,9 @@ Example:
 
 			database, err := client.GetDatabase(ctx, databaseID)
 			if err != nil {
+				if hinted := maybeDataSourceHintForDatabaseNotFound(ctx, client, err, databaseID); hinted != nil {
+					return hinted
+				}
 				return wrapAPIError(err, "get database", "database", args[0])
 			}
 
@@ -251,6 +255,55 @@ Example:
 			return printer.Print(ctx, database)
 		},
 	}
+}
+
+func maybeDataSourceHintForDatabaseNotFound(ctx context.Context, client dataSourceGetter, dbErr error, identifier string) error {
+	if dbErr == nil || client == nil {
+		return nil
+	}
+	if !looksLikeUUID(identifier) {
+		return nil
+	}
+	if clierrors.APINotFoundError(dbErr, "database", identifier) == dbErr {
+		return nil
+	}
+
+	ds, err := client.GetDataSource(ctx, identifier)
+	if err != nil || ds == nil {
+		return nil
+	}
+
+	title := dataSourceTitle(ds)
+	msg := fmt.Sprintf("The ID %q is a data source, not a database.", identifier)
+	if title != "" {
+		msg = fmt.Sprintf("The ID %q is the data source %q, not a database.", identifier, title)
+	}
+
+	return clierrors.WrapUserError(
+		dbErr,
+		"failed to get database",
+		fmt.Sprintf("%s\n\nUse one of:\n  • ntn datasource get %s\n  • ntn datasource query %s\n  • ntn db query <database-id> --datasource %s",
+			msg, identifier, identifier, identifier),
+	)
+}
+
+func dataSourceTitle(ds *notion.DataSource) string {
+	if ds == nil || len(ds.Title) == 0 {
+		return ""
+	}
+
+	var parts []string
+	for _, item := range ds.Title {
+		if strings.TrimSpace(item.PlainText) != "" {
+			parts = append(parts, item.PlainText)
+			continue
+		}
+		if item.Text != nil && strings.TrimSpace(item.Text.Content) != "" {
+			parts = append(parts, item.Text.Content)
+		}
+	}
+
+	return strings.TrimSpace(strings.Join(parts, ""))
 }
 
 func newDBQueryCmd() *cobra.Command {

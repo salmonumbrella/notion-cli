@@ -392,12 +392,12 @@ Combined example (all flags together):
 		},
 	}
 
-	cmd.Flags().StringVar(&parentID, "parent", "", "Page ID to create comment on (mutually exclusive with --discussion-id)")
+	cmd.Flags().StringVarP(&parentID, "parent", "p", "", "Page ID to create comment on (mutually exclusive with --discussion-id)")
 	cmd.Flags().StringVar(&parentID, "page", "", "Alias for --parent")
 	_ = cmd.Flags().MarkHidden("page")
 	cmd.Flags().StringVar(&discussionID, "discussion-id", "", "Discussion thread ID to add comment to (mutually exclusive with --parent)")
-	cmd.Flags().StringVar(&text, "text", "", "Comment text (required)")
-	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "User ID(s) to @-mention (repeatable)")
+	cmd.Flags().StringVarP(&text, "text", "t", "", "Comment text (required)")
+	cmd.Flags().StringArrayVarP(&mentions, "mention", "m", nil, "User ID(s) to @-mention (repeatable)")
 	cmd.Flags().StringArrayVar(&pageMentions, "page-mention", nil, "Page ID(s) to @@-mention (repeatable)")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show how markdown was parsed before creating comment")
 
