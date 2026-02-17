@@ -38,7 +38,16 @@ func toLightComments(comments []*notion.Comment) []lightComment {
 }
 
 func commentPlainText(items []notion.RichText) string {
+	var n int
+	for i := range items {
+		if items[i].PlainText != "" {
+			n += len(items[i].PlainText)
+		} else if items[i].Text != nil {
+			n += len(items[i].Text.Content)
+		}
+	}
 	var b strings.Builder
+	b.Grow(n)
 	for i := range items {
 		item := items[i]
 		if item.PlainText != "" {
