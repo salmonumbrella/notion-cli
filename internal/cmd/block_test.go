@@ -159,3 +159,37 @@ func TestAppendBlockChildrenBatched_MissingBatchIDForChaining(t *testing.T) {
 		t.Fatalf("error = %q, want missing chaining ID message", err.Error())
 	}
 }
+
+func TestAppendBlockChildrenBatched_SingleBatch(t *testing.T) {
+	writer := &stubBlockChildrenWriter{
+		responses: []*notion.BlockList{
+			{
+				Object:  "list",
+				Results: []notion.Block{{ID: "only-batch-last"}},
+			},
+		},
+	}
+
+	children := makeChildren(50)
+	got, err := appendBlockChildrenBatched(context.Background(), writer, "page-1", children, "anchor-1")
+	if err != nil {
+		t.Fatalf("appendBlockChildrenBatched() error = %v", err)
+	}
+
+	if got == nil {
+		t.Fatal("appendBlockChildrenBatched() returned nil result")
+	}
+
+	if len(writer.calls) != 1 {
+		t.Fatalf("AppendBlockChildren called %d times, want 1", len(writer.calls))
+	}
+	if len(writer.calls[0].Children) != 50 {
+		t.Fatalf("batch size = %d, want 50", len(writer.calls[0].Children))
+	}
+	if writer.calls[0].After != "anchor-1" {
+		t.Fatalf("batch after = %q, want %q", writer.calls[0].After, "anchor-1")
+	}
+	if len(got.Results) != 1 {
+		t.Fatalf("combined results = %d, want 1", len(got.Results))
+	}
+}
