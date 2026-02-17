@@ -99,7 +99,7 @@ Example - Fetch all results:
 			}
 
 			if all {
-				allResults, _, _, err := fetchAllPages(ctx, startCursor, pageSize, limit, func(ctx context.Context, cursor string, pageSize int) ([]map[string]interface{}, *string, bool, error) {
+				allResults, nextCursor, hasMore, err := fetchAllPages(ctx, startCursor, pageSize, limit, func(ctx context.Context, cursor string, pageSize int) ([]map[string]interface{}, *string, bool, error) {
 					req := &notion.SearchRequest{
 						Query:       query,
 						Filter:      filter,
@@ -124,9 +124,19 @@ Example - Fetch all results:
 
 				printer := printerForContext(ctx)
 				if light {
-					return printer.Print(ctx, toLightSearchResults(allResults))
+					return printer.Print(ctx, map[string]interface{}{
+						"object":      "list",
+						"results":     toLightSearchResults(allResults),
+						"has_more":    hasMore,
+						"next_cursor": nextCursor,
+					})
 				}
-				return printer.Print(ctx, allResults)
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     allResults,
+					"has_more":    hasMore,
+					"next_cursor": nextCursor,
+				})
 			}
 
 			req := &notion.SearchRequest{
@@ -150,9 +160,14 @@ Example - Fetch all results:
 
 			printer := printerForContext(ctx)
 			if light {
-				return printer.Print(ctx, toLightSearchResults(result.Results))
+				return printer.Print(ctx, map[string]interface{}{
+					"object":      "list",
+					"results":     toLightSearchResults(result.Results),
+					"has_more":    result.HasMore,
+					"next_cursor": result.NextCursor,
+				})
 			}
-			return printer.Print(ctx, result.Results)
+			return printer.Print(ctx, result)
 		},
 	}
 
