@@ -41,7 +41,7 @@ func TestToLightSearchResults(t *testing.T) {
 	if light[0].ID != "page-1" || light[0].Object != "page" || light[0].Title != "Roadmap" {
 		t.Fatalf("unexpected first result: %#v", light[0])
 	}
-	if light[1].ID != "ds-1" || light[1].Object != "database" || light[1].Title != "Projects" {
+	if light[1].ID != "ds-1" || light[1].Object != "ds" || light[1].Title != "Projects" {
 		t.Fatalf("unexpected second result: %#v", light[1])
 	}
 }

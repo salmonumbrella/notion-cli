@@ -21,7 +21,7 @@ func toLightSearchResults(results []map[string]interface{}) []lightSearchResult 
 
 		obj, _ := result["object"].(string)
 		if obj == "data_source" {
-			obj = "database"
+			obj = "ds"
 		}
 
 		entry := lightSearchResult{
