@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +23,9 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/skill"
 	"github.com/salmonumbrella/notion-cli/internal/ui"
 )
+
+//go:embed help.txt
+var rootHelpText string
 
 func newRootCmd(app *App) *cobra.Command {
 	// Global flags
@@ -157,6 +161,10 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&resultsOnlyFlag, "items-only", false, "Output only the items/results array when present (JSON output)")
 	rootCmd.PersistentFlags().BoolVar(&resultsOnlyFlag, "results-only", false, "Alias for --items-only")
 	_ = rootCmd.PersistentFlags().MarkHidden("results-only")
+
+	// Machine-readable help (hidden; intercepted in App.Execute before arg validation)
+	rootCmd.PersistentFlags().Bool("help-json", false, "Output command help as JSON (for agent discovery)")
+	_ = rootCmd.PersistentFlags().MarkHidden("help-json")
 
 	// Agent-friendly flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts")
@@ -498,6 +506,8 @@ This is a convenience alias for 'ntn page delete'.`,
 	applyDefaultCommandAliases(rootCmd)
 	// Add safe shorthand aliases (-x) to visible flags where possible.
 	applyDefaultFlagShorthands(rootCmd)
+	// Use a curated root help menu optimized for humans and agents.
+	installRootHelp(rootCmd)
 
 	return rootCmd
 }
@@ -591,4 +601,17 @@ func parseColorMode(value string) ui.ColorMode {
 	default:
 		return ui.ColorAuto
 	}
+}
+
+func installRootHelp(root *cobra.Command) {
+	defaultHelp := root.HelpFunc()
+
+	root.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		if cmd != root {
+			defaultHelp(cmd, args)
+			return
+		}
+
+		_, _ = fmt.Fprint(cmd.OutOrStdout(), rootHelpText)
+	})
 }

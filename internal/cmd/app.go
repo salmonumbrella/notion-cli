@@ -32,6 +32,12 @@ func NewApp() *App {
 func (a *App) Execute(ctx context.Context, args []string) error {
 	root := newRootCmd(a)
 	root.SetArgs(args)
+
+	// Handle --help-json before Execute so it bypasses arg validation.
+	if cmd, ok := findHelpJSONTarget(root, args); ok {
+		return printHelpJSON(cmd)
+	}
+
 	if err := root.ExecuteContext(ctx); err != nil {
 		printCommandError(root.Context(), err)
 		return err
