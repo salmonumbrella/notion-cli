@@ -113,6 +113,7 @@ Use the --start-cursor flag to paginate through results.
 Use the --page-size flag to control the number of results per page (max 100).
 Use --all to fetch all pages of results automatically.
 Use --depth to recursively fetch nested children (e.g., content inside toggles, columns).
+Note: global --items-only (alias --ro) outputs a bare array, so jq paths should use '.[]' instead of '.results[]'.
 
 Example:
   ntn block children 12345678-1234-1234-1234-123456789012

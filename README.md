@@ -197,6 +197,8 @@ ntn u g <user-id>               # Get user by ID
 ntn p g <page-id>                              # Get page
 ntn p g <page-id> --enrich                     # Get page with parent_title and child_count
 ntn p g <page-id> --editable                   # Get page with only editable properties
+ntn p g <page-id> --include-children           # Get page with child blocks
+ntn p g <page-id> --include-children --children-depth 2  # Include nested children
 ntn p c --pa <id> --props <json>               # Create page
 ntn p u <page-id> --props <json>               # Update page
 ntn p d <page-id>                              # Delete page (archive)
@@ -606,7 +608,7 @@ All commands support these flags:
 | `--query-file` | | `--qf` | Read JQ expression from file (use `-` for stdin) |
 | `--fields` | | `--pick`, `--fds` | Project fields (comma-separated, `key=path` to rename) |
 | `--jsonpath` | | | Extract value using JSONPath |
-| `--items-only` | | `--results-only`, `--io`, `--ro`, `--i` | Output just the results array |
+| `--items-only` | | `--results-only`, `--io`, `--ro`, `--i` | Output just the results array (jq should use `.[]`, not `.results[]`) |
 | `--fail-empty` | | `--fe` | Exit with error when results are empty |
 
 ### Sorting & Limiting

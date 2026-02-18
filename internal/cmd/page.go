@@ -140,6 +140,8 @@ Example:
 func newPageGetCmd() *cobra.Command {
 	var editableOnly bool
 	var enrich bool
+	var includeChildren bool
+	var childrenDepth int
 
 	cmd := &cobra.Command{
 		Use:     "get <page-id-or-name>",
@@ -159,11 +161,15 @@ Use --enrich to include additional metadata:
   - child_count: the number of immediate child blocks
 Note: --enrich requires 1-2 extra API calls per page (1 for parent title, 1 for child count).
 
+Use --include-children to include page body blocks in the response.
+Use --children-depth to control recursive block fetching depth (1 = direct children only).
+
 Example:
   notion page get 12345678-1234-1234-1234-123456789012
   notion page get "Meeting Notes"
   notion page get 12345678-1234-1234-1234-123456789012 --editable -o json
-  notion page get 12345678-1234-1234-1234-123456789012 --enrich`,
+  notion page get 12345678-1234-1234-1234-123456789012 --enrich
+  notion page get 12345678-1234-1234-1234-123456789012 --include-children --children-depth 2 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -194,20 +200,59 @@ Example:
 				page.Properties = filterEditableProperties(page.Properties)
 			}
 
-			// Print result (enriched or plain)
-			printer := printerForContext(ctx)
-			if enrich {
-				enrichedPage := enrichPage(ctx, client, page)
-				return printer.Print(ctx, enrichedPage)
+			if includeChildren && childrenDepth < 1 {
+				return fmt.Errorf("--children-depth must be >= 1")
 			}
-			return printer.Print(ctx, page)
+
+			var result interface{} = page
+			if enrich {
+				result = enrichPage(ctx, client, page)
+			}
+
+			if includeChildren {
+				var children []notion.Block
+				if childrenDepth == 1 {
+					children, err = fetchAllBlockChildren(ctx, client, pageID)
+				} else {
+					children, err = client.GetBlockChildrenRecursive(ctx, pageID, childrenDepth, nil)
+				}
+				if err != nil {
+					return wrapAPIError(err, "access block", "block", args[0])
+				}
+
+				resultWithChildren, err := withChildren(result, children)
+				if err != nil {
+					return err
+				}
+				result = resultWithChildren
+			}
+
+			printer := printerForContext(ctx)
+			return printer.Print(ctx, result)
 		},
 	}
 
 	cmd.Flags().BoolVar(&editableOnly, "editable", false, "Filter out read-only computed properties")
 	cmd.Flags().BoolVar(&enrich, "enrich", false, "Include parent title and child count (extra API calls)")
+	cmd.Flags().BoolVar(&includeChildren, "include-children", false, "Include page body blocks in output")
+	cmd.Flags().IntVar(&childrenDepth, "children-depth", 1, "Depth for --include-children (1 = direct children only)")
 
 	return cmd
+}
+
+func withChildren(data interface{}, children []notion.Block) (map[string]interface{}, error) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode page output: %w", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return nil, fmt.Errorf("failed to decode page output: %w", err)
+	}
+
+	payload["children"] = children
+	return payload, nil
 }
 
 func newPagePropertiesCmd() *cobra.Command {
