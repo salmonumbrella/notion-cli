@@ -100,16 +100,16 @@ type EnhancedStatusError struct {
 func (e *EnhancedStatusError) Error() string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Invalid status value %q\n", e.InvalidValue))
+	fmt.Fprintf(&sb, "Invalid status value %q\n", e.InvalidValue)
 
 	for _, prop := range e.StatusProperties {
-		sb.WriteString(fmt.Sprintf("\nProperty: %s\n", prop.Name))
+		fmt.Fprintf(&sb, "\nProperty: %s\n", prop.Name)
 		sb.WriteString("Valid options:\n")
 		for _, opt := range prop.Options {
 			if opt.Description != "" {
-				sb.WriteString(fmt.Sprintf("  - %s (%s)\n", opt.Name, opt.Description))
+				fmt.Fprintf(&sb, "  - %s (%s)\n", opt.Name, opt.Description)
 			} else {
-				sb.WriteString(fmt.Sprintf("  - %s\n", opt.Name))
+				fmt.Fprintf(&sb, "  - %s\n", opt.Name)
 			}
 		}
 	}
