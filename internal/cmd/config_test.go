@@ -27,7 +27,7 @@ func TestConfigFilePermissions(t *testing.T) {
 		t.Fatalf("failed to stat config file: %v", err)
 	}
 
-	if info.Mode().Perm() != 0600 {
+	if info.Mode().Perm() != 0o600 {
 		t.Errorf("config file permissions = %v, want 0600", info.Mode().Perm())
 	}
 
@@ -37,7 +37,7 @@ func TestConfigFilePermissions(t *testing.T) {
 		t.Fatalf("failed to stat config directory: %v", err)
 	}
 
-	if dirInfo.Mode().Perm() != 0700 {
+	if dirInfo.Mode().Perm() != 0o700 {
 		t.Errorf("config directory permissions = %v, want 0700", dirInfo.Mode().Perm())
 	}
 }

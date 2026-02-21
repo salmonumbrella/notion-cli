@@ -40,7 +40,6 @@ func TestClientFromContext(t *testing.T) {
 
 		ctx := context.Background()
 		client, err := clientFromContext(ctx)
-
 		if err != nil {
 			t.Fatalf("clientFromContext() error = %v, want nil", err)
 		}

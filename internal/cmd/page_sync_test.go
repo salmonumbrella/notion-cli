@@ -306,7 +306,7 @@ func TestPageSyncPush_ExistingPage(t *testing.T) {
 	dir := t.TempDir()
 	mdFile := filepath.Join(dir, "test.md")
 	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\ntitle: Test\nlast-synced: 2026-01-01T00:00:00Z\n---\n\n# Updated Content\n\nNew paragraph.\n"
-	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(mdFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -387,7 +387,7 @@ func TestPageSyncPush_NewPage(t *testing.T) {
 	dir := t.TempDir()
 	mdFile := filepath.Join(dir, "new.md")
 	content := "# My Document\n\nSome content.\n"
-	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(mdFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -421,7 +421,7 @@ func TestPageSyncPush_NoIDNoParent(t *testing.T) {
 	dir := t.TempDir()
 	mdFile := filepath.Join(dir, "orphan.md")
 	content := "# No Parent\n\nJust content.\n"
-	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(mdFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -560,7 +560,7 @@ func TestPageSyncPush_DryRun(t *testing.T) {
 	dir := t.TempDir()
 	mdFile := filepath.Join(dir, "dryrun.md")
 	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\ntitle: Test\n---\n\n# Dry Run\n\nContent.\n"
-	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(mdFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -758,7 +758,7 @@ func TestPageSyncPush_ConflictDetected(t *testing.T) {
 	dir := t.TempDir()
 	mdFile := filepath.Join(dir, "conflict.md")
 	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\ntitle: Test\nlast-synced: 2026-02-13T10:00:00Z\n---\n\n# Test\n\nContent.\n"
-	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(mdFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -824,7 +824,7 @@ func TestPageSyncPush_ConflictForced(t *testing.T) {
 	dir := t.TempDir()
 	mdFile := filepath.Join(dir, "forced.md")
 	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\ntitle: Test\nlast-synced: 2026-02-13T10:00:00Z\n---\n\n# Test\n\nContent.\n"
-	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(mdFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -901,7 +901,7 @@ func TestPageSyncPush_UpdatesTitle(t *testing.T) {
 	dir := t.TempDir()
 	mdFile := filepath.Join(dir, "title-update.md")
 	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\ntitle: New Title\nlast-synced: 2026-02-13T10:00:00Z\n---\n\n# New Title\n\nContent.\n"
-	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(mdFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -980,7 +980,7 @@ func TestPageSyncPush_UpdatesTitleFromH1(t *testing.T) {
 	mdFile := filepath.Join(dir, "title-from-h1.md")
 	// No title in frontmatter, should extract from first H1
 	content := "---\nnotion-id: 12345678-1234-1234-1234-123456789012\nlast-synced: 2026-02-13T10:00:00Z\n---\n\n# Heading Title\n\nContent.\n"
-	if err := os.WriteFile(mdFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(mdFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

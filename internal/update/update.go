@@ -234,14 +234,14 @@ func (c *Checker) loadCache(path string) (cache, error) {
 }
 
 func (c *Checker) saveCache(path string, value cache) error {
-	if err := c.mkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := c.mkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	return c.writeFile(path, data, 0644)
+	return c.writeFile(path, data, 0o644)
 }
 
 func (c *Checker) shouldCheck(cachedVersion string, lastCheck time.Time) bool {

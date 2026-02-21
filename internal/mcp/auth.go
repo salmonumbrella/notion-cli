@@ -307,7 +307,7 @@ func saveTokenFile(tf *TokenFile) error {
 	}
 
 	// Ensure parent directory exists.
-	if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -316,7 +316,7 @@ func saveTokenFile(tf *TokenFile) error {
 		return fmt.Errorf("failed to marshal token: %w", err)
 	}
 
-	if err := os.WriteFile(p, data, 0600); err != nil {
+	if err := os.WriteFile(p, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write MCP token: %w", err)
 	}
 

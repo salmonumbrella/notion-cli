@@ -6,9 +6,11 @@ import (
 	"github.com/salmonumbrella/notion-cli/internal/config"
 )
 
-type workspaceKey struct{}
-type errorFormatKey struct{}
-type configKey struct{}
+type (
+	workspaceKey   struct{}
+	errorFormatKey struct{}
+	configKey      struct{}
+)
 
 // WithWorkspace stores a workspace name in the context
 func WithWorkspace(ctx context.Context, workspace string) context.Context {

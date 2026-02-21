@@ -34,10 +34,8 @@ const (
 	defaultCircuitBreakerRecoveryTimeout = 30 * time.Second
 )
 
-var (
-	// ErrCircuitOpen is returned when the circuit breaker is open
-	ErrCircuitOpen = errors.New("circuit breaker is open - too many consecutive API failures")
-)
+// ErrCircuitOpen is returned when the circuit breaker is open
+var ErrCircuitOpen = errors.New("circuit breaker is open - too many consecutive API failures")
 
 // circuitBreaker implements a circuit breaker pattern to prevent hammering a failing API
 type circuitBreaker struct {

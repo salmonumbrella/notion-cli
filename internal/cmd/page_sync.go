@@ -367,7 +367,7 @@ func runSyncPull(ctx context.Context, client *notion.Client, stderr io.Writer, p
 	out := buildFrontmatterString(fm) + markdown + "\n"
 
 	if outputFile != "" {
-		if err := os.WriteFile(outputFile, []byte(out), 0644); err != nil {
+		if err := os.WriteFile(outputFile, []byte(out), 0o644); err != nil {
 			return fmt.Errorf("failed to write file: %w", err)
 		}
 		_, _ = fmt.Fprintf(stderr, "Pulled page %s to %s\n", normalizedID, outputFile)
@@ -476,7 +476,7 @@ func writeFrontmatterToFile(filePath string, fm map[string]string, body string) 
 	if !strings.HasSuffix(content, "\n") {
 		content += "\n"
 	}
-	return os.WriteFile(filePath, []byte(content), 0644)
+	return os.WriteFile(filePath, []byte(content), 0o644)
 }
 
 // extractTitleFromBody looks for the first # heading in the body.

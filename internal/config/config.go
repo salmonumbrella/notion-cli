@@ -104,7 +104,7 @@ func (c *Config) Save() error {
 func (c *Config) SaveToPath(path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 
@@ -112,7 +112,7 @@ func (c *Config) SaveToPath(path string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0600)
+	return os.WriteFile(path, data, 0o600)
 }
 
 // GetOutput returns the effective output format (config default or empty)

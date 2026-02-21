@@ -11,13 +11,13 @@ func TestResolveJSONInput(t *testing.T) {
 	// Create temp file for file-based tests
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
-	if err := os.WriteFile(testFile, []byte(`{"key": "value"}`), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(`{"key": "value"}`), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
 	// Create temp file with whitespace to test trimming
 	whitespaceFile := filepath.Join(tmpDir, "whitespace.json")
-	if err := os.WriteFile(whitespaceFile, []byte("  trimmed content  \n"), 0644); err != nil {
+	if err := os.WriteFile(whitespaceFile, []byte("  trimmed content  \n"), 0o644); err != nil {
 		t.Fatalf("failed to create whitespace test file: %v", err)
 	}
 
@@ -127,7 +127,7 @@ func TestReadJSONInput(t *testing.T) {
 	// Create temp file for file-based tests
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.json")
-	if err := os.WriteFile(testFile, []byte(`{"delegated": true}`), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(`{"delegated": true}`), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
@@ -224,17 +224,17 @@ func TestReadInputSource(t *testing.T) {
 	// Create temp file for file-based tests
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "source.txt")
-	if err := os.WriteFile(testFile, []byte("file content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("file content"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
 	whitespaceFile := filepath.Join(tmpDir, "whitespace.txt")
-	if err := os.WriteFile(whitespaceFile, []byte("\n  content with whitespace  \n\n"), 0644); err != nil {
+	if err := os.WriteFile(whitespaceFile, []byte("\n  content with whitespace  \n\n"), 0o644); err != nil {
 		t.Fatalf("failed to create whitespace test file: %v", err)
 	}
 
 	emptyFile := filepath.Join(tmpDir, "empty.txt")
-	if err := os.WriteFile(emptyFile, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(emptyFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("failed to create empty test file: %v", err)
 	}
 

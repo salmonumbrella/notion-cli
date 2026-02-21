@@ -39,15 +39,17 @@ func QueryFromContext(ctx context.Context) string {
 }
 
 // Agent-friendly flag context keys
-type yesKey struct{}
-type limitKey struct{}
-type sortFieldKey struct{}
-type sortDescKey struct{}
-type quietKey struct{}
-type fieldsKey struct{}
-type jsonPathKey struct{}
-type failEmptyKey struct{}
-type resultsOnlyKey struct{}
+type (
+	yesKey         struct{}
+	limitKey       struct{}
+	sortFieldKey   struct{}
+	sortDescKey    struct{}
+	quietKey       struct{}
+	fieldsKey      struct{}
+	jsonPathKey    struct{}
+	failEmptyKey   struct{}
+	resultsOnlyKey struct{}
+)
 
 // WithYes sets the --yes flag in context.
 func WithYes(ctx context.Context, yes bool) context.Context {

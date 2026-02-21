@@ -49,7 +49,7 @@ workspaces:
 			configPath := filepath.Join(tmpDir, "config.yaml")
 
 			if tt.content != "" {
-				if err := os.WriteFile(configPath, []byte(tt.content), 0600); err != nil {
+				if err := os.WriteFile(configPath, []byte(tt.content), 0o600); err != nil {
 					t.Fatalf("failed to write test config: %v", err)
 				}
 			}
@@ -115,7 +115,7 @@ func TestSaveToPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to stat config file: %v", err)
 	}
-	if info.Mode().Perm() != 0600 {
+	if info.Mode().Perm() != 0o600 {
 		t.Errorf("config file permissions = %v, want 0600", info.Mode().Perm())
 	}
 
@@ -156,7 +156,7 @@ func TestSaveToPath_CreatesDirectory(t *testing.T) {
 	if !dirInfo.IsDir() {
 		t.Error("config path is not a directory")
 	}
-	if dirInfo.Mode().Perm() != 0700 {
+	if dirInfo.Mode().Perm() != 0o700 {
 		t.Errorf("config directory permissions = %v, want 0700", dirInfo.Mode().Perm())
 	}
 }
@@ -189,7 +189,7 @@ func TestWorkspaceConfig(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
@@ -653,7 +653,7 @@ workspaces:
 
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to write test config: %v", err)
 	}
 

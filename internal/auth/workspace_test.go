@@ -272,7 +272,7 @@ func TestGetWorkspaceToken_WithConfig(t *testing.T) {
 
 			// Create .config/notion-cli directory structure
 			notionCliDir := filepath.Join(tmpDir, ".config", "notion-cli")
-			if err := os.MkdirAll(notionCliDir, 0700); err != nil {
+			if err := os.MkdirAll(notionCliDir, 0o700); err != nil {
 				t.Fatalf("Failed to create config dir: %v", err)
 			}
 

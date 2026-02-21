@@ -26,7 +26,7 @@ func TestTokenFileSaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal token: %v", err)
 	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatalf("failed to write token file: %v", err)
 	}
 
@@ -35,7 +35,7 @@ func TestTokenFileSaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to stat token file: %v", err)
 	}
-	if perm := info.Mode().Perm(); perm != 0600 {
+	if perm := info.Mode().Perm(); perm != 0o600 {
 		t.Errorf("token file permissions = %o, want 0600", perm)
 	}
 
@@ -150,7 +150,7 @@ func TestSaveTokenFileCreatesDirectory(t *testing.T) {
 	nestedPath := filepath.Join(dir, "deep", "nested", "ntn", "mcp-token.json")
 
 	// Manually create parent dirs and write to verify the pattern works.
-	if err := os.MkdirAll(filepath.Dir(nestedPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(nestedPath), 0o700); err != nil {
 		t.Fatalf("MkdirAll failed: %v", err)
 	}
 
@@ -162,7 +162,7 @@ func TestSaveTokenFileCreatesDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal: %v", err)
 	}
-	if err := os.WriteFile(nestedPath, data, 0600); err != nil {
+	if err := os.WriteFile(nestedPath, data, 0o600); err != nil {
 		t.Fatalf("failed to write: %v", err)
 	}
 

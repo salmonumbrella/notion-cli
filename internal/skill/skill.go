@@ -268,7 +268,7 @@ func (s *SkillFile) Save() error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create skill directory: %w", err)
 	}
 

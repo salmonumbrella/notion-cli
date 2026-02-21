@@ -13,7 +13,7 @@ func TestReadItems_JSONArray(t *testing.T) {
 	path := filepath.Join(tmpDir, "items.json")
 
 	content := `[{"id": "1"}, {"id": "2"}, {"id": "3"}]`
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -34,7 +34,7 @@ func TestReadItems_NDJSON(t *testing.T) {
 	content := `{"id": "1"}
 {"id": "2"}
 {"id": "3"}`
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -99,7 +99,7 @@ func TestReadItems_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "empty.json")
 
-	if err := os.WriteFile(path, []byte("[]"), 0644); err != nil {
+	if err := os.WriteFile(path, []byte("[]"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +117,7 @@ func TestReadItems_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "invalid.json")
 
-	if err := os.WriteFile(path, []byte("{not valid json}"), 0644); err != nil {
+	if err := os.WriteFile(path, []byte("{not valid json}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -180,7 +180,7 @@ func TestReadItems_NDJSONWithEmptyLines(t *testing.T) {
 {"id": "2"}
 
 {"id": "3"}`
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
