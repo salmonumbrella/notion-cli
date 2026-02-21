@@ -152,36 +152,18 @@ func (c *Client) SendFilePart(ctx context.Context, uploadURL string, part io.Rea
 		return nil, fmt.Errorf("part number must be >= 1")
 	}
 
-	// Read the part data
-	partData, err := io.ReadAll(part)
+	resp, err := c.doRequestOnceWithReader(
+		ctx,
+		http.MethodPost,
+		uploadURL,
+		part,
+		"application/octet-stream",
+		map[string]string{"X-Part-Number": strconv.Itoa(partNumber)},
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read part data: %w", err)
-	}
-
-	// Create request
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadURL, bytes.NewReader(partData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Notion-Version", c.version)
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("X-Part-Number", strconv.Itoa(partNumber))
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode >= 400 {
-		var errResp ErrorResponse
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			return nil, &APIError{StatusCode: resp.StatusCode}
-		}
-		return nil, &APIError{StatusCode: resp.StatusCode, Response: &errResp}
-	}
 
 	var result FileUploadPart
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"testing"
@@ -204,5 +205,50 @@ func TestRateLimiter_DifferentIPs(t *testing.T) {
 	}
 	if limiter.allow("ip2") {
 		t.Error("ip2 should be at limit")
+	}
+}
+
+func TestGetClientIP(t *testing.T) {
+	tests := []struct {
+		name       string
+		remoteAddr string
+		xff        string
+		want       string
+	}{
+		{
+			name:       "ipv4 remote addr",
+			remoteAddr: "192.168.1.10:4321",
+			want:       "192.168.1.10",
+		},
+		{
+			name:       "ipv6 remote addr",
+			remoteAddr: "[2001:db8::1]:54321",
+			want:       "2001:db8::1",
+		},
+		{
+			name:       "xff first ip wins",
+			remoteAddr: "192.168.1.10:4321",
+			xff:        "203.0.113.7, 10.0.0.1",
+			want:       "203.0.113.7",
+		},
+		{
+			name:       "malformed remote addr fallback",
+			remoteAddr: "invalid-remote-addr",
+			want:       "invalid-remote-addr",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "http://example.com/auth/start", nil)
+			req.RemoteAddr = tt.remoteAddr
+			if tt.xff != "" {
+				req.Header.Set("X-Forwarded-For", tt.xff)
+			}
+
+			if got := getClientIP(req); got != tt.want {
+				t.Fatalf("getClientIP() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

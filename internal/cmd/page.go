@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/salmonumbrella/notion-cli/internal/cmdutil"
 	"github.com/salmonumbrella/notion-cli/internal/notion"
+	"github.com/salmonumbrella/notion-cli/internal/skill"
 )
 
 func newPageCmd() *cobra.Command {
@@ -87,6 +89,14 @@ Example:
 	return cmd
 }
 
+func resolveAndNormalizePageID(ctx context.Context, client *notion.Client, sf *skill.SkillFile, input string) (string, error) {
+	pageID, err := resolveIDWithSearch(ctx, client, sf, input, "page")
+	if err != nil {
+		return "", err
+	}
+	return cmdutil.NormalizeNotionID(pageID)
+}
+
 func newPageDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "delete <page-id-or-name>",
@@ -114,12 +124,7 @@ Example:
 				return err
 			}
 
-			// Resolve ID with search fallback
-			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
-			if err != nil {
-				return err
-			}
-			pageID, err = cmdutil.NormalizeNotionID(pageID)
+			pageID, err := resolveAndNormalizePageID(ctx, client, sf, args[0])
 			if err != nil {
 				return err
 			}
@@ -180,12 +185,7 @@ Example:
 				return err
 			}
 
-			// Resolve ID with search fallback
-			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
-			if err != nil {
-				return err
-			}
-			pageID, err = cmdutil.NormalizeNotionID(pageID)
+			pageID, err := resolveAndNormalizePageID(ctx, client, sf, args[0])
 			if err != nil {
 				return err
 			}
@@ -283,12 +283,7 @@ Examples:
 				return err
 			}
 
-			// Resolve ID with search fallback
-			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
-			if err != nil {
-				return err
-			}
-			pageID, err = cmdutil.NormalizeNotionID(pageID)
+			pageID, err := resolveAndNormalizePageID(ctx, client, sf, args[0])
 			if err != nil {
 				return err
 			}
@@ -618,12 +613,7 @@ Combined example (all flags together):
 				return err
 			}
 
-			// Resolve ID with search fallback
-			pageID, err := resolveIDWithSearch(ctx, client, sf, args[0], "page")
-			if err != nil {
-				return err
-			}
-			pageID, err = cmdutil.NormalizeNotionID(pageID)
+			pageID, err := resolveAndNormalizePageID(ctx, client, sf, args[0])
 			if err != nil {
 				return err
 			}

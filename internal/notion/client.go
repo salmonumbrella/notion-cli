@@ -263,18 +263,24 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 
 // doRequestOnce performs a single HTTP request attempt with proper headers and error handling
 func (c *Client) doRequestOnce(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
-	url := c.baseURL + path
-
 	var reqBody io.Reader
+	contentType := ""
 	if body != nil {
 		jsonData, err := json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal request body: %w", err)
 		}
 		reqBody = bytes.NewReader(jsonData)
+		contentType = "application/json"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+	return c.doRequestOnceWithReader(ctx, method, c.baseURL+path, reqBody, contentType, nil)
+}
+
+// doRequestOnceWithReader performs a single HTTP request attempt with a raw reader body.
+// It applies shared auth/version headers and decodes API errors consistently.
+func (c *Client) doRequestOnceWithReader(ctx context.Context, method, requestURL string, body io.Reader, contentType string, extraHeaders map[string]string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, requestURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -284,8 +290,11 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body in
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 	req.Header.Set("Notion-Version", c.version)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	for key, value := range extraHeaders {
+		req.Header.Set(key, value)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -299,15 +308,10 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body in
 	// Check for error responses
 	if resp.StatusCode >= 400 {
 		defer func() { _ = resp.Body.Close() }()
-
 		var errResp ErrorResponse
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			// If we can't decode the error response, return a generic error
-			return nil, &APIError{
-				StatusCode: resp.StatusCode,
-			}
+			return nil, &APIError{StatusCode: resp.StatusCode}
 		}
-
 		return nil, &APIError{
 			StatusCode: resp.StatusCode,
 			Response:   &errResp,
@@ -413,37 +417,11 @@ func (c *Client) doMultipartRequestOnce(ctx context.Context, url string, fieldNa
 		return fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &buf)
+	resp, err := c.doRequestOnceWithReader(ctx, http.MethodPost, url, &buf, writer.FormDataContentType(), nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	if !c.disableAuth && c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	}
-	req.Header.Set("Notion-Version", c.version)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	// Update rate limit tracker with response headers
-	c.rateLimiter.Update(resp)
-
-	if resp.StatusCode >= 400 {
-		var errResp ErrorResponse
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			return &APIError{StatusCode: resp.StatusCode}
-		}
-		return &APIError{
-			StatusCode: resp.StatusCode,
-			Response:   &errResp,
-			RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After")),
-		}
-	}
 
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {

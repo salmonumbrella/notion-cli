@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -167,8 +168,14 @@ func getClientIP(r *http.Request) string {
 		parts := strings.Split(xff, ",")
 		return strings.TrimSpace(parts[0])
 	}
-	// Fallback to RemoteAddr
-	return strings.Split(r.RemoteAddr, ":")[0]
+
+	// Fallback to RemoteAddr; handle both IPv4 and bracketed IPv6.
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+
+	// If RemoteAddr has no port or is malformed, keep the original value.
+	return r.RemoteAddr
 }
 
 func main() {

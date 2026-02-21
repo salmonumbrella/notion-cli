@@ -609,12 +609,126 @@ func TestPageSyncResolveParentForSync(t *testing.T) {
 		}
 	})
 
+	t.Run("auto detect database", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if r.Method == "GET" && strings.Contains(r.URL.Path, "/databases/") {
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"object": "database",
+					"id":     "db-id",
+				})
+				return
+			}
+			http.NotFound(w, r)
+		}))
+		defer srv.Close()
+
+		client := newTestSyncClient(t, srv)
+		parent, err := resolveParentForSync(t.Context(), client, "db-id", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if parent["database_id"] != "db-id" {
+			t.Errorf("expected database_id from auto-detect, got %v", parent)
+		}
+	})
+
+	t.Run("auto detect fallback to page", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if r.Method == "GET" && strings.Contains(r.URL.Path, "/databases/") {
+				w.WriteHeader(http.StatusNotFound)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"object":  "error",
+					"status":  404,
+					"code":    "object_not_found",
+					"message": "not found",
+				})
+				return
+			}
+			http.NotFound(w, r)
+		}))
+		defer srv.Close()
+
+		client := newTestSyncClient(t, srv)
+		parent, err := resolveParentForSync(t.Context(), client, "page-id", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if parent["page_id"] != "page-id" {
+			t.Errorf("expected page_id fallback, got %v", parent)
+		}
+	})
+
 	t.Run("invalid type", func(t *testing.T) {
 		_, err := resolveParentForSync(t.Context(), nil, "parent-id", "invalid")
 		if err == nil {
 			t.Fatal("expected error for invalid parent type")
 		}
 	})
+}
+
+func TestAppendBlocksInBatches(t *testing.T) {
+	var batchSizes []int
+	var decodeErr error
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.Method == "PATCH" && strings.Contains(r.URL.Path, "/blocks/") && strings.HasSuffix(r.URL.Path, "/children") {
+			var req notion.AppendBlockChildrenRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				decodeErr = err
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			batchSizes = append(batchSizes, len(req.Children))
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"object":  "list",
+				"results": []map[string]interface{}{},
+			})
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	client := newTestSyncClient(t, srv)
+
+	blocks := make([]map[string]interface{}, 205)
+	for i := range blocks {
+		blocks[i] = map[string]interface{}{
+			"object": "block",
+			"type":   "paragraph",
+			"paragraph": map[string]interface{}{
+				"rich_text": []map[string]interface{}{
+					{
+						"type": "text",
+						"text": map[string]interface{}{
+							"content": fmt.Sprintf("line %d", i),
+						},
+					},
+				},
+			},
+		}
+	}
+
+	if err := appendBlocksInBatches(t.Context(), client, "page-id", blocks); err != nil {
+		t.Fatalf("appendBlocksInBatches: %v", err)
+	}
+	if decodeErr != nil {
+		t.Fatalf("server decode error: %v", decodeErr)
+	}
+
+	if len(batchSizes) != 3 {
+		t.Fatalf("expected 3 batched requests, got %d", len(batchSizes))
+	}
+	if batchSizes[0] != 100 || batchSizes[1] != 100 || batchSizes[2] != 5 {
+		t.Fatalf("unexpected batch sizes: %v", batchSizes)
+	}
 }
 
 func TestPageSyncPush_ConflictDetected(t *testing.T) {

@@ -100,48 +100,26 @@ Examples:
 
 // runSyncPush pushes a local markdown file to Notion.
 func runSyncPush(ctx context.Context, client *notion.Client, stderr io.Writer, filePath, parentID, parentType string, dryRun, force bool) error {
-	// Read file
-	data, err := os.ReadFile(filePath)
+	input, err := loadSyncPushInput(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
+		return err
 	}
 
-	fm, body := parseFrontmatter(string(data))
-	notionID := fm["notion-id"]
-
-	if notionID == "" && parentID == "" {
+	if input.NotionID == "" && parentID == "" {
 		return fmt.Errorf("no notion-id in frontmatter and no --parent provided; use --parent to create a new page")
 	}
 
-	// Parse markdown content to blocks
-	blocks := parseMarkdownToBlocks(body)
-
 	// Check for conflicts on existing pages
-	if notionID != "" && !force && !dryRun {
-		lastSynced := fm["last-synced"]
-		if lastSynced != "" {
-			checkID, err := cmdutil.NormalizeNotionID(notionID)
-			if err != nil {
-				return fmt.Errorf("invalid notion-id in frontmatter: %w", err)
-			}
-			page, err := client.GetPage(ctx, checkID)
-			if err != nil {
-				return fmt.Errorf("failed to fetch page for conflict check: %w", err)
-			}
-			if page.LastEditedTime != "" {
-				syncedTime, err1 := time.Parse(time.RFC3339, lastSynced)
-				editedTime, err2 := time.Parse(time.RFC3339, page.LastEditedTime)
-				if err1 == nil && err2 == nil && editedTime.After(syncedTime) {
-					return fmt.Errorf("page was modified on Notion since last sync (synced: %s, edited: %s); use --force to overwrite", lastSynced, page.LastEditedTime)
-				}
-			}
+	if input.NotionID != "" && !force && !dryRun {
+		if err := checkSyncConflict(ctx, client, input.NotionID, input.Frontmatter["last-synced"]); err != nil {
+			return err
 		}
 	}
 
 	if dryRun {
 		printer := NewDryRunPrinter(stderr)
-		if notionID != "" {
-			printer.Header("sync (push)", "page", notionID)
+		if input.NotionID != "" {
+			printer.Header("sync (push)", "page", input.NotionID)
 			printer.Field("File", filePath)
 			printer.Field("Action", "replace all blocks on existing page")
 		} else {
@@ -149,10 +127,10 @@ func runSyncPush(ctx context.Context, client *notion.Client, stderr io.Writer, f
 			printer.Field("Parent", parentID)
 			printer.Field("Action", "create new page and write notion-id to frontmatter")
 		}
-		printer.Field("Blocks to sync", fmt.Sprintf("%d", len(blocks)))
-		if len(blocks) > 0 {
+		printer.Field("Blocks to sync", fmt.Sprintf("%d", len(input.Blocks)))
+		if len(input.Blocks) > 0 {
 			printer.Section("Block types:")
-			typeCounts := countBlockTypes(blocks)
+			typeCounts := countBlockTypes(input.Blocks)
 			for blockType, count := range typeCounts {
 				_, _ = fmt.Fprintf(stderr, "  %s: %d\n", blockType, count)
 			}
@@ -163,130 +141,181 @@ func runSyncPush(ctx context.Context, client *notion.Client, stderr io.Writer, f
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	if notionID != "" {
-		// Update existing page: delete all blocks then re-append
-		normalizedID, err := cmdutil.NormalizeNotionID(notionID)
+	if input.NotionID != "" {
+		normalizedID, err := syncExistingPage(ctx, client, filePath, input, now)
 		if err != nil {
-			return fmt.Errorf("invalid notion-id in frontmatter: %w", err)
+			return err
 		}
-
-		// Update page title if frontmatter has a title
-		title := fm["title"]
-		if title == "" {
-			title = extractTitleFromBody(body)
-		}
-		if title != "" {
-			updateReq := &notion.UpdatePageRequest{
-				Properties: map[string]interface{}{
-					"title": map[string]interface{}{
-						"title": []map[string]interface{}{
-							{
-								"type": "text",
-								"text": map[string]interface{}{
-									"content": title,
-								},
-							},
-						},
-					},
-				},
-			}
-			if _, err := client.UpdatePage(ctx, normalizedID, updateReq); err != nil {
-				return fmt.Errorf("failed to update page title: %w", err)
-			}
-		}
-
-		// Fetch existing blocks
-		existingBlocks, err := fetchAllBlockChildren(ctx, client, normalizedID)
-		if err != nil {
-			return fmt.Errorf("failed to fetch existing blocks: %w", err)
-		}
-
-		// Delete all existing blocks
-		for _, block := range existingBlocks {
-			if _, err := client.DeleteBlock(ctx, block.ID); err != nil {
-				return fmt.Errorf("failed to delete block %s: %w", block.ID, err)
-			}
-		}
-
-		// Append new blocks
-		if len(blocks) > 0 {
-			if err := appendBlocksInBatches(ctx, client, normalizedID, blocks); err != nil {
-				return fmt.Errorf("failed to append blocks: %w", err)
-			}
-		}
-
-		// Update frontmatter with new last-synced
-		fm["last-synced"] = now
-		if err := writeFrontmatterToFile(filePath, fm, body); err != nil {
-			return fmt.Errorf("failed to update frontmatter: %w", err)
-		}
-
-		_, _ = fmt.Fprintf(stderr, "Pushed %d blocks to page %s\n", len(blocks), normalizedID)
+		_, _ = fmt.Fprintf(stderr, "Pushed %d blocks to page %s\n", len(input.Blocks), normalizedID)
 		return nil
 	}
 
-	// Create new page under parent
-	normalizedParent, err := cmdutil.NormalizeNotionID(parentID)
+	pageID, err := createSyncedPage(ctx, client, filePath, parentID, parentType, input, now)
 	if err != nil {
-		return fmt.Errorf("invalid parent ID: %w", err)
+		return err
+	}
+	_, _ = fmt.Fprintf(stderr, "Created page %s with %d blocks\n", pageID, len(input.Blocks))
+	return nil
+}
+
+type syncPushInput struct {
+	Frontmatter map[string]string
+	Body        string
+	Blocks      []map[string]interface{}
+	NotionID    string
+}
+
+func loadSyncPushInput(filePath string) (*syncPushInput, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Determine title from frontmatter or first heading
+	fm, body := parseFrontmatter(string(data))
+	return &syncPushInput{
+		Frontmatter: fm,
+		Body:        body,
+		Blocks:      parseMarkdownToBlocks(body),
+		NotionID:    fm["notion-id"],
+	}, nil
+}
+
+func checkSyncConflict(ctx context.Context, client *notion.Client, notionID, lastSynced string) error {
+	if lastSynced == "" {
+		return nil
+	}
+
+	checkID, err := cmdutil.NormalizeNotionID(notionID)
+	if err != nil {
+		return fmt.Errorf("invalid notion-id in frontmatter: %w", err)
+	}
+
+	page, err := client.GetPage(ctx, checkID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch page for conflict check: %w", err)
+	}
+
+	if page.LastEditedTime == "" {
+		return nil
+	}
+
+	syncedTime, err1 := time.Parse(time.RFC3339, lastSynced)
+	editedTime, err2 := time.Parse(time.RFC3339, page.LastEditedTime)
+	if err1 == nil && err2 == nil && editedTime.After(syncedTime) {
+		return fmt.Errorf("page was modified on Notion since last sync (synced: %s, edited: %s); use --force to overwrite", lastSynced, page.LastEditedTime)
+	}
+	return nil
+}
+
+func deriveSyncTitle(fm map[string]string, body string) string {
 	title := fm["title"]
 	if title == "" {
 		title = extractTitleFromBody(body)
 	}
+	return title
+}
+
+func syncExistingPage(ctx context.Context, client *notion.Client, filePath string, input *syncPushInput, now string) (string, error) {
+	normalizedID, err := cmdutil.NormalizeNotionID(input.NotionID)
+	if err != nil {
+		return "", fmt.Errorf("invalid notion-id in frontmatter: %w", err)
+	}
+
+	title := deriveSyncTitle(input.Frontmatter, input.Body)
+	if title != "" {
+		updateReq := &notion.UpdatePageRequest{
+			Properties: map[string]interface{}{
+				"title": map[string]interface{}{
+					"title": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": map[string]interface{}{
+								"content": title,
+							},
+						},
+					},
+				},
+			},
+		}
+		if _, err := client.UpdatePage(ctx, normalizedID, updateReq); err != nil {
+			return "", fmt.Errorf("failed to update page title: %w", err)
+		}
+	}
+
+	existingBlocks, err := fetchAllBlockChildren(ctx, client, normalizedID)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch existing blocks: %w", err)
+	}
+	for _, block := range existingBlocks {
+		if _, err := client.DeleteBlock(ctx, block.ID); err != nil {
+			return "", fmt.Errorf("failed to delete block %s: %w", block.ID, err)
+		}
+	}
+
+	if len(input.Blocks) > 0 {
+		if err := appendBlocksInBatches(ctx, client, normalizedID, input.Blocks); err != nil {
+			return "", fmt.Errorf("failed to append blocks: %w", err)
+		}
+	}
+
+	input.Frontmatter["last-synced"] = now
+	if err := writeFrontmatterToFile(filePath, input.Frontmatter, input.Body); err != nil {
+		return "", fmt.Errorf("failed to update frontmatter: %w", err)
+	}
+
+	return normalizedID, nil
+}
+
+func createSyncedPage(ctx context.Context, client *notion.Client, filePath, parentID, parentType string, input *syncPushInput, now string) (string, error) {
+	normalizedParent, err := cmdutil.NormalizeNotionID(parentID)
+	if err != nil {
+		return "", fmt.Errorf("invalid parent ID: %w", err)
+	}
+
+	title := deriveSyncTitle(input.Frontmatter, input.Body)
 	if title == "" {
 		title = "Untitled"
 	}
 
-	// Determine parent type via auto-detect or explicit flag
 	parent, err := resolveParentForSync(ctx, client, normalizedParent, parentType)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	// Build properties with title
-	properties := map[string]interface{}{
-		"title": map[string]interface{}{
-			"title": []map[string]interface{}{
-				{
-					"type": "text",
-					"text": map[string]interface{}{
-						"content": title,
+	req := &notion.CreatePageRequest{
+		Parent: parent,
+		Properties: map[string]interface{}{
+			"title": map[string]interface{}{
+				"title": []map[string]interface{}{
+					{
+						"type": "text",
+						"text": map[string]interface{}{
+							"content": title,
+						},
 					},
 				},
 			},
 		},
 	}
-
-	req := &notion.CreatePageRequest{
-		Parent:     parent,
-		Properties: properties,
-	}
-
 	page, err := client.CreatePage(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to create page: %w", err)
+		return "", fmt.Errorf("failed to create page: %w", err)
 	}
 
-	// Append blocks to new page
-	if len(blocks) > 0 {
-		if err := appendBlocksInBatches(ctx, client, page.ID, blocks); err != nil {
-			return fmt.Errorf("failed to append blocks: %w", err)
+	if len(input.Blocks) > 0 {
+		if err := appendBlocksInBatches(ctx, client, page.ID, input.Blocks); err != nil {
+			return "", fmt.Errorf("failed to append blocks: %w", err)
 		}
 	}
 
-	// Write notion-id and last-synced back to file
-	fm["notion-id"] = page.ID
-	fm["title"] = title
-	fm["last-synced"] = now
-	if err := writeFrontmatterToFile(filePath, fm, body); err != nil {
-		return fmt.Errorf("failed to write frontmatter: %w", err)
+	input.Frontmatter["notion-id"] = page.ID
+	input.Frontmatter["title"] = title
+	input.Frontmatter["last-synced"] = now
+	if err := writeFrontmatterToFile(filePath, input.Frontmatter, input.Body); err != nil {
+		return "", fmt.Errorf("failed to write frontmatter: %w", err)
 	}
 
-	_, _ = fmt.Fprintf(stderr, "Created page %s with %d blocks\n", page.ID, len(blocks))
-	return nil
+	return page.ID, nil
 }
 
 // runSyncPull pulls a Notion page to a local markdown file.

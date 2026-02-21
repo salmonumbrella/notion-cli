@@ -39,10 +39,12 @@ tailored to your workspace.`,
 }
 
 func newSkillInitCmd() *cobra.Command {
+	skillPath := skill.DefaultPath()
+
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Initialize skill file by scanning your workspace",
-		Long: `Scans your Notion workspace and guides you through creating a skill file.
+		Long: fmt.Sprintf(`Scans your Notion workspace and guides you through creating a skill file.
 
 The wizard will:
 1. Discover all databases and datasources
@@ -51,7 +53,7 @@ The wizard will:
 4. Set up user aliases (including "me" for yourself)
 5. Allow custom aliases for frequently-used pages
 
-The generated skill file is saved to ~/.claude/skills/notion-cli/notion-cli.md`,
+The generated skill file is saved to %s`, skillPath),
 		RunE: runSkillInit,
 	}
 }
