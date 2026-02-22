@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 )
 
@@ -441,7 +442,7 @@ func TestSendFilePart_Success(t *testing.T) {
 
 func TestUploadLargeFile_Integration(t *testing.T) {
 	// Test the full multi-part upload workflow
-	partCount := 0
+	var partCount atomic.Int32
 	var serverURL string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -455,9 +456,9 @@ func TestUploadLargeFile_Integration(t *testing.T) {
 			return
 		}
 		if r.URL.Path == "/upload" && r.Method == "POST" {
-			partCount++
+			current := partCount.Add(1)
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(FileUploadPart{PartNumber: partCount, Status: "uploaded"})
+			_ = json.NewEncoder(w).Encode(FileUploadPart{PartNumber: int(current), Status: "uploaded"})
 			return
 		}
 		if r.URL.Path == "/file_uploads/upload123/complete" {
@@ -488,8 +489,8 @@ func TestUploadLargeFile_Integration(t *testing.T) {
 	if upload.Status != "complete" {
 		t.Errorf("expected status 'complete', got %q", upload.Status)
 	}
-	if partCount != 3 {
-		t.Errorf("expected 3 parts uploaded, got %d", partCount)
+	if got := partCount.Load(); got != 3 {
+		t.Errorf("expected 3 parts uploaded, got %d", got)
 	}
 }
 

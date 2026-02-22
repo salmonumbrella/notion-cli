@@ -204,7 +204,10 @@ func (c *Client) UploadLargeFile(ctx context.Context, filename string, file io.R
 			return nil, fmt.Errorf("failed to read file: %w", err)
 		}
 
-		_, err = c.SendFilePart(ctx, upload.UploadURL, bytes.NewReader(buffer[:n]), partNumber)
+		// Copy each chunk before upload because the HTTP transport may still be
+		// reading from the previous part while we fill the buffer for the next one.
+		chunk := append([]byte(nil), buffer[:n]...)
+		_, err = c.SendFilePart(ctx, upload.UploadURL, bytes.NewReader(chunk), partNumber)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload part %d: %w", partNumber, err)
 		}
