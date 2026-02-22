@@ -132,6 +132,7 @@ Every command has a short alias for quick scripting:
 
 ```bash
 ntn auth login                  # Authenticate via browser (OAuth)
+ntn auth login --no-browser     # Print OAuth URL without auto-opening browser
 ntn auth add-token              # Add integration token manually
 ntn auth status                 # Check authentication status
 ntn auth logout                 # Remove stored credentials
@@ -660,6 +661,8 @@ These flags appear on multiple commands:
 - `NOTION_TOKEN` - API token (alternative to keyring storage)
 - `NOTION_CREDENTIALS_DIR` - Credential storage root for keyring fallback files (`<dir>/notion-cli/keyring`)
 - `OPENCLAW_CREDENTIALS_DIR` - Shared credentials root used when `NOTION_CREDENTIALS_DIR` is not set
+- `NOTION_KEYRING_PASSWORD` - File-keyring passphrase for non-interactive/headless environments
+- `NOTION_NO_BROWSER` - Set truthy value (`1`, `true`, `yes`, `on`) to skip browser auto-open in `auth login`
 - `NOTION_WORKSPACE` - Default workspace name for multi-workspace support
 - `NOTION_OUTPUT` - Output format: `text` (default), `json`, `ndjson`, `table`, or `yaml`
 - `NOTION_API_BASE_URL` - Override Notion API base URL (useful for proxies and tests)

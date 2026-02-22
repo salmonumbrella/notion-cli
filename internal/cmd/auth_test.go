@@ -4,6 +4,36 @@ import (
 	"testing"
 )
 
+func TestAuthLoginCommand_HasNoBrowserFlag(t *testing.T) {
+	cmd := newAuthLoginCmd()
+	flag := cmd.Flags().Lookup("no-browser")
+	if flag == nil {
+		t.Fatalf("expected --no-browser flag to exist")
+	}
+}
+
+func TestEnvTruthy(t *testing.T) {
+	t.Setenv("NOTION_TEST_TRUTHY", "")
+	if envTruthy("NOTION_TEST_TRUTHY") {
+		t.Fatalf("expected empty env to be false")
+	}
+
+	t.Setenv("NOTION_TEST_TRUTHY", "true")
+	if !envTruthy("NOTION_TEST_TRUTHY") {
+		t.Fatalf("expected true env to be truthy")
+	}
+
+	t.Setenv("NOTION_TEST_TRUTHY", "1")
+	if !envTruthy("NOTION_TEST_TRUTHY") {
+		t.Fatalf("expected 1 env to be truthy")
+	}
+
+	t.Setenv("NOTION_TEST_TRUTHY", "false")
+	if envTruthy("NOTION_TEST_TRUTHY") {
+		t.Fatalf("expected false env to be false")
+	}
+}
+
 func TestIsValidNotionTokenFormat(t *testing.T) {
 	tests := []struct {
 		name     string

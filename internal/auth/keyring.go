@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -30,6 +31,14 @@ const (
 	// SharedCredentialsDirEnvVarName is a shared OpenClaw-compatible
 	// credential root used when NOTION_CREDENTIALS_DIR is unset.
 	SharedCredentialsDirEnvVarName = "OPENCLAW_CREDENTIALS_DIR"
+	// KeyringPasswordEnvVarName sets the file keyring passphrase for non-interactive setups.
+	KeyringPasswordEnvVarName = "NOTION_KEYRING_PASSWORD"
+	// SharedKeyringPasswordEnvVarName is a shared OpenClaw-compatible keyring password env.
+	SharedKeyringPasswordEnvVarName = "CW_KEYRING_PASSWORD"
+	// OpenClawKeyringPasswordEnvVarName is an OpenClaw-specific fallback keyring password env.
+	OpenClawKeyringPasswordEnvVarName = "OPENCLAW_KEYRING_PASSWORD"
+	// DBUSSessionAddressEnvVarName is used to detect Linux headless mode.
+	DBUSSessionAddressEnvVarName = "DBUS_SESSION_BUS_ADDRESS"
 	// TokenRotationThresholdDays is the number of days before warning about token age
 	TokenRotationThresholdDays = 90
 )
@@ -94,10 +103,27 @@ func keyringFileDir() string {
 	return filepath.Join(configDir, ServiceName, "keyring")
 }
 
+func keyringFilePassword() string {
+	if password := strings.TrimSpace(os.Getenv(KeyringPasswordEnvVarName)); password != "" {
+		return password
+	}
+	if password := strings.TrimSpace(os.Getenv(SharedKeyringPasswordEnvVarName)); password != "" {
+		return password
+	}
+	if password := strings.TrimSpace(os.Getenv(OpenClawKeyringPasswordEnvVarName)); password != "" {
+		return password
+	}
+	return ServiceName
+}
+
+func shouldForceFileBackend(goos string, dbusAddr string) bool {
+	return goos == "linux" && strings.TrimSpace(dbusAddr) == ""
+}
+
 // newOSKeyring creates a new OS keyring provider
 func newOSKeyring() (KeyringProvider, error) {
 	fileDir := keyringFileDir()
-	ring, err := keyring.Open(keyring.Config{
+	cfg := keyring.Config{
 		ServiceName: ServiceName,
 		// macOS Keychain settings
 		KeychainTrustApplication:       true,
@@ -105,8 +131,14 @@ func newOSKeyring() (KeyringProvider, error) {
 		KeychainAccessibleWhenUnlocked: true,
 		// File-based fallback (for environments without GUI keyring)
 		FileDir:          fileDir,
-		FilePasswordFunc: func(_ string) (string, error) { return ServiceName, nil },
-	})
+		FilePasswordFunc: func(_ string) (string, error) { return keyringFilePassword(), nil },
+	}
+
+	if shouldForceFileBackend(runtime.GOOS, os.Getenv(DBUSSessionAddressEnvVarName)) {
+		cfg.AllowedBackends = []keyring.BackendType{keyring.FileBackend}
+	}
+
+	ring, err := keyring.Open(cfg)
 	if err != nil {
 		return nil, err
 	}

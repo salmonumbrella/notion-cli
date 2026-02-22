@@ -47,7 +47,9 @@ func newAuthCmd() *cobra.Command {
 }
 
 func newAuthLoginCmd() *cobra.Command {
-	return &cobra.Command{
+	var noBrowser bool
+
+	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Log in with Notion OAuth",
 		Long: `Authenticate with Notion using OAuth.
@@ -59,12 +61,17 @@ If browser-based authentication fails, you can use 'ntn auth add-token'
 to manually enter an integration token.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOAuthLogin(cmd.Context())
+			return runOAuthLogin(cmd.Context(), noBrowser)
 		},
 	}
+
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Do not auto-open browser; print auth URL instead")
+	return cmd
 }
 
-func runOAuthLogin(ctx context.Context) error {
+func runOAuthLogin(ctx context.Context, noBrowser bool) error {
+	noBrowser = noBrowser || envTruthy("NOTION_NO_BROWSER") || envTruthy("NO_BROWSER")
+
 	// Generate state for CSRF protection
 	state, err := generateState()
 	if err != nil {
@@ -152,11 +159,16 @@ func runOAuthLogin(ctx context.Context) error {
 		url.QueryEscape(state),
 	)
 
-	// Open browser
-	_, _ = fmt.Fprintln(stderrFromContext(ctx), "Opening browser to authorize notion-cli...")
-	_, _ = fmt.Fprintln(stderrFromContext(ctx))
-	if err := openBrowser(authURL); err != nil {
-		_, _ = fmt.Fprintf(stderrFromContext(ctx), "Could not open browser. Please visit:\n%s\n\n", authURL)
+	if noBrowser {
+		_, _ = fmt.Fprintln(stderrFromContext(ctx), "Browser auto-open disabled.")
+		_, _ = fmt.Fprintf(stderrFromContext(ctx), "Visit this URL to authorize notion-cli:\n%s\n\n", authURL)
+	} else {
+		// Open browser
+		_, _ = fmt.Fprintln(stderrFromContext(ctx), "Opening browser to authorize notion-cli...")
+		_, _ = fmt.Fprintln(stderrFromContext(ctx))
+		if err := openBrowser(authURL); err != nil {
+			_, _ = fmt.Fprintf(stderrFromContext(ctx), "Could not open browser. Please visit:\n%s\n\n", authURL)
+		}
 	}
 
 	_, _ = fmt.Fprintln(stderrFromContext(ctx), "Waiting for authorization...")
@@ -185,6 +197,20 @@ func runOAuthLogin(ctx context.Context) error {
 		}
 
 		return storeOAuthToken(ctx, token)
+	}
+}
+
+func envTruthy(name string) bool {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		return false
+	}
+
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
 	}
 }
 

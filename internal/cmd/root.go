@@ -217,7 +217,8 @@ func newRootCmd(app *App) *cobra.Command {
 	rootCmd.AddCommand(newSkillCmd())
 
 	// Top-level convenience commands (desire-path aliases)
-	rootCmd.AddCommand(&cobra.Command{
+	var loginNoBrowser bool
+	loginAliasCmd := &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate with Notion (alias for 'auth login')",
 		Long: `Authenticate with Notion using OAuth.
@@ -225,9 +226,11 @@ func newRootCmd(app *App) *cobra.Command {
 This is a convenience alias for 'ntn auth login'.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOAuthLogin(cmd.Context())
+			return runOAuthLogin(cmd.Context(), loginNoBrowser)
 		},
-	})
+	}
+	loginAliasCmd.Flags().BoolVar(&loginNoBrowser, "no-browser", false, "Do not auto-open browser; print auth URL instead")
+	rootCmd.AddCommand(loginAliasCmd)
 
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "logout",
