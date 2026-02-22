@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/99designs/keyring"
@@ -22,6 +24,12 @@ const (
 	AuthSourceKey = "notion-auth-source"
 	// EnvVarName is the environment variable fallback for the token
 	EnvVarName = "NOTION_TOKEN"
+	// CredentialsDirEnvVarName controls the credential storage root directory.
+	// notion-cli keyring files are stored under: <dir>/notion-cli/keyring
+	CredentialsDirEnvVarName = "NOTION_CREDENTIALS_DIR"
+	// SharedCredentialsDirEnvVarName is a shared OpenClaw-compatible
+	// credential root used when NOTION_CREDENTIALS_DIR is unset.
+	SharedCredentialsDirEnvVarName = "OPENCLAW_CREDENTIALS_DIR"
 	// TokenRotationThresholdDays is the number of days before warning about token age
 	TokenRotationThresholdDays = 90
 )
@@ -66,15 +74,29 @@ type osKeyring struct {
 	ring keyring.Keyring
 }
 
-// newOSKeyring creates a new OS keyring provider
-func newOSKeyring() (KeyringProvider, error) {
-	// Get config directory for file-based fallback
+func keyringFileDir() string {
+	if dir := strings.TrimSpace(os.Getenv(CredentialsDirEnvVarName)); dir != "" {
+		return filepath.Join(dir, ServiceName, "keyring")
+	}
+	if dir := strings.TrimSpace(os.Getenv(SharedCredentialsDirEnvVarName)); dir != "" {
+		return filepath.Join(dir, ServiceName, "keyring")
+	}
+
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		configDir = os.Getenv("HOME")
 	}
-	fileDir := configDir + "/notion-cli/keyring"
 
+	configDir = strings.TrimSpace(configDir)
+	if configDir == "" {
+		return string(os.PathSeparator) + filepath.Join(ServiceName, "keyring")
+	}
+	return filepath.Join(configDir, ServiceName, "keyring")
+}
+
+// newOSKeyring creates a new OS keyring provider
+func newOSKeyring() (KeyringProvider, error) {
+	fileDir := keyringFileDir()
 	ring, err := keyring.Open(keyring.Config{
 		ServiceName: ServiceName,
 		// macOS Keychain settings

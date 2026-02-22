@@ -658,11 +658,16 @@ These flags appear on multiple commands:
 ### Environment Variables
 
 - `NOTION_TOKEN` - API token (alternative to keyring storage)
+- `NOTION_CREDENTIALS_DIR` - Credential storage root for keyring fallback files (`<dir>/notion-cli/keyring`)
+- `OPENCLAW_CREDENTIALS_DIR` - Shared credentials root used when `NOTION_CREDENTIALS_DIR` is not set
 - `NOTION_WORKSPACE` - Default workspace name for multi-workspace support
 - `NOTION_OUTPUT` - Output format: `text` (default), `json`, `ndjson`, `table`, or `yaml`
 - `NOTION_API_BASE_URL` - Override Notion API base URL (useful for proxies and tests)
 - `NOTION_NO_UPDATE_CHECK` - Set to any value to disable update checks (also auto-disabled when stdout is not a TTY)
 - `NO_COLOR` - Set to any value to disable colors (standard convention)
+
+OpenClaw compatibility: when present, `~/.openclaw/.env` is auto-loaded at startup.
+Values from that file are only applied for variables that are not already set in the process environment.
 
 ### Config File (Optional)
 

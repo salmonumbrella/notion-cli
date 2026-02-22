@@ -271,7 +271,7 @@ authentication, use 'ntn auth login' instead.
 
 The token will be stored securely using your operating system's keyring:
   - macOS: Keychain
-  - Linux: Secret Service (GNOME Keyring, KWallet)
+  - Linux: Secret Service (GNOME Keyring, KWallet), with encrypted file fallback
   - Windows: Credential Manager
 
 You will be prompted to enter your token interactively. Input will be hidden.

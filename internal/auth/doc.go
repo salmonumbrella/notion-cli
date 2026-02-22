@@ -6,6 +6,9 @@
 //
 // The package also supports fallback to the NOTION_TOKEN environment variable
 // for CI/CD environments and scripts where keyring access may not be available.
+// Keyring fallback files can be directed to a custom root with:
+//   - NOTION_CREDENTIALS_DIR (preferred)
+//   - OPENCLAW_CREDENTIALS_DIR (shared fallback)
 //
 // Priority order for token retrieval:
 //  1. OS keyring (highest priority)

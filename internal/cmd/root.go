@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"runtime"
@@ -63,6 +64,11 @@ func newRootCmd(app *App) *cobra.Command {
 
 			// Configure slog based on debug flag
 			logging.Setup(debugMode, app.Stderr)
+
+			// Load OpenClaw environment defaults from ~/.openclaw/.env when present.
+			if err := loadOpenClawEnvIfPresent(); err != nil {
+				slog.Debug("Skipping OpenClaw env auto-load", "error", err)
+			}
 
 			// Load config file (skip for config commands to avoid recursion)
 			var cfg *config.Config

@@ -99,9 +99,12 @@ Exit codes:
 
 Environment:
   NOTION_TOKEN          API token (overrides keyring)
+  NOTION_CREDENTIALS_DIR  Credentials root (stores at <dir>/notion-cli/keyring)
+  OPENCLAW_CREDENTIALS_DIR Shared credentials root fallback
   NOTION_API_BASE_URL   Custom API base URL
   NOTION_WORKSPACE      Default workspace name
   NOTION_OUTPUT         Default output format
+  Auto-loads ~/.openclaw/.env when present (without overriding existing env vars)
 
 Skill file:
   ntn sk init|sync|path|edit
